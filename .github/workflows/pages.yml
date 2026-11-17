@@ -1,0 +1,64 @@
+name: Docs (GitHub Pages)
+
+# Builds the project's own documentation (docs/, site.config.docs.ts) with
+# noteflow itself and deploys it to GitHub Pages. The site's base path is the
+# repository sub-path — see site.config.docs.ts.
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - docs/**
+      - src/**
+      - themes/**
+      - site.config.docs.ts
+      - .github/workflows/pages.yml
+      - package.json
+      - package-lock.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; a queued push replaces the pending one.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # Same reason as ci.yml: the Ubuntu apt pandoc lacks +server.
+      - name: Install pandoc 3.13 (needs +server)
+        run: |
+          curl -fsSL https://github.com/jgm/pandoc/releases/download/3.13/pandoc-3.13-linux-amd64.tar.gz \
+            | tar xz --strip-components=2 -C /tmp pandoc-3.13/bin/pandoc
+          sudo install -m755 /tmp/pandoc /usr/local/bin/pandoc
+          pandoc --version | grep -q '+server' || { echo 'pandoc lacks +server'; exit 1; }
+      # Mermaid diagrams are pre-rendered in headless Chromium at build time.
+      - name: Install Chromium (mermaid prerendering)
+        run: npx playwright-core install --with-deps chromium
+      - run: npm ci || npm install
+      - name: Build docs site
+        run: node src/cli/build.ts --config site.config.docs.ts
+        env:
+          PANDOC_BIN: pandoc
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist-docs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,38 @@
+{
+  "name": "noteflow",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "repository": "github:gogongxt/noteflow",
+  "homepage": "https://gogongxt.github.io/noteflow/",
+  "bugs": {
+    "url": "https://github.com/gogongxt/noteflow/issues"
+  },
+  "type": "module",
+  "description": "Static site generator for a personal knowledge base: pandoc server + Node post-processing, strict CSP, private-by-default publishing",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "build": "node src/cli/build.ts",
+    "build:docs": "node src/cli/build.ts --config site.config.docs.ts",
+    "check": "node src/cli/build.ts --check",
+    "serve": "node src/cli/serve.ts",
+    "test": "node --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "new": "node src/cli/new-post.ts",
+    "backfill-abbrlink": "node src/content/abbrlink.ts"
+  },
+  "dependencies": {
+    "gray-matter": "4.0.3",
+    "parse5": "8.1.1",
+    "sanitize-html": "2.18.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/sanitize-html": "^2.16.2",
+    "mermaid": "^12.3.0",
+    "playwright-core": "^1.65.0",
+    "typescript": "^7.0.2"
+  }
+}

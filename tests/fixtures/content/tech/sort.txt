@@ -1,0 +1,5 @@
+# tech/ children
+docker
+
+# Stale entry on purpose: the build warns and continues.
+ghost node

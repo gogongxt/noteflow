@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="{{lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<meta name="description" content="{{description}}">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="{{robots}}">
+{{csp_meta}}
+{{theme_init_inline}}
+{{fonts_css}}{{diagrams_css}}
+<link rel="stylesheet" href="{{style_css}}">
+<link rel="canonical" href="{{canonical}}">
+<link rel="alternate" type="application/rss+xml" title="{{site_name}} RSS" href="{{feed_url}}">
+<link rel="icon" href="{{favicon}}" type="image/svg+xml">
+</head>
+<body data-page="{{page_kind}}">
+<a class="skip-link" href="#main">Skip to content</a>
+{{header}}
+<div class="shell{{shell_class}}">
+{{sidebar}}
+{{ui_boot_inline}}
+<main id="main">
+<div class="page">
+{{main}}
+</div>
+</main>
+</div>
+<script type="module" src="{{app_js}}"></script>
+</body>
+</html>

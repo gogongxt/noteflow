@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # The Ubuntu apt pandoc lacks the +server feature; install the official
+      # 3.13 binary (same version the project is developed against).
+      - name: Install pandoc 3.13 (needs +server)
+        run: |
+          curl -fsSL https://github.com/jgm/pandoc/releases/download/3.13/pandoc-3.13-linux-amd64.tar.gz \
+            | tar xz --strip-components=2 -C /tmp pandoc-3.13/bin/pandoc
+          sudo install -m755 /tmp/pandoc /usr/local/bin/pandoc
+          pandoc --version | head -1
+          pandoc --version | grep -q '+server' || { echo 'pandoc lacks +server'; exit 1; }
+      - run: npm ci || npm install
+      - run: npm run typecheck
+      # Mermaid diagrams are pre-rendered in headless Chromium at build time.
+      # Without a browser the build degrades to source figures, so this is a
+      # coverage upgrade rather than a hard requirement.
+      - name: Install Chromium (mermaid prerendering)
+        run: npx playwright-core install --with-deps chromium
+      - name: Test
+        run: npm test
+        env:
+          PANDOC_BIN: pandoc
+      # --check never writes back abbrlinks. CI has no private notes/ checkout,
+      # so pin the target explicitly: the same fixture tree the tests build.
+      - name: Build (check mode, fixtures)
+        run: node src/cli/build.ts --config site.config.ts --content tests/fixtures/content --out dist-ci --check
+        env:
+          PANDOC_BIN: pandoc
+      # The docs profile (site.config.docs.ts) is what Pages deploys; catch
+      # drift between it and the neutral default config here, not after a push.
+      - name: Build (docs profile)
+        run: node src/cli/build.ts --config site.config.docs.ts
+        env:
+          PANDOC_BIN: pandoc

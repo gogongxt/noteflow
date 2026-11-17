@@ -1,0 +1,36 @@
+# Build output and caches
+dist*/
+.cache/
+.build-manifest*.json
+
+# ⚠️ Security boundary: real content never goes into this repository.
+# The content directory (contentDir in site.config.ts, default notes/) is a
+# separate private git repository; this pattern keeps a checkout of it from
+# ever being committed by accident. If you rename your content directory,
+# update this pattern to match: `notes/` only matches that literal name.
+notes/
+
+# Downloaded reference docs (pandoc manual etc.) — large and re-fetchable
+/reference/
+
+# Dependencies
+node_modules/
+
+# Local config and secrets
+.env
+.env.*
+!.env.example
+site.config.local.ts
+site.config.local.mjs
+
+# Editor, tool, and OS artifacts
+.claude/
+.codegraph/
+.specstory/
+.idea/
+.vscode/
+*.swp
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+*.log
