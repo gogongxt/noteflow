@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <a href="https://gogongxt.github.io/noteflow/">Live docs</a> ·
+  <a href="https://gogongxt.github.io/noteflow/" title="Live demo + docs — this site is noteflow building its own documentation">Live demo + docs</a> ·
   <a href="./LICENSE">AGPL-3.0-or-later</a> ·
   <a href="https://github.com/gogongxt/noteflow/actions/workflows/ci.yml">CI</a>
 </p>
@@ -20,8 +20,9 @@ the sidebar, and everything else stays private by construction.
 | --- | --- |
 | ![Search with section-level hits](./assets/shots/search.png) | ![Dark theme](./assets/shots/article-dark.png) |
 
-**[Read the live documentation →](https://gogongxt.github.io/noteflow/)**, whose content lives in
-[`docs/`](./docs). More screenshots in [`assets/shots/`](./assets/shots).
+**[Browse the live demo + docs →](https://gogongxt.github.io/noteflow/)** — the site is noteflow
+building its own documentation in [`docs/`](./docs), so it doubles as the demo.
+More screenshots in [`assets/shots/`](./assets/shots).
 
 ## Quick start
 
