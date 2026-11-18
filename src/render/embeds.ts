@@ -28,7 +28,9 @@ function parseBilibili(u: URL): string | null {
   const bvid = u.pathname.match(/^\/video\/(BV[0-9A-Za-z]{10})/)?.[1];
   if (bvid) {
     const page = u.searchParams.get('p');
-    return `https://player.bilibili.com/player.html?bvid=${bvid}&high_quality=1&danmaku=0${page && /^\d+$/.test(page) ? `&p=${page}` : ''}`;
+    // autoplay=0 is explicit: Bilibili's player defaults to autoplay when the
+    // parameter is absent, unlike YouTube's.
+    return `https://player.bilibili.com/player.html?bvid=${bvid}&autoplay=0&high_quality=1&danmaku=0${page && /^\d+$/.test(page) ? `&p=${page}` : ''}`;
   }
   if (u.hostname === 'player.bilibili.com') return u.toString();
   return null;
@@ -66,9 +68,9 @@ export function expandEmbed(node: P5Any, embed: Embed): P5Any {
   setAttr(frame, 'title', embed.title);
   setAttr(frame, 'loading', 'lazy');
   setAttr(frame, 'referrerpolicy', 'strict-origin-when-cross-origin');
-  // autoplay is granted to the frame so the provider's player initialises; the
-  // page itself still never autoplays, the reader clicks play.
-  setAttr(frame, 'allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen; presentation');
+  // The frame is never granted autoplay, so the provider's player cannot start
+  // on its own; the reader clicks play.
+  setAttr(frame, 'allow', 'encrypted-media; picture-in-picture; fullscreen; presentation');
   setAttr(frame, 'allowfullscreen', '');
   // No sandbox: Bilibili's player cannot initialise in a sandboxed frame (it
   // needs same-origin storage; allowing both same-origin and scripts is no

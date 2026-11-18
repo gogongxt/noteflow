@@ -304,7 +304,11 @@ test('embed: a sole YouTube/Bilibili link becomes a sandbox-free provider iframe
   const { parseEmbed } = await import('../src/render/embeds.ts');
   assert.equal(parseEmbed('https://youtu.be/KLuTLF3x9sA')?.src, 'https://www.youtube-nocookie.com/embed/KLuTLF3x9sA?rel=0');
   assert.equal(parseEmbed('https://www.youtube.com/watch?v=KLuTLF3x9sA&t=42')?.src, 'https://www.youtube-nocookie.com/embed/KLuTLF3x9sA?rel=0&start=42');
-  assert.match(parseEmbed('https://www.bilibili.com/video/BV1j4411W7F7')?.src ?? '', /^https:\/\/player\.bilibili\.com\/player\.html\?bvid=BV1j4411W7F7/);
+  assert.match(
+    parseEmbed('https://www.bilibili.com/video/BV1j4411W7F7')?.src ?? '',
+    /^https:\/\/player\.bilibili\.com\/player\.html\?bvid=BV1j4411W7F7&autoplay=0/,
+    'autoplay=0 must be explicit: Bilibili autoplays when it is absent',
+  );
   // Not a video page, a lookalike host, or a non-web scheme: stay a plain link.
   for (const href of ['https://www.youtube.com/', 'https://evil.example/youtu.be/x', 'javascript:alert(1)', 'https://youtu.be/short']) {
     assert.equal(parseEmbed(href), null, href);
@@ -315,6 +319,7 @@ test('embed: a sole YouTube/Bilibili link becomes a sandbox-free provider iframe
   assert.ok(html.includes('<div class="embed" data-embed="bilibili">'), html);
   assert.ok(/<iframe[^>]+src="https:\/\/player\.bilibili\.com\/[^"]+"/.test(html), html);
   assert.ok(!/sandbox=/.test(html), 'Bilibili needs a non-sandboxed frame');
+  assert.ok(!/allow="[^"]*autoplay/.test(html), 'the frame must not be granted autoplay');
   assert.ok(/<a class="embed-fallback"[^>]+target="_blank"/.test(html), 'the fallback link opens a new tab');
 });
 

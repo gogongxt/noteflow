@@ -126,7 +126,7 @@ story on both.
 
 - **[Getting Started](https://gogongxt.github.io/noteflow/posts/b0cf200a)** — install, build, preview
 - **[Content Model](https://gogongxt.github.io/noteflow/posts/cb1b852e)** — directories, ordering, front matter, privacy
-- **[Markdown Syntax](https://gogongxt.github.io/noteflow/posts/1142a6a4)** — every supported construct, source beside rendering
+- **[Markdown Syntax](https://gogongxt.github.io/noteflow/posts/1142a6a4)** — [standard Markdown](https://gogongxt.github.io/noteflow/posts/c182255e) and [noteflow features](https://gogongxt.github.io/noteflow/posts/9d19226c), every construct source beside rendering
 - **[Configuration](https://gogongxt.github.io/noteflow/posts/5ec70f90)** and **[Deployment](https://gogongxt.github.io/noteflow/posts/211fd193)**
 - Source: [`docs/`](./docs) — built and published by noteflow itself
 

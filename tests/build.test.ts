@@ -189,9 +189,9 @@ test('zooming the viewer re-lays the diagram out instead of stretching a cached 
 });
 
 test('tabs: fenced-div groups render as semantic divs, the widget module ships, no div soup leaks', async () => {
-  // The syntax page (posts/1142a6a4) is part of the docs build.
+  // The tabs demo lives on the noteflow-features child page of the docs build.
   await sharedDocs;
-  const html = fs.readFileSync(path.join(docsDist, 'posts/1142a6a4/index.html'), 'utf8');
+  const html = fs.readFileSync(path.join(docsDist, 'posts/9d19226c/index.html'), 'utf8');
   assert.ok(html.includes('<div class="tabs">'), 'live group should become a .tabs container');
   assert.ok(html.includes('<div class="tab" data-title="npm">'), 'each panel keeps its title attribute');
   assert.ok(html.includes('<div class="tab" data-title="pnpm">'), 'both panels of the demo group render');
@@ -210,8 +210,9 @@ test('tabs: fenced-div groups render as semantic divs, the widget module ships, 
 });
 
 test('code blocks: every block ships its chrome at build time (indented / language-less included)', async () => {
-  await sharedDocs; // the syntax page (posts/1142a6a4) is part of the docs build
-  const html = fs.readFileSync(path.join(docsDist, 'posts/1142a6a4/index.html'), 'utf8');
+  // The demos live on the Standard Markdown child page of the docs build.
+  await sharedDocs;
+  const html = fs.readFileSync(path.join(docsDist, 'posts/c182255e/index.html'), 'utf8');
   // Indented and language-less fences render as bare <pre> from pandoc; the
   // build must wrap every block, not just highlighted ones. The mermaid
   // fallback (<pre class="diagram-error-src">) is injected after postprocess
@@ -233,7 +234,7 @@ test('code blocks: every block ships its chrome at build time (indented / langua
 
 test('link cards: no cached metadata degrades to the plain link and never fails the build', async () => {
   await sharedDocs; // built with --no-link-fetch and an empty cache dir
-  const html = fs.readFileSync(path.join(docsDist, 'posts/1142a6a4/index.html'), 'utf8');
+  const html = fs.readFileSync(path.join(docsDist, 'posts/9d19226c/index.html'), 'utf8');
   // Match the rendered card element, not the words "link-card" in the prose.
   assert.ok(!/<div class="link-card/.test(html), 'nothing may render as a card without metadata');
   // The demo link keeps its sanitizer-whitelisted class — the degraded shape
@@ -337,6 +338,7 @@ test('media references are rewritten to root-absolute /assets/ and ship the file
     assert.ok(fs.existsSync(path.join(dist, u.slice(1))), `attachment missing: ${u}`);
   }
   assert.ok(urls.some((u) => u.endsWith('.webm')) && urls.some((u) => u.endsWith('.wav')) && urls.some((u) => u.endsWith('.vtt')));
+  assert.match(html, /<track[^>]+srclang="zh"[^>]+label="中文"/, 'the subtitle track declares its language');
   assert.ok(!/<(?:video|audio)\b[^>]*\bautoplay/.test(html), 'autoplay must never reach a media element');
 });
 
@@ -570,13 +572,13 @@ suite('build variants', { concurrency: 6 }, () => {
     assert.ok(/<a href="mailto:a@b\.c">mail<\/a>/.test(html), html);
 
     // A stripped target on a specific off-site link must fail the output audit.
-    // The syntax page (posts/1142a6a4) is built by the docs profile, so this
-    // half runs under the base-path config; the inverse half stays on the
-    // root-config fixture build.
+    // The Standard Markdown page (posts/c182255e) is built by the docs profile,
+    // so this half runs under the base-path config; the inverse half stays on
+    // the root-config fixture build.
     await sharedDocs;
     const tampered = tmpDir('blog-links-audit-');
     fs.cpSync(docsDist, tampered, { recursive: true });
-    const page = path.join(tampered, 'posts/1142a6a4/index.html');
+    const page = path.join(tampered, 'posts/c182255e/index.html');
     const before = fs.readFileSync(page, 'utf8');
     const stripped = before.replace(/href="https:\/\/pandoc\.org" target="_blank"/, 'href="https://pandoc.org"');
     assert.notEqual(stripped, before, 'the fixture page must contain the pandoc.org link');
@@ -597,7 +599,7 @@ suite('build variants', { concurrency: 6 }, () => {
     });
     const offsite = audit.findings.find((f) => /off-site link must open a new tab/.test(f.msg));
     assert.ok(offsite, `audit must catch an off-site anchor without target: ${JSON.stringify(audit.findings.slice(0, 3))}`);
-    assert.equal(offsite.file, 'posts/1142a6a4/index.html');
+    assert.equal(offsite.file, 'posts/c182255e/index.html');
     assert.match(offsite.msg, /https:\/\/pandoc\.org/);
     const auditRoot = runAuditDetailed({ dist: tamperedRoot, pages: [], privateItems: [], cfg: await loadConfig() });
     assert.ok(

@@ -1512,8 +1512,8 @@ article.page-index .post-body h4 {
 }
 
 .heading-anchor:hover {
-  color: var(--fg);
-  background: var(--bg-hover);
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .heading-anchor svg {
