@@ -1,4 +1,4 @@
-# noteflow
+# NoteFlow
 
 Personal knowledge-base static site generator: `pandoc 3.13 server` converts the Markdown in the content directory to HTML, and the Node side does link rewriting, security sanitizing, and template rendering, emitting a static site to `dist/`. All paths and site settings resolve through `site.config.ts` (→ `src/core/config.ts`); the purpose-built test fixture tree is `tests/fixtures/content/`, real content lives in a separate private repository at `notes/` (gitignored).
 

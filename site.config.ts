@@ -1,4 +1,4 @@
-// Site configuration — the only file you need to edit to run noteflow on your
+// Site configuration — the only file you need to edit to run NoteFlow on your
 // own content. CLI flags (--content, --out) and the PANDOC_BIN env var take
 // precedence over the values here.
 //

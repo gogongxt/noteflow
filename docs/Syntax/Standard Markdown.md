@@ -6,7 +6,7 @@ abbrlink: "c182255e"
 ---
 
 The everyday Markdown syntax. Everything here is ordinary pandoc Markdown; the
-[next page](./Features.md) covers what noteflow adds on top.
+[next page](./Features.md) covers what NoteFlow adds on top.
 
 ## Inline formatting
 

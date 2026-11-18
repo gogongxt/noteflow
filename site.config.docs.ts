@@ -6,9 +6,9 @@ const config: AppConfig = {
   // The /noteflow pathname is the base path every emitted URL carries; rename
   // the repo → change it here. A custom domain just drops the path.
   url: 'https://gogongxt.github.io/noteflow',
-  siteName: 'noteflow',
+  siteName: 'NoteFlow',
   lang: 'en',
-  description: 'noteflow — a pandoc-powered knowledge-base static site generator',
+  description: 'NoteFlow — a pandoc-powered knowledge-base static site generator',
 
   // Header GitHub icon → this repository.
   repoUrl: 'https://github.com/gogongxt/noteflow',

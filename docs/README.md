@@ -1,5 +1,5 @@
 ---
-title: noteflow
+title: NoteFlow
 public: true
 description: A pandoc-powered static site builder for a personal knowledge base
 abbrlink: "26b90233"
@@ -7,7 +7,7 @@ abbrlink: "26b90233"
 
 A static site builder for a personal knowledge base — write Markdown in your own git repository, publish only what you mark public.
 
-You keep everything — drafts, private notes, published posts — in one Markdown tree under version control. noteflow turns that tree into a fast static site:
+You keep everything — drafts, private notes, published posts — in one Markdown tree under version control. NoteFlow turns that tree into a fast static site:
 
 - **Directory tree = sidebar.** `x.md` beside an `x/` directory is the standard page-with-children form; `_index.md` customizes a directory's landing page; `sort.txt` pins ordering.
 - **Privacy by physical exclusion.** Only notes with `public: true` are built; everything else (and its attachments) never enters `dist/`. Private content cannot leak through search, feeds, or archives because it is simply not there.

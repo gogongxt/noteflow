@@ -1,11 +1,9 @@
 <div align="center">
-  <img src="./assets/banner.svg" alt="noteflow" width="900">
+  <img src="./assets/banner.svg" alt="NoteFlow" width="900">
 </div>
 
 <p align="center">
-  <a href="https://gogongxt.github.io/noteflow/" title="Live demo + docs — this site is noteflow building its own documentation">Live demo + docs</a> ·
-  <a href="./LICENSE">AGPL-3.0-or-later</a> ·
-  <a href="https://github.com/gogongxt/noteflow/actions/workflows/ci.yml">CI</a>
+  <a href="https://gogongxt.github.io/noteflow/" title="Live demo + docs — this site is NoteFlow building its own documentation">Live demo + docs</a>
 </p>
 
 A static site generator for a personal knowledge base. Write Markdown in your own
@@ -20,7 +18,7 @@ the sidebar, and everything else stays private by construction.
 | --- | --- |
 | ![Search with section-level hits](./assets/shots/search.png) | ![Dark theme](./assets/shots/article-dark.png) |
 
-**[Browse the live demo + docs →](https://gogongxt.github.io/noteflow/)** — the site is noteflow
+**[Browse the live demo + docs →](https://gogongxt.github.io/noteflow/)** — the site is NoteFlow
 building its own documentation in [`docs/`](./docs), so it doubles as the demo.
 More screenshots in [`assets/shots/`](./assets/shots).
 
@@ -54,7 +52,7 @@ It builds the mounted notes on every start and serves them at
 ## What it is
 
 You keep everything — drafts, private notes, published posts — in one Markdown
-tree under version control. noteflow turns that tree into a fast static site:
+tree under version control. NoteFlow turns that tree into a fast static site:
 
 - **Directory tree = sidebar.** `x.md` beside an `x/` directory is the standard page-with-children form; `_index.md` customizes a directory's landing page; `sort.txt` pins ordering.
 - **Privacy by physical exclusion.** Only notes with `public: true` are built; everything else (and its attachments) never enters `dist/`. Private content cannot leak through search, feeds, or archives because it is simply not there.
@@ -64,7 +62,7 @@ tree under version control. noteflow turns that tree into a fast static site:
 
 ### Scope: publishing, not editing
 
-noteflow owns the **publish** side of a knowledge base. Authoring stays in whatever
+NoteFlow owns the **publish** side of a knowledge base. Authoring stays in whatever
 writes Markdown — your editor, an agent, a script. There is no built-in WYSIWYG
 editor, no backend, and no database: the source of truth is the git repository,
 and the site is a pure function of it. (The preview server exists to look at the
@@ -112,7 +110,7 @@ tags: [docker, ops]
 ```
 
 `tests/fixtures/content/` in this repository is the purpose-built tree the test
-suite builds; `docs/` is the project's own documentation, built by noteflow itself.
+suite builds; `docs/` is the project's own documentation, built by NoteFlow itself.
 
 ## Deployment
 
@@ -136,11 +134,11 @@ story on both.
 
 - **[Getting Started](https://gogongxt.github.io/noteflow/posts/b0cf200a)** — install, build, preview
 - **[Content Model](https://gogongxt.github.io/noteflow/posts/cb1b852e)** — directories, ordering, front matter, privacy
-- **[Markdown Syntax](https://gogongxt.github.io/noteflow/posts/1142a6a4)** — [standard Markdown](https://gogongxt.github.io/noteflow/posts/c182255e) and [noteflow features](https://gogongxt.github.io/noteflow/posts/9d19226c), every construct source beside rendering
+- **[Markdown Syntax](https://gogongxt.github.io/noteflow/posts/1142a6a4)** — [standard Markdown](https://gogongxt.github.io/noteflow/posts/c182255e) and [NoteFlow features](https://gogongxt.github.io/noteflow/posts/9d19226c), every construct source beside rendering
 - **[Configuration](https://gogongxt.github.io/noteflow/posts/5ec70f90)** and **[Deployment](https://gogongxt.github.io/noteflow/posts/211fd193)**
-- Source: [`docs/`](./docs) — built and published by noteflow itself
+- Source: [`docs/`](./docs) — built and published by NoteFlow itself
 
 ## License
 
 [AGPL-3.0-or-later](./LICENSE). Your notes and the generated site output are
-yours — the license covers noteflow itself, not what you build with it.
+yours — the license covers NoteFlow itself, not what you build with it.

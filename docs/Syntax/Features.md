@@ -1,5 +1,5 @@
 ---
-title: noteflow features
+title: NoteFlow features
 public: true
 description: Callouts, link cards, diagrams, media, tabs and columns — what the builder adds on top of Markdown
 abbrlink: "9d19226c"

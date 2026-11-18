@@ -1,7 +1,7 @@
 ---
 title: Getting Started
 public: true
-description: Install, build, and preview your first noteflow site
+description: Install, build, and preview your first NoteFlow site
 abbrlink: "b0cf200a"
 ---
 
@@ -29,4 +29,4 @@ Without a content directory of your own, the build falls back to `docs/` — thi
 
 ## This documentation site
 
-The docs you are reading are themselves built by noteflow and deployed to GitHub Pages under the repository's sub-path — see [Deployment](./Deployment.md).
+The docs you are reading are themselves built by NoteFlow and deployed to GitHub Pages under the repository's sub-path — see [Deployment](./Deployment.md).
