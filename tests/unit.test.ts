@@ -1111,7 +1111,7 @@ test('postHref/postOutRel: href carries the prefix, the disk path does not', asy
   assert.equal(postOutRel({ ...site, url: 'https://example.com' }, '/posts/abc'), 'posts/abc/index.html');
 });
 
-test('footer: defaults are the copyright line and the credit; every delta is configured', async () => {
+test('footer: the theme mark, the linked © line and the author credit, all optional', async () => {
   const { footer } = await import('../src/site/footer.ts');
   const base = { url: 'https://example.com', siteName: 'my notes', lang: 'en', postPattern: '/posts/{abbrlink}', pageSize: { home: 5, feed: 5 } };
   const ctx = (site: object, builtAt = new Date('2026-03-04T00:00:00Z')) =>
@@ -1120,44 +1120,52 @@ test('footer: defaults are the copyright line and the credit; every delta is con
   const plain = footer(ctx(base));
   assert.ok(plain.startsWith('<footer class="site-footer" data-region="footer">'), 'the footer is a semantic, swappable region');
   assert.ok(plain.includes('<span class="foot-copy">© 2026 my notes</span>'), plain);
-  assert.ok(plain.includes('Built with <a href="https://github.com/gogongxt/noteflow" target="_blank" rel="noopener noreferrer">noteflow</a>'), plain);
-  assert.ok(!plain.includes('foot-links') && !plain.includes('foot-icp'), 'nothing else renders without configuration');
+  // The mark links the theme; the project name itself is not printed.
+  assert.ok(
+    plain.includes('<a class="foot-brand" href="https://github.com/gogongxt/noteflow" target="_blank" rel="noopener noreferrer">'),
+    plain,
+  );
+  assert.ok(plain.includes('id="footer-logo-ink"'), 'the footer mark needs its own gradient id (the header has one)');
+  assert.ok(!plain.includes('noteflow</a>') && !plain.includes('foot-by') && !plain.includes('foot-icp'), plain);
 
   // since → a year range; a custom template interpolates year and site.
   const ranged = footer(ctx({ ...base, footer: { since: 2024, copyright: 'Copyright {year} · {site}' } }));
   assert.ok(ranged.includes('Copyright 2024–2026 · my notes'), ranged);
-  // since in the current year stays a single year.
-  assert.ok(footer(ctx({ ...base, footer: { since: 2026 } })).includes('© 2026 my notes'));
+  assert.ok(footer(ctx({ ...base, footer: { since: 2026 } })).includes('© 2026 my notes'), 'a current-year since stays one year');
 
-  // Payment links: a site path gains the base path, another host opens a new tab.
-  const prefixed = footer(
-    ctx({
-      ...base,
-      url: 'https://user.github.io/noteflow',
-      footer: {
-        links: [
-          { label: 'About', href: '/about' },
-          { label: 'Same site', href: 'https://user.github.io/noteflow/archives' },
-          { label: 'Elsewhere', href: 'https://pandoc.org' },
-          { label: 'Mail', href: 'mailto:me@example.com' },
-        ],
-      },
-    }),
+  // The © line links: a site path gains the base path, another host opens a
+  // new tab, and the theme mark rides inside the same link (never a second,
+  // adjacent link to its own target).
+  const prefixed = footer(ctx({ ...base, url: 'https://user.github.io/noteflow', footer: { copyrightUrl: '/about' } }));
+  assert.ok(prefixed.includes('<a class="foot-copy" href="/noteflow/about">'), prefixed);
+  assert.ok(prefixed.includes('© 2026 my notes</a>'), prefixed);
+  assert.ok(!prefixed.includes('foot-brand'), 'a linked © line absorbs the mark link');
+  const sameHost = footer(ctx({ ...base, url: 'https://user.github.io/noteflow', footer: { copyrightUrl: 'https://user.github.io/noteflow/archives' } }));
+  assert.ok(sameHost.includes('<a class="foot-copy" href="https://user.github.io/noteflow/archives">'), 'same-host links stay in the tab');
+  const offsite = footer(ctx({ ...base, footer: { copyrightUrl: 'https://pandoc.org' } }));
+  assert.ok(offsite.includes('<a class="foot-copy" href="https://pandoc.org" target="_blank" rel="noopener noreferrer">'), offsite);
+  // credit: false keeps the © line but drops the mark.
+  const noMark = footer(ctx({ ...base, footer: { copyrightUrl: '/about', credit: false } }));
+  assert.ok(!noMark.includes('<svg') && noMark.includes('<a class="foot-copy" href="/about">© 2026 my notes</a>'), noMark);
+
+  // By <author>, optionally linked; unset renders nothing.
+  assert.ok(footer(ctx({ ...base, footer: { author: 'gogongxt' } })).includes('<span class="foot-by">By gogongxt</span>'));
+  assert.ok(
+    footer(ctx({ ...base, footer: { author: 'gogongxt', authorUrl: 'https://github.com/gogongxt' } })).includes(
+      '<span class="foot-by">By <a class="foot-author" href="https://github.com/gogongxt" target="_blank" rel="noopener noreferrer">gogongxt</a></span>',
+    ),
   );
-  assert.ok(prefixed.includes('<a href="/noteflow/about">About</a>'), prefixed);
-  assert.ok(prefixed.includes('<a href="https://user.github.io/noteflow/archives">Same site</a>'), 'same-host links stay in the tab');
-  assert.ok(prefixed.includes('<a href="https://pandoc.org" target="_blank" rel="noopener noreferrer">Elsewhere</a>'), prefixed);
-  assert.ok(prefixed.includes('<a href="mailto:me@example.com">Mail</a>'), 'mailto: is not a tab link');
+  assert.ok(!footer(ctx({ ...base, footer: { authorUrl: 'https://github.com/x' } })).includes('foot-by'), 'authorUrl without an author renders nothing');
 
-  // ICP → the MIIT query page, overridable; credit: false removes the credit.
+  // credit: false drops the theme mark; ICP → the MIIT query page, overridable.
   const icp = footer(ctx({ ...base, footer: { icp: '京ICP备00000000号', credit: false } }));
   assert.ok(icp.includes('<a class="foot-icp" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">京ICP备00000000号</a>'), icp);
-  assert.ok(!icp.includes('Built with'), 'credit: false drops the only project link');
+  assert.ok(!icp.includes('foot-brand'), 'credit: false drops the only project link');
   const custom = footer(ctx({ ...base, footer: { icp: 'X', icpUrl: 'https://example.org/icp' } }));
   assert.ok(custom.includes('href="https://example.org/icp"'), custom);
 
   // Every configured string is escaped, including the template itself.
-  const hostile = footer(ctx({ ...base, footer: { copyright: '© {year} <script>alert(1)</script>', icp: '<b>x</b>' } }));
+  const hostile = footer(ctx({ ...base, footer: { copyright: '© {year} <script>alert(1)</script>', author: '<b>me</b>', icp: '<b>x</b>' } }));
   assert.ok(!hostile.includes('<script>') && !hostile.includes('<b>'), hostile);
 });
 
@@ -1170,23 +1178,21 @@ test('config validation: footer shape is checked up front, not mid-build', async
     fs.writeFileSync(file, `export default {\n${base},\n${footer}\n};\n`);
     return file;
   };
-  const ok = await loadConfig(write('ok.mjs', "footer: { copyright: '© {year}', since: 2024, credit: false, icp: 'x', links: [{ label: 'A', href: '/a' }, { label: 'B', href: 'mailto:b@c.d' }] },"));
+  const ok = await loadConfig(write('ok.mjs', "footer: { copyright: '© {year}', since: 2024, credit: false, icp: 'x', author: 'me', authorUrl: 'mailto:me@x.y', copyrightUrl: '/about' },"));
   assert.equal(ok.footer!.since, 2024);
+  assert.equal(ok.footer!.author, 'me');
 
   const bad: [string, RegExp][] = [
     ["footer: 'nope',", /footer must be an object/],
     ['footer: [],', /footer must be an object/],
     ["footer: { copyright: '  ' },", /footer\.copyright must be a non-empty string/],
+    ["footer: { author: '' },", /footer\.author must be a non-empty string/],
     ['footer: { since: 24 },', /footer\.since must be a four-digit year/],
     ['footer: { since: 2024.5 },', /footer\.since must be a four-digit year/],
     ["footer: { credit: 'no' },", /footer\.credit must be a boolean/],
-    ["footer: { links: {} },", /footer\.links must be an array/],
-    ["footer: { links: [{ label: '', href: '/x' }] },", /needs non-empty label and href/],
-    ["footer: { links: [{ label: 'x', href: 'javascript:alert(1)' }] },", /must start with \/ , http\(s\):\/\/, mailto: or tel:/],
-    ["footer: { links: [{ label: 'x', href: 'pandoc.org' }] },", /must start with \/ , http\(s\):\/\/, mailto: or tel:/],
-    ["footer: { links: [{ label: 'x', href: '//evil.example/x' }] },", /must start with \/ , http\(s\):\/\/, mailto: or tel:/],
-    ["footer: { links: [{ label: 'x', href: '/\\\\evil.example/x' }] },", /must start with \/ , http\(s\):\/\/, mailto: or tel:/],
-    ["footer: { icpUrl: 'mailto:x' },", /footer\.icpUrl must start with http/],
+    ["footer: { copyrightUrl: 'javascript:alert(1)' },", /footer\.copyrightUrl must start with/],
+    ["footer: { authorUrl: '//evil.example/x' },", /footer\.authorUrl must start with/],
+    ["footer: { icp: 'x', icpUrl: 'pandoc.org' },", /footer\.icpUrl must start with/],
   ];
   for (const [src, re] of bad) {
     await assert.rejects(loadConfig(write(`bad-${Math.random()}.mjs`, src)), re, src);

@@ -20,27 +20,25 @@ interface GiscusConfig {
   inputPosition?: 'top' | 'bottom';
 }
 
-/** A footer link: a site path (`/archives`, base path added) or an absolute
- *  http(s)/mailto/tel URL. Other schemes are rejected by validation. */
-export interface FooterLink {
-  label: string;
-  href: string;
-}
-
-/** The site footer. Every piece renders only when configured. */
+/** The site footer: one line of identity on the left, the filing number on the
+ *  right. Every piece renders only when configured. */
 export interface FooterConfig {
   /** The © line; `{year}` becomes the build year (a `since`–year range when
    *  `since` is set), `{site}` the site name. Defaults to `© {year} {site}`. */
   copyright?: string;
   /** First year of a `2020–2026` copyright range. */
   since?: number;
-  /** Extra links beside the copyright. */
-  links?: FooterLink[];
+  /** Wrap the © line in a link: a site path or an absolute URL. */
+  copyrightUrl?: string;
+  /** Author credit after the © line: `By <author>`. Unset renders nothing. */
+  author?: string;
+  /** Link target for the author name. */
+  authorUrl?: string;
   /** ICP 备案号, linked to the MIIT query page in a new tab. */
   icp?: string;
   /** Override the ICP link target. */
   icpUrl?: string;
-  /** The "Built with noteflow" credit, on by default; `false` removes it. */
+  /** The theme mark beside the © line, linking this project; on by default. */
   credit?: boolean;
 }
 
@@ -104,6 +102,20 @@ function requireString(cfg: Record<string, unknown>, key: string): void {
   }
 }
 
+/** A footer href: a site path (base path added at render time) or an absolute
+ *  http(s)/mailto/tel URL — anything the output audit can classify. `//host`
+ *  and `/\host` are protocol-relative, so a bare starts-with-slash check would
+ *  wave them through.
+ */
+function checkFooterHref(href: string, key: string): void {
+  const bad =
+    typeof href !== 'string' ||
+    !href.trim() ||
+    /^\/(?:\/|\\|\/\\|\\)/.test(href) ||
+    (!href.startsWith('/') && !/^(https?:\/\/|mailto:|tel:)/i.test(href));
+  if (bad) throw new BuildError(`site.config.ts: ${key} must start with / , http(s)://, mailto: or tel:`);
+}
+
 function validate(cfg: AppConfig): AppConfig {
   requireString(cfg as unknown as Record<string, unknown>, 'url');
   requireString(cfg as unknown as Record<string, unknown>, 'siteName');
@@ -128,7 +140,7 @@ function validate(cfg: AppConfig): AppConfig {
   const f = cfg.footer;
   if (f !== undefined) {
     if (typeof f !== 'object' || !f || Array.isArray(f)) throw new BuildError('site.config.ts: footer must be an object');
-    for (const k of ['copyright', 'icp', 'icpUrl'] as const) {
+    for (const k of ['copyright', 'author', 'icp'] as const) {
       if (f[k] !== undefined && (typeof f[k] !== 'string' || !f[k]!.trim())) {
         throw new BuildError(`site.config.ts: footer.${k} must be a non-empty string`);
       }
@@ -136,26 +148,13 @@ function validate(cfg: AppConfig): AppConfig {
     if (f.since !== undefined && (!Number.isInteger(f.since) || f.since < 1900)) {
       throw new BuildError('site.config.ts: footer.since must be a four-digit year');
     }
+    for (const k of ['copyrightUrl', 'authorUrl'] as const) {
+      if (f[k] !== undefined) checkFooterHref(f[k]!, `footer.${k}`);
+    }
     if (f.credit !== undefined && typeof f.credit !== 'boolean') {
       throw new BuildError('site.config.ts: footer.credit must be a boolean');
     }
-    if (f.links !== undefined) {
-      if (!Array.isArray(f.links)) throw new BuildError('site.config.ts: footer.links must be an array of { label, href }');
-      for (const l of f.links) {
-        if (!l || typeof l.label !== 'string' || !l.label.trim() || typeof l.href !== 'string' || !l.href.trim()) {
-          throw new BuildError('site.config.ts: every footer.links entry needs non-empty label and href strings');
-        }
-        // A site path is resolved against the base path; anything else must be
-        // a link the audit can classify (mailto:/tel: are not tab links at all).
-        // `//host` and `/\host` are protocol-relative — rejected, not prefixed.
-        if (/^\/(?:\/|\\|\/\\|\\)/.test(l.href) || (!l.href.startsWith('/') && !/^(https?:\/\/|mailto:|tel:)/i.test(l.href))) {
-          throw new BuildError(`site.config.ts: footer link "${l.label}" must start with / , http(s)://, mailto: or tel:`);
-        }
-      }
-    }
-    if (f.icpUrl !== undefined && !/^https?:\/\//i.test(f.icpUrl)) {
-      throw new BuildError('site.config.ts: footer.icpUrl must start with http:// or https://');
-    }
+    if (f.icpUrl !== undefined) checkFooterHref(f.icpUrl, 'footer.icpUrl');
   }
   return cfg;
 }

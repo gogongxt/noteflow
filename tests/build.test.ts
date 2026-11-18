@@ -750,7 +750,7 @@ test('repoUrl turns into a header GitHub link that opens off-site', async () => 
   assert.ok(!html.includes('repo-link'), 'without repoUrl the header must not link anywhere');
 });
 
-test('every page ends in a footer region; its off-site links carry the new-tab policy', async () => {
+test('every page ends in a footer region; the docs profile adds the author credit', async () => {
   await shared;
   await sharedDocs;
   const rootPages = ['index.html', 'archives/index.html', 'tags/index.html', '404.html', 'posts/12341234/index.html'];
@@ -758,15 +758,21 @@ test('every page ends in a footer region; its off-site links carry the new-tab p
     const html = fs.readFileSync(path.join(dist, rel), 'utf8');
     assert.ok(/<footer class="site-footer" data-region="footer">/.test(html), `${rel} is missing the footer region`);
     assert.ok(html.indexOf('</main>') < html.indexOf('<footer class="site-footer"'), `${rel}: the footer must follow the main content`);
-    assert.ok(!html.includes('foot-links'), `${rel}: the neutral profile configures no footer links`);
+    // The neutral profile: the theme mark + the default © line, nothing else.
+    assert.ok(html.includes('class="foot-brand"'), `${rel}: the theme mark should render by default`);
+    assert.ok(/<span class="foot-copy">© \d{4} my notes<\/span>/.test(html), `${rel}: the default © line is missing`);
+    assert.ok(!html.includes('foot-by') && !html.includes('foot-icp') && !html.includes('Built with'), `${rel}: nothing else is configured`);
   }
+  assert.ok(!fs.readFileSync(path.join(dist, 'index.html'), 'utf8').includes('repo-link'), 'the neutral header still has no repository icon');
 
   const docsHtml = fs.readFileSync(path.join(docsDist, 'index.html'), 'utf8');
-  assert.ok(docsHtml.includes('<a href="/noteflow/posts/211fd193">Deployment</a>'), 'a configured site path must carry the base path');
   assert.ok(
-    docsHtml.includes('Built with <a href="https://github.com/gogongxt/noteflow" target="_blank" rel="noopener noreferrer">noteflow</a>'),
-    'the credit links upstream in a new tab',
+    docsHtml.includes('<span class="foot-by">By <a class="foot-author" href="https://github.com/gogongxt" target="_blank" rel="noopener noreferrer">gogongxt</a></span>'),
+    'the docs profile adds a linked author credit',
   );
+  // The header and the footer both mount the mark; the gradient ids must not collide.
+  const ids = [...docsHtml.matchAll(/<linearGradient id="([^"]+)"/g)].map((m) => m[1]);
+  assert.equal(new Set(ids).size, ids.length, `duplicate SVG gradient ids: ${ids.join(', ')}`);
   // Off-site footer links must satisfy the audit's policy, which the builds
   // above already ran; assert the markup so a regression fails here, too.
   for (const m of docsHtml.matchAll(/<footer[\s\S]*?<\/footer>/g)) {

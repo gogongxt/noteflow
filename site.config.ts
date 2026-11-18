@@ -28,17 +28,16 @@ const config: AppConfig = {
   // Optional: a header GitHub icon linking to your repository. Remove to hide.
   // repoUrl: 'https://github.com/you/your-notes',
 
-  // Footer: omit the block for "© <year> <siteName>" plus a "Built with
-  // noteflow" credit. Every field is optional and renders only when set.
+  // Footer: omit the block for the theme mark, "© <year> <siteName>" and the
+  // author line. Every field is optional and renders only when set.
   // footer: {
   //   copyright: '© {year} {site}',      // {year} and {site} are filled in
   //   since: 2024,                       // makes the year a 2024–<this year> range
-  //   links: [
-  //     { label: 'About', href: '/about' },          // a site path
-  //     { label: 'GitHub', href: 'https://github.com/you' },
-  //   ],
+  //   copyrightUrl: '/about',            // link the © line (site path or URL)
+  //   author: 'you',                     // renders "By you" after the © line
+  //   authorUrl: 'https://github.com/you',
   //   icp: '京ICP备00000000号',        // 备案号, linked to beian.miit.gov.cn
-  //   credit: false,                     // drop the "Built with noteflow" line
+  //   credit: false,                     // drop the theme mark
   // },
 
   // Comments via GitHub Discussions: add a giscus block (repo, repoId, …)

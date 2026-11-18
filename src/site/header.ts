@@ -2,6 +2,7 @@
 import { esc } from '../core/util.ts';
 import type { SiteCtx } from './layout.ts';
 import { siteUrl } from './helpers.ts';
+import { logoMark } from './logo.ts';
 
 function themeToggle(): string {
   return (
@@ -20,25 +21,6 @@ function menuToggle(): string {
     '<button type="button" id="menu-toggle" class="icon-btn menu-toggle" data-sidebar-collapse aria-controls="sidebar" aria-label="Menu" title="Menu" aria-expanded="true">' +
     '<svg class="icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">' +
     '<path d="M4 7h16M4 12h16M4 17h16"/></svg></button>'
-  );
-}
-
-function logoMark(): string {
-  return (
-    '<svg class="logo-mark" viewBox="0 0 32 32" width="24" height="24" aria-hidden="true" focusable="false">' +
-    '<defs>' +
-    '<linearGradient id="logo-ink" gradientUnits="userSpaceOnUse" x1="12.1" y1="0" x2="19.3" y2="0"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#6e6e73"/></linearGradient>' +
-    '</defs>' +
-    '<circle cx="16" cy="16" r="16" fill="#000"/>' +
-    '<rect x="9.4" y="6.6" width="13.2" height="16.4" rx="2.7" fill="#fff" fill-opacity=".42" stroke="#000" stroke-width="1.4" transform="rotate(-24 16 23.6)"/>' +
-    '<rect x="9.4" y="6.6" width="13.2" height="16.4" rx="2.7" fill="#fff" fill-opacity=".62" stroke="#000" stroke-width="1.4" transform="rotate(-8 16 23.6)"/>' +
-    '<rect x="9.4" y="6.6" width="13.2" height="16.4" rx="2.7" fill="#fff" fill-opacity=".81" stroke="#000" stroke-width="1.4" transform="rotate(8 16 23.6)"/>' +
-    '<g transform="rotate(24 16 23.6)">' +
-    '<rect x="9.4" y="6.6" width="13.2" height="16.4" rx="2.7" fill="#fff"/>' +
-    '<path d="M12.1 10.6h7.2M12.1 14.6h5.6" fill="none" stroke="url(#logo-ink)" stroke-width="1.5" stroke-linecap="round"/>' +
-    '<path d="M12.1 18.6q1.7-2.2 3.4 0t3.4 0" fill="none" stroke="url(#logo-ink)" stroke-width="1.3" stroke-linecap="round"/>' +
-    '</g>' +
-    '</svg>'
   );
 }
 
@@ -86,7 +68,7 @@ function navSpinner(): string {
 export function header(ctx: SiteCtx, opts: { kind: PageKind; hasSidebar?: boolean; breadcrumbs?: string }): string {
   const { kind, hasSidebar = true, breadcrumbs = '' } = opts;
   const siteName = esc(ctx.site.siteName);
-  const brand = `<a class="brand" href="${esc(siteUrl(ctx.site, '/'))}" aria-label="Back to home">${logoMark()}<span class="brand-name">${siteName}</span></a>`;
+  const brand = `<a class="brand" href="${esc(siteUrl(ctx.site, '/'))}" aria-label="Back to home">${logoMark({ id: 'logo-ink' })}<span class="brand-name">${siteName}</span></a>`;
   const nav = navItems(ctx).map((n) => {
     const active = n.kinds.includes(kind) ? ' aria-current="page" class="is-active"' : '';
     return `<li><a href="${n.href}"${active}>${n.label}</a></li>`;

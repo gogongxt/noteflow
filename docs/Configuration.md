@@ -22,26 +22,26 @@ All configuration lives in `site.config.ts`; CLI flags (`--content`, `--out`) an
 
 ## Footer
 
-Every page ends in a footer. Without configuration it is the copyright line and a "Built with noteflow" credit; the `footer` block adds to or replaces those pieces:
+Every page ends in one quiet line: the theme mark, the copyright line, an optional author credit, and the filing number on the right. Without configuration it is the theme mark plus `© <year> <siteName>`; the `footer` block changes any of those pieces:
 
 ```ts
 footer: {
   copyright: '© {year} {site}',   // {year} → the build year, {site} → siteName
   since: 2024,                    // renders "2024–2026" once the year has moved on
-  links: [
-    { label: 'About', href: '/about' },                   // a site path, base path added
-    { label: 'GitHub', href: 'https://github.com/you' },  // opens in a new tab
-  ],
+  copyrightUrl: '/about',         // link the © line: a site path or an absolute URL
+  author: 'you',                  // renders "By you" after the © line
+  authorUrl: 'https://github.com/you',
   icp: '京ICP备00000000号',        // 备案号, linked to beian.miit.gov.cn
   icpUrl: 'https://beian.miit.gov.cn/',  // optional: point the 备案 link elsewhere
-  credit: false,                   // drop the "Built with noteflow" line
+  credit: false,                  // drop the theme mark
 },
 ```
 
 - `copyright` supports `{year}` and `{site}`; without `since` the year is the build year.
-- `links` accepts `/site/paths` and `http(s)://`, `mailto:` and `tel:` URLs. Off-site links open in a new tab, matching the link policy used throughout the site.
+- `copyrightUrl` and `authorUrl` accept `/site/paths` and `http(s)://`, `mailto:` and `tel:` URLs. Off-site links open in a new tab, matching the link policy used throughout the site.
+- `author` renders `By <name>`, optionally linked; unset renders nothing.
 - `icp` prints the filing number and links it to the MIIT query page. Set `icpUrl` if your filing is queried at another address.
-- `credit: false` removes the only place the footer links back to this project.
+- `credit: false` removes the theme mark, the footer's only link back to this project.
 
 Footer links are audited like every other link: a site path must exist in the output, and an off-site link without a new-tab target fails the build.
 

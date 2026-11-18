@@ -1,71 +1,60 @@
-// The site footer: copyright, extra links, ICP filing number, and the
-// "Built with noteflow" credit. Every piece is config-driven and renders only
-// when configured; the default footer is just the copyright line and credit.
+// The site footer: one quiet line under the article — the theme mark, the ©
+// line (linked), and an author credit — with the ICP filing number on the
+// right. Every piece is config-driven and renders only when configured.
 import { esc } from '../core/util.ts';
 import type { SiteCtx } from './layout.ts';
 import { siteUrl } from './helpers.ts';
-import { siteHostOf, type FooterConfig, type FooterLink } from '../core/config.ts';
+import { siteHostOf, type FooterConfig } from '../core/config.ts';
 import { isOffsiteHref } from '../render/links.ts';
+import { logoMark } from './logo.ts';
 
-const PROJECT_NAME = 'noteflow';
 const PROJECT_REPO = 'https://github.com/gogongxt/noteflow';
 const ICP_QUERY = 'https://beian.miit.gov.cn/';
 const DEFAULT_COPYRIGHT = '© {year} {site}';
 
-/** A site path gains the base path; an absolute URL stays as it is. */
-function resolveHref(ctx: SiteCtx, href: string): string {
-  return href.startsWith('/') ? siteUrl(ctx.site, href) : href;
-}
-
-/** Same policy as note links and the output audit: another host opens a new
- *  tab, anything on this site (or mailto:/tel:) stays in the current one. */
-function footerAnchor(ctx: SiteCtx, label: string, href: string): string {
-  const url = resolveHref(ctx, href);
-  const offsite = isOffsiteHref(url, siteHostOf(ctx.site.url));
-  const attrs = offsite ? ' target="_blank" rel="noopener noreferrer"' : '';
-  return `<a href="${esc(url)}"${attrs}>${esc(label)}</a>`;
+function anchor(ctx: SiteCtx, inner: string, href: string, className: string): string {
+  const url = href.startsWith('/') ? siteUrl(ctx.site, href) : href;
+  // Same policy as note links and the output audit: another host opens a new
+  // tab, anything on this site (or mailto:/tel:) stays in the current one.
+  const attrs = isOffsiteHref(url, siteHostOf(ctx.site.url)) ? ' target="_blank" rel="noopener noreferrer"' : '';
+  return `<a class="${className}" href="${esc(url)}"${attrs}>${inner}</a>`;
 }
 
 /** `© {year} {site}`: the year expands to `since–year` once `since` is set. */
-function copyrightText(footer: FooterConfig, siteName: string, now: Date): string | null {
+function copyrightText(footer: FooterConfig, siteName: string, now: Date): string {
   const template = footer.copyright?.trim() || DEFAULT_COPYRIGHT;
   const year = new Date(now).getUTCFullYear();
   const range = footer.since && footer.since < year ? `${footer.since}–${year}` : String(year);
   return esc(template).replace(/\{year\}/g, range).replace(/\{site\}/g, esc(siteName));
 }
 
-/** Identity (copyright, links) on the left, filing number and credit on the
- *  right; the row stacks below 768px. */
+/** The identity cluster: theme mark, the © line and the author credit, all
+ *  reading as one line of small text. */
+function identity(ctx: SiteCtx): string {
+  const cfg: FooterConfig = ctx.site.footer ?? {};
+  const parts: string[] = [];
+  const mark = cfg.credit === false ? '' : logoMark({ size: 18, id: 'footer-logo-ink', className: 'foot-mark' });
+  const copy = copyrightText(cfg, ctx.site.siteName, ctx.builtAt);
+
+  // One link in this cluster, never two adjacent ones to the same place: a
+  // linked © line takes the mark in with it, and a bare mark is the theme
+  // credit on its own.
+  if (cfg.copyrightUrl) parts.push(anchor(ctx, mark + copy, cfg.copyrightUrl, 'foot-copy'));
+  else if (mark) parts.push(anchor(ctx, mark, PROJECT_REPO, 'foot-brand') + `<span class="foot-copy">${copy}</span>`);
+  else parts.push(`<span class="foot-copy">${copy}</span>`);
+
+  if (cfg.author) {
+    const author = esc(cfg.author);
+    parts.push(`<span class="foot-by">By ${cfg.authorUrl ? anchor(ctx, author, cfg.authorUrl, 'foot-author') : author}</span>`);
+  }
+
+  return `<div class="foot-identity">\n${parts.join('\n')}\n</div>`;
+}
+
 export function footer(ctx: SiteCtx): string {
   const cfg: FooterConfig = ctx.site.footer ?? {};
-  const copyright = copyrightText(cfg, ctx.site.siteName, ctx.builtAt);
-  const links = (cfg.links ?? []).filter((l: FooterLink) => l.label && l.href);
-
-  const identity: string[] = [];
-  if (copyright) identity.push(`<span class="foot-copy">${copyright}</span>`);
-  if (links.length) {
-    identity.push(
-      '<nav class="foot-links" aria-label="Footer">\n<ul>\n' +
-        links.map((l) => `<li>${footerAnchor(ctx, l.label, l.href)}</li>`).join('\n') +
-        '\n</ul>\n</nav>',
-    );
-  }
-
-  const meta: string[] = [];
-  if (cfg.icp) {
-    const href = cfg.icpUrl?.trim() || ICP_QUERY;
-    meta.push(`<a class="foot-icp" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(cfg.icp)}</a>`);
-  }
-  if (cfg.credit !== false) {
-    meta.push(
-      `<span class="foot-credit">Built with <a href="${PROJECT_REPO}" target="_blank" rel="noopener noreferrer">${PROJECT_NAME}</a></span>`,
-    );
-  }
-
-  const row =
-    '<div class="foot-row">\n' +
-    `<div class="foot-identity">${identity.length ? '\n' + identity.join('\n') + '\n' : ''}</div>\n` +
-    `<div class="foot-meta">${meta.length ? '\n' + meta.join('\n') + '\n' : ''}</div>\n` +
-    '</div>';
-  return `<footer class="site-footer" data-region="footer">\n${row}\n</footer>`;
+  const icp = cfg.icp
+    ? `<div class="foot-meta">\n${anchor(ctx, esc(cfg.icp), cfg.icpUrl?.trim() || ICP_QUERY, 'foot-icp')}\n</div>\n`
+    : '';
+  return `<footer class="site-footer" data-region="footer">\n<div class="foot-row">\n${identity(ctx)}\n${icp}</div>\n</footer>`;
 }
