@@ -167,14 +167,14 @@ playback starts only on user action. Off-site Bilibili / YouTube videos use a
 ````markdown
 <video controls poster="./media/poster.png" width="480">
   <source src="./media/demo.webm" type="video/webm">
-  <track src="./media/demo.vtt" kind="captions" srclang="zh" label="中文" default>
+  <track src="./media/demo.vtt" kind="captions" srclang="en" label="English" default>
 </video>
 
 <audio controls src="./media/demo.wav"></audio>
 ````
 <video controls poster="./media/poster.png" width="480">
   <source src="./media/demo.webm" type="video/webm">
-  <track src="./media/demo.vtt" kind="captions" srclang="zh" label="中文" default>
+  <track src="./media/demo.vtt" kind="captions" srclang="en" label="English" default>
 </video>
 
 <audio controls src="./media/demo.wav"></audio>
