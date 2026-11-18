@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Regenerate the theme icon set from assets/noteflow-icon.png.
+# Regenerate the theme icon set from assets/noteflow-icon.png (one transparent
+# PNG; raster derivatives instead of inline SVG). Run after replacing the
+# source, then commit both it and the output.
 #
-# The source is one transparent PNG; the theme ships raster derivatives instead
-# of inline SVG, because the render would repeat ~20 KB of markup on every page.
-# Run this after replacing the source, then commit both it and the output.
-#
-# Requires ImageMagick 7 (`magick`). Keep the master a PNG, not an SVG: the SVG
-# delegate flattens transparency onto white, which shows as a pale box on the
-# dark theme — and `-extent` without `-background none` pads white the same way.
+# ImageMagick 7 only. Keep the master a PNG: the SVG delegate flattens
+# transparency onto white, and `-extent` pads white without `-background none`.
 # =============================================================================
 set -euo pipefail
 
@@ -25,14 +22,19 @@ command -v magick >/dev/null || { echo "ImageMagick 7 (magick) is required" >&2;
 magick "$SRC" -trim +repage -strip "$TMP/src.png"
 PNG8="-strip -depth 8 -define png:compression-level=9 -define png:color-type=6"
 
-# The wide mark keeps the artwork's aspect; the square icons pad it to 1:1.
-magick "$TMP/src.png" -filter Lanczos -resize 144x $PNG8 "$OUT/mark.png"
+# Cut to the ink first: a tab scales the artwork's transparent margin down with
+# it. A near-zero alpha residue rings the canvas and defeats -trim, so the alpha
+# channel is clamped first.
+magick "$TMP/src.png" -channel A -level 3%,100% +channel -trim +repage "$TMP/ink.png"
 
-magick "$TMP/src.png" -filter Lanczos -resize 112x112 \
+# The mark keeps the artwork's aspect; the square icons pad the ink to 1:1.
+magick "$TMP/ink.png" -filter Lanczos -resize 144x $PNG8 "$OUT/mark.png"
+
+magick "$TMP/ink.png" -filter Lanczos -resize 112x112 \
   -background none -gravity center -extent 112x112 $PNG8 "$OUT/favicon.png"
 
 magick -size 180x180 xc:'#f4f8ff' \
-  \( "$TMP/src.png" -filter Lanczos -resize 164x164 -background none -gravity center -extent 164x164 \) \
+  \( "$TMP/ink.png" -filter Lanczos -resize 164x164 -background none -gravity center -extent 164x164 \) \
   -gravity center -compose over -composite -strip -depth 8 \
   -define png:compression-level=9 -define png:color-type=6 "$OUT/apple-touch-icon.png"
 

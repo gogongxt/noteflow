@@ -446,18 +446,17 @@ a.brand-name:hover {
   color: var(--fg);
 }
 
-/* A bitmap: the height sets the row's box, the width follows the square
-   artwork. Without it the image paints at natural size and dwarfs the header. */
+/* A bitmap: without the fixed height it paints at natural size. */
 .logo-mark {
   display: block;
   flex: none;
-  height: 1.625rem;
+  height: 1.5rem;
   width: auto;
   object-fit: contain;
 }
 
 .site-footer .logo-mark {
-  height: 1.1875rem;
+  height: 1.0625rem;
 }
 
 .header-actions {
@@ -639,10 +638,21 @@ a.brand-name:hover {
   stroke: none;
 }
 
-/* The top-left hamburger: collapses/expands the sidebar on wide viewports,
-   opens the drawer on narrow ones. */
+/* The top-left hamburger: collapses the sidebar on wide viewports, opens the
+   drawer on narrow ones. The resting border makes it read as a control. */
 .menu-toggle {
   display: inline-grid;
+  border: 1px solid var(--border);
+}
+
+.menu-toggle:hover {
+  border-color: var(--border-strong);
+}
+
+.menu-toggle:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .shell {

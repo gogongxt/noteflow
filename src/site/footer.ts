@@ -33,7 +33,7 @@ function copyrightText(footer: FooterConfig, siteName: string, now: Date): strin
 function identity(ctx: SiteCtx): string {
   const cfg: FooterConfig = ctx.site.footer ?? {};
   const parts: string[] = [];
-  const mark = cfg.credit === false ? '' : logoMark({ src: ctx.assets.mark, height: 19 });
+  const mark = cfg.credit === false ? '' : logoMark({ src: ctx.assets.mark, height: 17 });
   const copy = copyrightText(cfg, ctx.site.siteName, ctx.builtAt);
 
   // The whole © line is one link — the mark and the text together — so the
