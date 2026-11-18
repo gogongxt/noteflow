@@ -778,28 +778,12 @@ a.brand-name:hover {
   min-width: 0;
 }
 
-/* The theme mark on its own (no linked © line): reads as the site's own badge,
-   not a button, so it gets no hover treatment. */
-.foot-brand {
-  display: inline-flex;
-  flex: none;
-}
-
-.foot-mark {
-  display: block;
-}
-
+/* Default: the whole © line links this project, mark included. */
 .foot-copy {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
   color: var(--fg-muted);
-}
-
-/* A linked © line: mark and text read as one quiet control. */
-a.foot-copy:hover {
-  color: var(--fg);
-  text-decoration: none;
 }
 
 /* The author credit follows the © line with a single space's worth of air,
@@ -826,10 +810,6 @@ a.foot-copy:hover {
   color: var(--fg);
   text-decoration: underline;
   text-underline-offset: 0.2em;
-}
-
-.site-footer a.foot-brand:hover {
-  text-decoration: none;
 }
 
 .foot-icp {

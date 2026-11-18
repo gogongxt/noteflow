@@ -1136,12 +1136,14 @@ test('footer: the theme mark, the linked © line and the author credit, all opti
 
   const plain = footer(ctx(base));
   assert.ok(plain.startsWith('<footer class="site-footer" data-region="footer">'), 'the footer is a semantic, swappable region');
-  assert.ok(plain.includes('<span class="foot-copy">© 2026 my notes</span>'), plain);
-  // The mark links the theme; the project name itself is not printed.
+  // Without copyrightUrl the whole © line — mark and text — is the project link.
   assert.ok(
-    plain.includes('<a class="foot-brand" href="https://github.com/gogongxt/noteflow" target="_blank" rel="noopener noreferrer">'),
+    plain.includes(
+      '<a class="foot-copy" href="https://github.com/gogongxt/noteflow" target="_blank" rel="noopener noreferrer"><svg',
+    ),
     plain,
   );
+  assert.ok(plain.includes('© 2026 my notes</a>'), plain);
   assert.ok(plain.includes('id="footer-logo-ink"'), 'the footer mark needs its own gradient id (the header has one)');
   assert.ok(!plain.includes('noteflow</a>') && !plain.includes('foot-by') && !plain.includes('foot-icp'), plain);
 
@@ -1150,13 +1152,12 @@ test('footer: the theme mark, the linked © line and the author credit, all opti
   assert.ok(ranged.includes('Copyright 2024–2026 · my notes'), ranged);
   assert.ok(footer(ctx({ ...base, footer: { since: 2026 } })).includes('© 2026 my notes'), 'a current-year since stays one year');
 
-  // The © line links: a site path gains the base path, another host opens a
-  // new tab, and the theme mark rides inside the same link (never a second,
-  // adjacent link to its own target).
+  // A configured copyrightUrl still wins: a site path gains the base path,
+  // another host opens a new tab, and the mark rides inside the same link.
   const prefixed = footer(ctx({ ...base, url: 'https://user.github.io/noteflow', footer: { copyrightUrl: '/about' } }));
   assert.ok(prefixed.includes('<a class="foot-copy" href="/noteflow/about">'), prefixed);
   assert.ok(prefixed.includes('© 2026 my notes</a>'), prefixed);
-  assert.ok(!prefixed.includes('foot-brand'), 'a linked © line absorbs the mark link');
+  assert.ok(prefixed.includes('<svg'), 'the mark rides inside the linked © line');
   const sameHost = footer(ctx({ ...base, url: 'https://user.github.io/noteflow', footer: { copyrightUrl: 'https://user.github.io/noteflow/archives' } }));
   assert.ok(sameHost.includes('<a class="foot-copy" href="https://user.github.io/noteflow/archives">'), 'same-host links stay in the tab');
   const offsite = footer(ctx({ ...base, footer: { copyrightUrl: 'https://pandoc.org' } }));
@@ -1174,10 +1175,10 @@ test('footer: the theme mark, the linked © line and the author credit, all opti
   );
   assert.ok(!footer(ctx({ ...base, footer: { authorUrl: 'https://github.com/x' } })).includes('foot-by'), 'authorUrl without an author renders nothing');
 
-  // credit: false drops the theme mark; ICP → the MIIT query page, overridable.
+  // credit: false drops the theme mark; the © text then renders unlinked.
   const icp = footer(ctx({ ...base, footer: { icp: '京ICP备00000000号', credit: false } }));
   assert.ok(icp.includes('<a class="foot-icp" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">京ICP备00000000号</a>'), icp);
-  assert.ok(!icp.includes('foot-brand'), 'credit: false drops the only project link');
+  assert.ok(icp.includes('<span class="foot-copy">© 2026 my notes</span>'), 'credit: false leaves a plain © line');
   const custom = footer(ctx({ ...base, footer: { icp: 'X', icpUrl: 'https://example.org/icp' } }));
   assert.ok(custom.includes('href="https://example.org/icp"'), custom);
 

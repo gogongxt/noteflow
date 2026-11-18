@@ -37,7 +37,7 @@ const config: AppConfig = {
   //   author: 'you',                     // renders "By you" after the © line
   //   authorUrl: 'https://github.com/you',
   //   icp: '京ICP备00000000号',        // 备案号, linked to beian.miit.gov.cn
-  //   credit: false,                     // drop the theme mark
+  //   credit: false,                     // drop the mark and the project link
   // },
 
   // Comments via GitHub Discussions: add a giscus block (repo, repoId, …)

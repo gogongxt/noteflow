@@ -38,7 +38,7 @@ export interface FooterConfig {
   icp?: string;
   /** Override the ICP link target. */
   icpUrl?: string;
-  /** The theme mark beside the © line, linking this project; on by default. */
+  /** The theme mark and the © line's link back to this project; on by default. */
   credit?: boolean;
 }
 

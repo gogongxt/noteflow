@@ -22,7 +22,7 @@ All configuration lives in `site.config.ts`; CLI flags (`--content`, `--out`) an
 
 ## Footer
 
-Every page ends in one quiet line: the theme mark, the copyright line, an optional author credit, and the filing number on the right. Without configuration it is the theme mark plus `© <year> <siteName>`; the `footer` block changes any of those pieces:
+Every page ends in one quiet line: the theme mark, the copyright line, an optional author credit, and the filing number on the right. Without configuration the © line reads `© <year> <siteName>` and links this project as a whole — mark and text are one target. The `footer` block changes any of those pieces:
 
 ```ts
 footer: {
@@ -41,7 +41,7 @@ footer: {
 - `copyrightUrl` and `authorUrl` accept `/site/paths` and `http(s)://`, `mailto:` and `tel:` URLs. Off-site links open in a new tab, matching the link policy used throughout the site.
 - `author` renders `By <name>`, optionally linked; unset renders nothing.
 - `icp` prints the filing number and links it to the MIIT query page. Set `icpUrl` if your filing is queried at another address.
-- `credit: false` removes the theme mark, the footer's only link back to this project.
+- Without `copyrightUrl` the whole © line (mark included) links this project; setting it retargets that one link.
 
 Footer links are audited like every other link: a site path must exist in the output, and an off-site link without a new-tab target fails the build.
 

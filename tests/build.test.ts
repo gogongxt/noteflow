@@ -772,9 +772,11 @@ test('every page ends in a footer region; the docs profile adds the author credi
     const html = fs.readFileSync(path.join(dist, rel), 'utf8');
     assert.ok(/<footer class="site-footer" data-region="footer">/.test(html), `${rel} is missing the footer region`);
     assert.ok(html.indexOf('</main>') < html.indexOf('<footer class="site-footer"'), `${rel}: the footer must follow the main content`);
-    // The neutral profile: the theme mark + the default © line, nothing else.
-    assert.ok(html.includes('class="foot-brand"'), `${rel}: the theme mark should render by default`);
-    assert.ok(/<span class="foot-copy">© \d{4} my notes<\/span>/.test(html), `${rel}: the default © line is missing`);
+    // The neutral profile: one linked © line carrying the theme mark, nothing else.
+    assert.ok(
+      /<a class="foot-copy" href="https:\/\/github\.com\/gogongxt\/noteflow" target="_blank" rel="noopener noreferrer"><svg[\s\S]*© \d{4} my notes<\/a>/.test(html),
+      `${rel}: the default © line should link this project as a whole`,
+    );
     assert.ok(!html.includes('foot-by') && !html.includes('foot-icp') && !html.includes('Built with'), `${rel}: nothing else is configured`);
   }
   assert.ok(!fs.readFileSync(path.join(dist, 'index.html'), 'utf8').includes('repo-link'), 'the neutral header still has no repository icon');

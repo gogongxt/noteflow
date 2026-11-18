@@ -1,6 +1,6 @@
-// The site footer: one quiet line under the article — the theme mark, the ©
-// line (linked), and an author credit — with the ICP filing number on the
-// right. Every piece is config-driven and renders only when configured.
+// The site footer: one quiet line under the article — a linked © line with the
+// theme mark, an author credit, and the ICP filing number on the right. Every
+// piece is config-driven and renders only when configured.
 import { esc } from '../core/util.ts';
 import type { SiteCtx } from './layout.ts';
 import { siteUrl } from './helpers.ts';
@@ -33,14 +33,13 @@ function copyrightText(footer: FooterConfig, siteName: string, now: Date): strin
 function identity(ctx: SiteCtx): string {
   const cfg: FooterConfig = ctx.site.footer ?? {};
   const parts: string[] = [];
-  const mark = cfg.credit === false ? '' : logoMark({ size: 18, id: 'footer-logo-ink', className: 'foot-mark' });
+  const mark = cfg.credit === false ? '' : logoMark({ size: 18, id: 'footer-logo-ink' });
   const copy = copyrightText(cfg, ctx.site.siteName, ctx.builtAt);
 
-  // One link in this cluster, never two adjacent ones to the same place: a
-  // linked © line takes the mark in with it, and a bare mark is the theme
-  // credit on its own.
+  // The whole © line is one link — the mark and the text together — so the
+  // footer's credit is a single target rather than a stray glyph.
   if (cfg.copyrightUrl) parts.push(anchor(ctx, mark + copy, cfg.copyrightUrl, 'foot-copy'));
-  else if (mark) parts.push(anchor(ctx, mark, PROJECT_REPO, 'foot-brand') + `<span class="foot-copy">${copy}</span>`);
+  else if (mark) parts.push(anchor(ctx, mark + copy, PROJECT_REPO, 'foot-copy'));
   else parts.push(`<span class="foot-copy">${copy}</span>`);
 
   if (cfg.author) {
