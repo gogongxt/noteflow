@@ -188,6 +188,20 @@ test('zooming the viewer re-lays the diagram out instead of stretching a cached 
   assert.ok(!/\.mv-card\s*\{[^}]*transition:[^;]*width/.test(css), 'animating the card width would make the layout commit wobble');
 });
 
+test('the viewer rotates a quarter turn and shows no zoom percentage', async () => {
+  await shared;
+  const js = fs.readFileSync(findAsset('media.js'), 'utf8');
+  assert.ok(js.includes('Rotate 90° (R)'), 'the toolbar should offer a quarter-turn rotation');
+  assert.ok(!js.includes('mv-zoom') && !js.includes('"Fit"'), 'the zoom percentage/Fit readout is gone');
+  assert.ok(/rotation % 180|rotation\(\)|rotate\(\)/.test(js), 'the viewer should track the rotation state');
+  // The fit math must key on the rotated footprint, or a portrait photo
+  // rotated to landscape would stay fitted to its old height.
+  assert.ok(js.includes('boxW') && js.includes('boxH'), 'fit should use the displayed (rotated) footprint');
+  const css = fs.readFileSync(findAsset('style.css'), 'utf8');
+  assert.ok(!css.includes('.mv-zoom'), 'the .mv-zoom style should be gone');
+  assert.match(css, /\.mv-canvas\s*\{[^}]*transform-origin:\s*center/, 'rotation pivots about the canvas center');
+});
+
 test('tabs: fenced-div groups render as semantic divs, the widget module ships, no div soup leaks', async () => {
   // The tabs demo lives on the noteflow-features child page of the docs build.
   await sharedDocs;

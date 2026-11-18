@@ -4290,6 +4290,9 @@ code.sourceCode span.wa {
   box-shadow: var(--mv-shadow);
 }
 
+/* The card is the canvas's frame; the canvas is centered in it, so a quarter
+   turn (transform-origin stays the element's center) sweeps it inside the
+   transposed box instead of flying out of it. */
 .mv-canvas {
   position: absolute;
   top: 0;
@@ -4297,7 +4300,7 @@ code.sourceCode span.wa {
   display: block;
   max-width: none;
   max-height: none;
-  transform-origin: 0 0;
+  transform-origin: center;
   user-select: text;
 }
 
@@ -4385,16 +4388,6 @@ code.sourceCode span.wa {
 
 .mv-btn[data-done] {
   color: var(--sem-green);
-}
-
-.mv-zoom {
-  min-width: 3.25rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  color: var(--mv-fg-muted);
-  text-align: center;
-  user-select: none;
 }
 
 .mv-close {

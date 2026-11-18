@@ -17,6 +17,7 @@ const ICON = {
   zoomIn: "M11 4.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM20 20l-4.4-4.4M11 8.2v5.6M8.2 11h5.6",
   zoomOut: "M11 4.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM20 20l-4.4-4.4M8.2 11h5.6",
   fit: "M4.5 9V5.5a1 1 0 0 1 1-1H9M19.5 9V5.5a1 1 0 0 0-1-1H15M4.5 15v3.5a1 1 0 0 0 1 1H9M19.5 15v3.5a1 1 0 0 1-1 1H15",
+  rotate: "M20.5 14.5a8.5 8.5 0 1 1-2-8.4M20.5 4v7h-7",
   copy: "M9.5 9.5h9v9h-9z M5.5 15V5.5h9",
   download: "M12 4.5v10M8.2 10.8l3.8 3.8 3.8-3.8M5 19h14",
   prev: "M14.5 6.5L9 12l5.5 5.5",
@@ -135,6 +136,8 @@ export function initMediaViewer(): () => void {
   let scale = 1;
   let layoutScale = 1;
   let fitScale = 1;
+  /** Quarter turns clockwise; 90/270 swap the media's displayed width and height. */
+  let rotation = 0;
   let panX = 0;
   let panY = 0;
   let baseW = 0;
@@ -188,18 +191,21 @@ export function initMediaViewer(): () => void {
   const fitBtn = makeButton("mv-btn", "Fit to window (0)", ICON.fit);
   const copyBtn = makeButton("mv-btn", "Copy selection (or diagram source)", ICON.copy);
   const downloadBtn = makeButton("mv-btn", "Download", ICON.download);
-  const zoomLabel = document.createElement("span");
-  zoomLabel.className = "mv-zoom";
+  const rotateBtn = makeButton("mv-btn", "Rotate 90° (R)", ICON.rotate);
   const prevBtn = makeButton("mv-btn mv-prev", "Previous (←)", ICON.prev);
   const nextBtn = makeButton("mv-btn mv-next", "Next (→)", ICON.next);
 
-  toolbar.append(zoomOutBtn, zoomLabel, zoomInBtn, fitBtn, copyBtn, downloadBtn);
+  toolbar.append(zoomOutBtn, zoomInBtn, fitBtn, rotateBtn, copyBtn, downloadBtn);
   stage.append(toolbar, prevBtn, nextBtn);
   overlay.append(stage, rail, closeBtn);
   document.body.appendChild(overlay);
 
   const item = (): Item => items[index];
   const padOf = (it: Item): number => (it.kind === "diagram" ? DIAGRAM_PAD : 0);
+  const upright = (): boolean => rotation % 180 === 0;
+  /** The media's displayed footprint: a quarter turn transposes it. */
+  const boxW = (it: Item): number => (upright() ? it.width : it.height);
+  const boxH = (it: Item): number => (upright() ? it.height : it.width);
 
   const isTextTarget = (target: EventTarget | null): boolean => {
     const el = target instanceof Element ? target : null;
@@ -223,19 +229,28 @@ export function initMediaViewer(): () => void {
   // top-left at (panX, panY), so the swap does not move anything on screen.
   const place = (): void => {
     if (!card || !canvas) return;
-    const pad = padOf(item());
+    const it = item();
+    const pad = padOf(it);
     const settled = Math.abs(scale - layoutScale) < 0.002;
+    // The card's box is the media's *displayed* footprint: a quarter turn
+    // transposes it, so the fit rect and the card border both hug the rotated
+    // picture. The canvas itself rotates about its center inside that box.
+    const w = `${boxW(it) * layoutScale + pad * 2}px`;
+    const h = `${boxH(it) * layoutScale + pad * 2}px`;
     const style = card.style;
-    const w = `${baseW * layoutScale + pad * 2}px`;
-    const h = `${baseH * layoutScale + pad * 2}px`;
     if (style.width !== w) style.width = w;
     if (style.height !== h) style.height = h;
     const t = settled
       ? `translate3d(${panX}px, ${panY}px, 0)`
       : `translate3d(${panX}px, ${panY}px, 0) scale(${scale / layoutScale})`;
     if (style.transform !== t) style.transform = t;
-    const label = Math.abs(scale - fitScale) < 0.005 ? "Fit" : `${Math.round(scale * 100)}%`;
-    if (zoomLabel.textContent !== label) zoomLabel.textContent = label;
+    // Center the upright canvas in its (possibly transposed) box.
+    const left = `${pad + ((boxW(it) - it.width) * layoutScale) / 2}px`;
+    const top = `${pad + ((boxH(it) - it.height) * layoutScale) / 2}px`;
+    if (canvas.style.left !== left) canvas.style.left = left;
+    if (canvas.style.top !== top) canvas.style.top = top;
+    const rot = rotation ? `rotate(${rotation}deg)` : "";
+    if (canvas.style.transform !== rot) canvas.style.transform = rot;
   };
 
   const sizeCanvas = (at: number): void => {
@@ -274,13 +289,13 @@ export function initMediaViewer(): () => void {
     const availW = Math.max(40, stage.clientWidth - inset * 2);
     const availH = Math.max(40, stage.clientHeight - inset * 2);
     fitScale = Math.min(
-      availW / (it.width + pad * 2),
-      availH / (it.height + pad * 2),
+      availW / (boxW(it) + pad * 2),
+      availH / (boxH(it) + pad * 2),
       it.kind === "image" ? 1 : 1.5,
     );
     scale = fitScale;
-    panX = (stage.clientWidth - (it.width * scale + pad * 2)) / 2;
-    panY = (stage.clientHeight - (it.height * scale + pad * 2)) / 2;
+    panX = (stage.clientWidth - (boxW(it) * scale + pad * 2)) / 2;
+    panY = (stage.clientHeight - (boxH(it) * scale + pad * 2)) / 2;
     sizeCanvas(scale);
     place();
   };
@@ -299,6 +314,12 @@ export function initMediaViewer(): () => void {
     zoomAt(factor, stage.clientWidth / 2, stage.clientHeight / 2);
   };
 
+  /** A quarter turn, then refit: the rotated picture gets its own fit scale. */
+  const rotate = (): void => {
+    rotation = (rotation + 90) % 360;
+    fit();
+  };
+
   const renderStage = (): void => {
     cancelCommit();
     card?.remove();
@@ -309,8 +330,7 @@ export function initMediaViewer(): () => void {
     const node = it.media.cloneNode(true) as SVGSVGElement | HTMLImageElement;
     node.classList.add("mv-canvas");
     node.dataset.kind = it.kind;
-    node.style.left = `${padOf(it)}px`;
-    node.style.top = `${padOf(it)}px`;
+    rotation = 0;
     if (node instanceof SVGSVGElement) {
       renameIds(node);
     } else {
@@ -426,6 +446,7 @@ export function initMediaViewer(): () => void {
   zoomOutBtn.addEventListener("click", () => zoomCenter(1 / 1.4));
   zoomInBtn.addEventListener("click", () => zoomCenter(1.4));
   fitBtn.addEventListener("click", fit);
+  rotateBtn.addEventListener("click", rotate);
   copyBtn.addEventListener("click", () => {
     const text = selectedText() || item().source;
     if (!text) return;
@@ -587,6 +608,8 @@ export function initMediaViewer(): () => void {
 
   const onKeydown = (e: KeyboardEvent): void => {
     if (!isOpen) return;
+    // Ctrl+R, Alt+← and friends are browser shortcuts, not viewer input.
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     switch (e.key) {
       case "Escape":
         e.preventDefault();
@@ -603,6 +626,11 @@ export function initMediaViewer(): () => void {
       case "0":
         e.preventDefault();
         fit();
+        return;
+      case "r":
+      case "R":
+        e.preventDefault();
+        rotate();
         return;
       case "+":
       case "=":

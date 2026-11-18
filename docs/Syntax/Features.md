@@ -140,9 +140,10 @@ translucent backdrop that still hints at the text behind, with the media
 floating in the middle. A thumbnail rail on the right lists every diagram and
 image on the page (with a `1 / 3` counter at the top); click or press `←` `→` to
 switch. Drag to pan, scroll to zoom, double-click to toggle between fit and
-zoom, `0` to fit, `Esc` or a click on the backdrop to close. On phones the rail
-becomes a bottom strip you can swipe. Opening and closing are overlays only: the
-page's scroll position and layout never change.
+zoom, `0` to fit, `R` (or the toolbar button) to rotate a quarter turn — handy
+for a photo shot sideways — `Esc` or a click on the backdrop to close. On phones
+the rail becomes a bottom strip you can swipe. Opening and closing are overlays
+only: the page's scroll position and layout never change.
 
 ::: {.demo}
 ````markdown
