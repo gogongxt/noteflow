@@ -13,8 +13,8 @@ const config: AppConfig = {
   // Header GitHub icon → this repository.
   repoUrl: 'https://github.com/gogongxt/noteflow',
 
-  // The docs site demos the author credit; the theme mark and © line are the
-  // defaults.
+  // The mark and © line link this repository; the author credit is the one
+  // config-driven piece here.
   footer: {
     copyrightUrl: 'https://github.com/gogongxt/noteflow',
     author: 'gogongxt',
