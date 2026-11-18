@@ -4,8 +4,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { parseFragment, serialize } from 'parse5';
 import { loadConfig, siteHostOf, basePathOf, type AppConfig, type SiteConfig } from '../core/config.ts';
-import { BuildError, decodeEntities, esc, log, nfc, toPosix, type CliArgs } from '../core/util.ts';
+import { BuildError, esc, log, nfc, toPosix, type CliArgs } from '../core/util.ts';
+import { getAttr, textOf, type P5Any } from '../core/dom.ts';
 import { assertReserved, scanTree } from '../content/scan.ts';
 import { buildCsp, CSP_META_TAG } from '../core/csp.ts';
 import { buildSidebar, collectChildPages, resolveTree } from '../content/visibility.ts';
@@ -341,17 +343,35 @@ async function convertWorker(pages: Page[], cursor: { next: number }, w: WorkerC
       onWarn: (m) => w.warnings.push(m),
     });
 
-    page.html = applyMermaid(stripDuplicateH1(r.html, page.title), page, w.mermaid);
-    page.toc = r.toc;
+    const stripped = stripDuplicateH1(r.html, page.title);
+    page.html = applyMermaid(stripped.html, page, w.mermaid);
+    page.toc = stripped.id ? r.toc.filter((t) => t.id !== stripped.id) : r.toc;
     for (const s of r.inlineStyles) w.bodyInlineStyles.add(s);
   }
 }
 
-/** pandoc's section-divs wraps a leading `# H1`; drop it when it repeats the title. */
-function stripDuplicateH1(html: string, title: string): string {
-  const m = html.match(/^\s*(?:<section[^>]*>\s*)?<h1[^>]*>([\s\S]*?)<\/h1>\s*/);
-  if (!m) return html;
-  const text = decodeEntities(m[1].replace(/<[^>]+>/g, '')).trim();
-  if (text !== title.trim()) return html;
-  return html.slice(m[0].length).replace(/^\s*<\/section>\s*/, '');
+/**
+ * pandoc's section-divs wraps a leading `# H1` in `<section id=… class=level1>`
+ * together with everything up to the next heading. When that H1 repeats the
+ * frontmatter title the page already renders, drop the heading and keep the
+ * section's contents in its place: slicing the text here would orphan the
+ * section's closing tag and leave an unbalanced fragment.
+ */
+function stripDuplicateH1(html: string, title: string): { html: string; id: string } {
+  const root = parseFragment(html) as unknown as P5Any;
+  const nodes = root.childNodes ?? [];
+  const first = nodes.find((n) => n.nodeName !== '#text' || (n.value ?? '').trim());
+  if (!first) return { html, id: '' };
+  const holder = first.nodeName === 'section' ? first : null;
+  const siblings = holder?.childNodes ?? nodes;
+  const h1 = siblings.find((n) => n.nodeName === 'h1');
+  if (!h1 || textOf(h1) !== title.trim()) return { html, id: '' };
+  const id = getAttr(h1, 'id') || (holder ? getAttr(holder, 'id') : '') || '';
+  siblings.splice(siblings.indexOf(h1), 1);
+  // A section that held only the title collapses; anything else keeps its id,
+  // so the surviving headings still resolve an anchor through it.
+  if (holder && !siblings.some((n) => n.nodeName !== '#text' || (n.value ?? '').trim())) {
+    nodes.splice(nodes.indexOf(holder), 1);
+  }
+  return { html: serialize(root as never), id };
 }

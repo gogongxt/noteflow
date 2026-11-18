@@ -556,6 +556,23 @@ test('TOC extraction: id from the section, math subtree excluded from text', () 
   ]);
 });
 
+test('TOC: a body H1 is an entry, keyed on its section id', () => {
+  const { toc } = pp('<section id="正文标题" class="level1"><h1>正文标题</h1></section><section id="背景" class="level2"><h2>背景</h2></section>');
+  assert.deepEqual(toc, [
+    { level: 1, id: '正文标题', text: '正文标题' },
+    { level: 2, id: '背景', text: '背景' },
+  ]);
+});
+
+test('bodyStartsWithH1 sees the section-divs wrapper pandoc puts around a leading H1', async () => {
+  const { bodyStartsWithH1 } = await import('../src/site/helpers.ts');
+  assert.equal(bodyStartsWithH1('<section id="t" class="level1">\n<h1>t</h1></section>'), true);
+  assert.equal(bodyStartsWithH1('<h1>t</h1><p>x</p>'), true);
+  assert.equal(bodyStartsWithH1('<p>x</p><h1>t</h1>'), false, 'an H1 after prose is not the page title');
+  // a level-2 section (a `##` heading) is still not an H1 title
+  assert.equal(bodyStartsWithH1('<section id="x" class="level2"><h2>x</h2></section>'), false);
+});
+
 test('mermaid placeholder keeps its class and key through sanitize', () => {
   // Extraction happens before pandoc, so postprocess only sees the placeholder.
   const { html } = pp('<div class="mermaid-host" data-mermaid-key="p1-1"></div>');

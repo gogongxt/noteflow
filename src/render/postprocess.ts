@@ -305,7 +305,7 @@ function collectHeadings(root: P5Any, toc: TocItem[]): void {
     }
     if (!id) return undefined;
     const text = textOf(node);
-    if (text) toc.push({ level: level as 2 | 3, id, text });
+    if (text) toc.push({ level: level as 1 | 2 | 3, id, text });
     return undefined;
   });
 }

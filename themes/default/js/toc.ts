@@ -82,7 +82,7 @@ export function setupScrollspy(): void {
     byId.get(id)!.push(a);
   }
 
-  const headings: HeadingRef[] = [...main.querySelectorAll<HTMLElement>("h2[id], h3[id], section[id] > h2, section[id] > h3")]
+  const headings: HeadingRef[] = [...main.querySelectorAll<HTMLElement>("h1[id], h2[id], h3[id], section[id] > h1, section[id] > h2, section[id] > h3")]
     .map((el) => ({ el, id: el.id || el.closest("section")?.id || "" }))
     .filter((h) => h.id && byId.has(h.id));
   if (!headings.length) return;

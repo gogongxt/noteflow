@@ -2,23 +2,25 @@
 import { esc } from '../core/util.ts';
 import type { TocItem } from '../core/types.ts';
 
+const tocItems = (toc: TocItem[]): TocItem[] => toc.filter((t) => t.id);
+
 export function tocNav(toc: TocItem[]): string {
-  const items = toc.filter((t) => (t.level === 2 || t.level === 3) && t.id);
+  const items = tocItems(toc);
   if (!items.length) return '';
   return (
     '<nav class="toc" aria-label="Table of contents">\n<ul class="toc">\n' +
-    items.map((t) => `<li class="lvl${t.level === 3 ? 3 : 2}"><a href="#${esc(encodeURIComponent(t.id))}">${esc(t.text)}</a></li>`).join('\n') +
+    items.map((t) => `<li class="lvl${t.level}"><a href="#${esc(encodeURIComponent(t.id))}">${esc(t.text)}</a></li>`).join('\n') +
     '\n</ul>\n</nav>'
   );
 }
 
 // One tick per heading; the scrollspy highlights the one being read.
 export function tocMinimap(toc: TocItem[]): string {
-  const items = toc.filter((t) => (t.level === 2 || t.level === 3) && t.id);
+  const items = tocItems(toc);
   if (!items.length) return '';
   return (
     '<span class="toc-marks" aria-hidden="true">\n' +
-    items.map((t) => `<i class="m lvl${t.level === 3 ? 3 : 2}" data-for="${esc(encodeURIComponent(t.id))}"></i>`).join('') +
+    items.map((t) => `<i class="m lvl${t.level}" data-for="${esc(encodeURIComponent(t.id))}"></i>`).join('') +
     '\n</span>'
   );
 }

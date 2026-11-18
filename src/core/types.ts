@@ -77,7 +77,9 @@ export interface IndexPage extends PageBase {
 export type Page = NotePage | IndexPage;
 
 export interface TocItem {
-  level: 2 | 3;
+  /** 1 only when the author's own body opens with an H1 that is not the page
+   *  title; the page title never enters the TOC. */
+  level: 1 | 2 | 3;
   id: string;
   text: string;
 }

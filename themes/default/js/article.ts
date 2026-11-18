@@ -104,7 +104,7 @@ export function setupHeadingLinks(): void {
   const body = document.querySelector<HTMLElement>(".post-body");
   if (!body) return;
 
-  for (const h of body.querySelectorAll<HTMLElement>("h2, h3, h4")) {
+  for (const h of body.querySelectorAll<HTMLElement>("h1, h2, h3, h4")) {
     if (h.closest(".callout, .demo, .sourceCode, figure, .toc")) continue;
     if (h.querySelector(":scope > .heading-anchor")) continue;
     const section = h.closest<HTMLElement>("section[id]");

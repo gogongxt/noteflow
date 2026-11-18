@@ -799,6 +799,31 @@ test('every page ends in a footer region; the docs profile adds the author credi
   }
 });
 
+test('a body H1 is the page heading: one title, a TOC entry, balanced sections', async () => {
+  await shared;
+  // headings.md opens with prose, then an H1 — the title comes from frontmatter,
+  // so the body heading is a normal section of the article and must appear in
+  // the on-this-page rail with an anchor.
+  const body = fs.readFileSync(path.join(dist, 'posts/a1b2c3d4/index.html'), 'utf8');
+  assert.ok(body.includes('<h1 class="post-title">Heading shapes</h1>'), 'the frontmatter title renders');
+  assert.ok(body.includes('<h1>A body title</h1>'), 'the body H1 stays in the article');
+  const toc = body.slice(body.indexOf('<nav class="toc"'));
+  assert.ok(/<li class="lvl1"><a href="#a-body-title">/.test(toc), `the H1 is the rail's first entry: ${toc.slice(0, 200)}`);
+  assert.ok(/<li class="lvl2"><a href="#after-the-title">/.test(toc), toc.slice(0, 300));
+  const opens = (body.match(/<section\b/g) ?? []).length;
+  const closes = (body.match(/<\/section>/g) ?? []).length;
+  assert.equal(opens, closes, 'section-divs output must stay balanced');
+
+  // dup-title.md's leading H1 repeats the frontmatter title: the page shows one
+  // heading, the redundant one is dropped with its section, and the rail has no
+  // entry for it.
+  const dup = fs.readFileSync(path.join(dist, 'posts/d4c3b2a1/index.html'), 'utf8');
+  assert.ok(dup.includes('<h1 class="post-title">Same as heading</h1>'), 'one title renders');
+  assert.ok(!dup.includes('<h1>Same as heading</h1>'), 'the duplicate body H1 is stripped');
+  assert.ok(!dup.includes('a-duplicate'), 'no stray TOC entry for the stripped heading');
+  assert.equal((dup.match(/<section\b/g) ?? []).length, (dup.match(/<\/section>/g) ?? []).length, 'sections stay balanced');
+});
+
 test('nginx /assets/ types cover every publishable attachment type', async () => {
   const { ATTACHMENT_TYPES } = await import('../src/render/attachments.ts');
   const nginx = fs.readFileSync(path.join(REPO, 'deploy/nginx/noteflow.conf'), 'utf8');
