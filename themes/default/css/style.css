@@ -814,13 +814,18 @@ a.brand-name:hover {
   background: var(--bg-hover);
 }
 
-/* Chevrons point the way the click moves the tree: up to expand, down to collapse. */
-.tf-all svg {
-  transition: rotate 160ms var(--ease);
+/* Outward arrows expand; inward arrows (arrow-collapse) is the same control's
+   collapse action. Same ↘↖ diagonal, so the icon only flips its heads. */
+.tf-all-in {
+  display: none;
 }
 
-.tf-all.is-open svg {
-  rotate: 180deg;
+.tf-all.is-open .tf-all-out {
+  display: none;
+}
+
+.tf-all.is-open .tf-all-in {
+  display: inline;
 }
 
 .sidebar-nav {
