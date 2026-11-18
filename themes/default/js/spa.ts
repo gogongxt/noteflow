@@ -161,6 +161,25 @@ function setHeader(root: Document): void {
   document.dispatchEvent(new CustomEvent("noteflow:header", { bubbles: false }));
 }
 
+/** The footer is page-invariant today, but it renders from config: swapping it
+ *  keeps a profile change (or a future per-page variant) honest without a reload. */
+function setFooter(root: Document): void {
+  const next = root.querySelector(".site-footer[data-region='footer']");
+  const current = document.querySelector(".site-footer[data-region='footer']");
+  if (!next) {
+    current?.remove();
+    return;
+  }
+  if (current) {
+    current.replaceWith(document.importNode(next, true));
+    return;
+  }
+  // A full-load page always has a footer; the branch keeps a stale cached
+  // page from losing it silently.
+  const shell = document.querySelector(".shell");
+  if (shell) shell.appendChild(document.importNode(next, true));
+}
+
 function ensureStyles(root: Document): void {
   for (const link of root.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')) {
     const href = link.getAttribute("href");
@@ -209,6 +228,7 @@ async function navigate(url: URL, opts: { replace?: boolean; pop?: boolean } = {
 
     main.replaceWith(document.importNode(nextMain, true));
     setHeader(root);
+    setFooter(root);
     setCurrentInSidebar(root);
     ensureStyles(root);
 

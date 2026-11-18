@@ -78,7 +78,7 @@ result, not to edit.)
 
 ## Configuration
 
-Everything lives in [`site.config.ts`](./site.config.ts): site name, URL, language, the content directory, page sizes, and the optional giscus comments block. Personal overrides go in `site.config.local.ts` or `.mjs` (gitignored) — its keys are merged on top of `site.config.ts`.
+Everything lives in [`site.config.ts`](./site.config.ts): site name, URL, language, the content directory, page sizes, the optional giscus comments block, and the site footer (copyright, links, 备案号). Personal overrides go in `site.config.local.ts` or `.mjs` (gitignored) — its keys are merged on top of `site.config.ts`.
 
 CLI flags and env vars take precedence: `--content <dir>`, `--out <dir>`, `PANDOC_BIN`.
 

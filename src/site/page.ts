@@ -11,6 +11,7 @@ import { breadcrumbs, sidebar } from './sidebar.ts';
 import type { Crumb } from './sidebar.ts';
 import { tocMinimap, tocNav, tocRail } from './toc.ts';
 import { giscusComments } from './comments.ts';
+import { footer } from './footer.ts';
 import { parseSummary } from '../content/summary.ts';
 import { tagLink } from './tags.ts';
 
@@ -198,5 +199,6 @@ export function pageShell(ctx: SiteCtx, theme: Theme, opts: ShellOpts): string {
     header: header(ctx, { kind: opts.kind, hasSidebar, breadcrumbs }),
     sidebar: sidebar(ctx, { currentPage: opts.page }),
     main: opts.main,
+    footer: footer(ctx),
   });
 }

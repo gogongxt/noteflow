@@ -13,6 +13,16 @@ const config: AppConfig = {
   // Header GitHub icon → this repository.
   repoUrl: 'https://github.com/gogongxt/noteflow',
 
+  // The docs site demos the footer's link row; the copyright and credit lines
+  // are the defaults.
+  footer: {
+    links: [
+      { label: 'Deployment', href: '/posts/211fd193' },
+      { label: 'Configuration', href: '/posts/5ec70f90' },
+      { label: 'Changelog', href: 'https://github.com/gogongxt/noteflow/releases' },
+    ],
+  },
+
   contentDir: 'docs',
   outDir: 'dist-docs',
   themeDir: 'themes/default',

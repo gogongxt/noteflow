@@ -750,6 +750,35 @@ test('repoUrl turns into a header GitHub link that opens off-site', async () => 
   assert.ok(!html.includes('repo-link'), 'without repoUrl the header must not link anywhere');
 });
 
+test('every page ends in a footer region; its off-site links carry the new-tab policy', async () => {
+  await shared;
+  await sharedDocs;
+  const rootPages = ['index.html', 'archives/index.html', 'tags/index.html', '404.html', 'posts/12341234/index.html'];
+  for (const rel of rootPages) {
+    const html = fs.readFileSync(path.join(dist, rel), 'utf8');
+    assert.ok(/<footer class="site-footer" data-region="footer">/.test(html), `${rel} is missing the footer region`);
+    assert.ok(html.indexOf('</main>') < html.indexOf('<footer class="site-footer"'), `${rel}: the footer must follow the main content`);
+    assert.ok(!html.includes('foot-links'), `${rel}: the neutral profile configures no footer links`);
+  }
+
+  const docsHtml = fs.readFileSync(path.join(docsDist, 'index.html'), 'utf8');
+  assert.ok(docsHtml.includes('<a href="/noteflow/posts/211fd193">Deployment</a>'), 'a configured site path must carry the base path');
+  assert.ok(
+    docsHtml.includes('Built with <a href="https://github.com/gogongxt/noteflow" target="_blank" rel="noopener noreferrer">noteflow</a>'),
+    'the credit links upstream in a new tab',
+  );
+  // Off-site footer links must satisfy the audit's policy, which the builds
+  // above already ran; assert the markup so a regression fails here, too.
+  for (const m of docsHtml.matchAll(/<footer[\s\S]*?<\/footer>/g)) {
+    for (const a of m[0].matchAll(/<a\b[^>]*>/g)) {
+      const tag = a[0];
+      if (/href="https?:\/\//.test(tag) && !tag.includes('href="https://gogongxt.github.io')) {
+        assert.ok(tag.includes('target="_blank"') && /rel="[^"]*noopener[^"]*noreferrer/.test(tag), `off-site footer link without the new-tab policy: ${tag}`);
+      }
+    }
+  }
+});
+
 test('nginx /assets/ types cover every publishable attachment type', async () => {
   const { ATTACHMENT_TYPES } = await import('../src/render/attachments.ts');
   const nginx = fs.readFileSync(path.join(REPO, 'deploy/nginx/noteflow.conf'), 'utf8');

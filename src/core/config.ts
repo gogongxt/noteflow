@@ -20,6 +20,30 @@ interface GiscusConfig {
   inputPosition?: 'top' | 'bottom';
 }
 
+/** A footer link: a site path (`/archives`, base path added) or an absolute
+ *  http(s)/mailto/tel URL. Other schemes are rejected by validation. */
+export interface FooterLink {
+  label: string;
+  href: string;
+}
+
+/** The site footer. Every piece renders only when configured. */
+export interface FooterConfig {
+  /** The © line; `{year}` becomes the build year (a `since`–year range when
+   *  `since` is set), `{site}` the site name. Defaults to `© {year} {site}`. */
+  copyright?: string;
+  /** First year of a `2020–2026` copyright range. */
+  since?: number;
+  /** Extra links beside the copyright. */
+  links?: FooterLink[];
+  /** ICP 备案号, linked to the MIIT query page in a new tab. */
+  icp?: string;
+  /** Override the ICP link target. */
+  icpUrl?: string;
+  /** The "Built with noteflow" credit, on by default; `false` removes it. */
+  credit?: boolean;
+}
+
 /** Rendering-facing site settings (everything a template may read). */
 export interface SiteConfig {
   url: string;
@@ -36,6 +60,8 @@ export interface SiteConfig {
   /** Also carry the CSP in a <meta> tag — for hosts that cannot send headers
    *  (GitHub Pages). nginx and serve.ts keep sending theirs. */
   cspMeta?: boolean;
+  /** Site footer. Omit for the default footer (copyright + credit). */
+  footer?: FooterConfig;
 }
 
 /** SiteConfig plus the builder's own paths, all repo-relative. */
@@ -96,6 +122,38 @@ function validate(cfg: AppConfig): AppConfig {
   if (g !== undefined) {
     if (typeof g !== 'object' || !g || typeof g.repo !== 'string' || typeof g.repoId !== 'string') {
       throw new BuildError('site.config.ts: giscus needs at least { repo, repoId } string fields');
+    }
+  }
+
+  const f = cfg.footer;
+  if (f !== undefined) {
+    if (typeof f !== 'object' || !f || Array.isArray(f)) throw new BuildError('site.config.ts: footer must be an object');
+    for (const k of ['copyright', 'icp', 'icpUrl'] as const) {
+      if (f[k] !== undefined && (typeof f[k] !== 'string' || !f[k]!.trim())) {
+        throw new BuildError(`site.config.ts: footer.${k} must be a non-empty string`);
+      }
+    }
+    if (f.since !== undefined && (!Number.isInteger(f.since) || f.since < 1900)) {
+      throw new BuildError('site.config.ts: footer.since must be a four-digit year');
+    }
+    if (f.credit !== undefined && typeof f.credit !== 'boolean') {
+      throw new BuildError('site.config.ts: footer.credit must be a boolean');
+    }
+    if (f.links !== undefined) {
+      if (!Array.isArray(f.links)) throw new BuildError('site.config.ts: footer.links must be an array of { label, href }');
+      for (const l of f.links) {
+        if (!l || typeof l.label !== 'string' || !l.label.trim() || typeof l.href !== 'string' || !l.href.trim()) {
+          throw new BuildError('site.config.ts: every footer.links entry needs non-empty label and href strings');
+        }
+        // A site path is resolved against the base path; anything else must be
+        // a link the audit can classify (mailto:/tel: are not tab links at all).
+        if (!l.href.startsWith('/') && !/^(https?:\/\/|mailto:|tel:)/i.test(l.href)) {
+          throw new BuildError(`site.config.ts: footer link "${l.label}" must start with / , http(s)://, mailto: or tel:`);
+        }
+      }
+    }
+    if (f.icpUrl !== undefined && !/^https?:\/\//i.test(f.icpUrl)) {
+      throw new BuildError('site.config.ts: footer.icpUrl must start with http:// or https://');
     }
   }
   return cfg;
