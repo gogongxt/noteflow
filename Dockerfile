@@ -14,10 +14,12 @@ ARG NODE_VERSION=22-bookworm-slim
 # ---- build base: everything npm ci and a local `./start.sh build` need ------
 FROM node:${NODE_VERSION} AS base
 ARG PANDOC_VERSION=3.13
+ARG TARGETARCH
 # The distro pandoc lacks the +server feature the builder runs against.
-RUN apt-get update \
+RUN case "$TARGETARCH" in arm64|amd64) ;; *) echo "unsupported arch: $TARGETARCH" >&2; exit 1 ;; esac \
+ && apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl xz-utils \
- && curl -fsSL "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/pandoc-${PANDOC_VERSION}-linux-amd64.tar.gz" \
+ && curl -fsSL "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/pandoc-${PANDOC_VERSION}-linux-${TARGETARCH}.tar.gz" \
     | tar xz --strip-components=2 -C /usr/local/bin "pandoc-${PANDOC_VERSION}/bin/pandoc" \
  && pandoc --version | grep -q '+server' \
  && apt-get purge -y curl && apt-get autoremove -y \

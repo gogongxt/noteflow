@@ -45,6 +45,9 @@ jobs:
         with:
           context: .
           push: true
+          # arm64 covers Apple Silicon and arm servers; buildx emulates it on
+          # the amd64 runner.
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
