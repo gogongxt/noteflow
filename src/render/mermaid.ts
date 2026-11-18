@@ -46,15 +46,19 @@ interface Attrs {
 
 function parseInfo(info: string): { lang: string; attrs: Attrs } {
   let rest = info.trim();
-  let attrText = '';
   const brace = /\{([^}]*)\}\s*$/.exec(rest);
+  // `:::{.mermaid caption="…"}` keeps everything in the braces; ```` ```mermaid {…}`
+  // spreads it over both sides, so the brace text is appended when present.
+  let attrText = '';
   if (brace) {
-    attrText = brace[1];
+    attrText = brace[1].trim();
     rest = rest.slice(0, brace.index).trim();
   }
-  let tokens = `${rest} ${attrText}`.split(/\s+/).filter(Boolean);
-  if (!rest && attrText) {
-    tokens = attrText.split(/\s+/).filter(Boolean);
+  rest = [rest, attrText].filter(Boolean).join(' ');
+  // Quoted values keep their spaces: `caption="The request handshake"` is one token.
+  const tokens: string[] = [];
+  for (const m of rest.matchAll(/([^\s="']+)=("[^"]*"|'[^']*')|\S+/g)) {
+    tokens.push(m[0]);
   }
   const attrs: Attrs = {};
   let lang = '';

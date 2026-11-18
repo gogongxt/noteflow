@@ -743,6 +743,20 @@ test('mermaid extraction: both fenced and fenced-div forms recognized, source ke
   assert.ok(!markdown.includes('```mermaid'), 'source should not remain in the document');
 });
 
+test('mermaid extraction: a quoted caption keeps its spaces in every fence/div form', () => {
+  const forms = [
+    ':::{.mermaid caption="The request/response handshake"}\nA->>B: x\n:::',
+    '```mermaid {caption="The request/response handshake"}\nA->>B: x\n```',
+    "```{.mermaid caption='The request/response handshake' #flow}\nA->>B: x\n```",
+  ];
+  for (const md of forms) {
+    const { blocks } = extractMermaid(md, 'k');
+    assert.equal(blocks[0].caption, 'The request/response handshake', md);
+  }
+  const { blocks } = extractMermaid('```{.mermaid caption="Cap" #flow}\nA-->B\n```', 'k');
+  assert.equal(blocks[0].key, 'k-flow');
+});
+
 test('mermaid extraction: examples inside .demo and nested fences are not diagrams', () => {
   const md = [
     '::: {.demo}',

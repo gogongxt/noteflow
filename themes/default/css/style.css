@@ -4159,29 +4159,6 @@ code.sourceCode span.wa {
   cursor: grabbing;
 }
 
-.mv-hint {
-  position: absolute;
-  left: 50%;
-  bottom: 4.6rem;
-  z-index: 2;
-  margin: 0;
-  padding: 0.45rem 0.9rem;
-  font-size: 0.8125rem;
-  line-height: 1.4;
-  color: var(--mv-fg);
-  background: var(--mv-panel-solid);
-  border: 1px solid var(--mv-border);
-  border-radius: 999px;
-  box-shadow: var(--mv-shadow-sm);
-  pointer-events: none;
-  translate: -50% 0;
-  white-space: nowrap;
-}
-
-.mv-hint[hidden] {
-  display: none;
-}
-
 .mv-card[data-kind="diagram"] {
   background: var(--mv-surface);
   border: 1px solid var(--mv-border);
@@ -4293,9 +4270,10 @@ code.sourceCode span.wa {
 
 .mv-zoom {
   min-width: 3.25rem;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
-  color: var(--mv-fg-faint);
+  color: var(--mv-fg-muted);
   text-align: center;
   user-select: none;
 }

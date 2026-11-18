@@ -142,8 +142,6 @@ export function initMediaViewer(): () => void {
   let card: HTMLElement | null = null;
   let canvas: SVGSVGElement | HTMLImageElement | null = null;
   let commitTimer = 0;
-  let hintAnim: Animation | null = null;
-  let hintTimer = 0;
   let lastFocus: HTMLElement | null = null;
 
   const overlay = document.createElement("div");
@@ -195,13 +193,8 @@ export function initMediaViewer(): () => void {
   const prevBtn = makeButton("mv-btn mv-prev", "Previous (←)", ICON.prev);
   const nextBtn = makeButton("mv-btn mv-next", "Next (→)", ICON.next);
 
-  const hint = document.createElement("p");
-  hint.className = "mv-hint";
-  hint.setAttribute("aria-hidden", "true");
-  hint.hidden = true;
-
   toolbar.append(zoomOutBtn, zoomLabel, zoomInBtn, fitBtn, copyBtn, downloadBtn);
-  stage.append(hint, toolbar, prevBtn, nextBtn);
+  stage.append(toolbar, prevBtn, nextBtn);
   overlay.append(stage, rail, closeBtn);
   document.body.appendChild(overlay);
 
@@ -306,48 +299,6 @@ export function initMediaViewer(): () => void {
     zoomAt(factor, stage.clientWidth / 2, stage.clientHeight / 2);
   };
 
-  const REST_OPACITY = 0.9;
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-
-  const endHint = (): void => {
-    hint.hidden = true;
-    hint.style.opacity = "";
-  };
-
-  const stopHint = (): void => {
-    window.clearTimeout(hintTimer);
-    hintTimer = 0;
-    hint.style.opacity = "";
-    if (!hintAnim) return;
-    // Callbacks fire as tasks: clear them first so a cancelled run cannot hide
-    // the hint a newer one just showed.
-    hintAnim.onfinish = hintAnim.oncancel = null;
-    hintAnim.cancel();
-    hintAnim = null;
-  };
-
-  const coarsePointer = window.matchMedia("(hover: none)");
-  const showHint = (): void => {
-    if (coarsePointer.matches) hint.textContent = "Pinch to zoom · drag to pan";
-    else if (item().kind === "diagram") hint.textContent = "Drag to pan · select text to copy";
-    else hint.textContent = "Drag to pan · scroll to zoom";
-    stopHint();
-    hint.hidden = false;
-    if (reducedMotion.matches) {
-      // The global reduced-motion rule collapses the animation to 0.01ms, which
-      // would "finish" and hide the hint instantly; keep it static instead.
-      hint.style.opacity = String(REST_OPACITY);
-      hintTimer = window.setTimeout(endHint, 3800);
-      return;
-    }
-    hintAnim = hint.animate(
-      [{ opacity: 0 }, { opacity: REST_OPACITY, offset: 0.12 }, { opacity: REST_OPACITY, offset: 0.74 }, { opacity: 0 }],
-      { duration: 3800, easing: "ease" },
-    );
-    hintAnim.onfinish = endHint;
-    hintAnim.oncancel = endHint;
-  };
-
   const renderStage = (): void => {
     cancelCommit();
     card?.remove();
@@ -413,7 +364,6 @@ export function initMediaViewer(): () => void {
     if (items.length < 2) return;
     index = (next + items.length) % items.length;
     renderStage();
-    showHint();
   };
 
   const open = (start: number, from: HTMLElement): void => {
@@ -423,7 +373,6 @@ export function initMediaViewer(): () => void {
     document.body.classList.add("mv-open");
     overlay.hidden = false;
     renderStage();
-    showHint();
     requestAnimationFrame(() => {
       fit();
       closeBtn.focus({ preventScroll: true });
@@ -434,8 +383,6 @@ export function initMediaViewer(): () => void {
     if (!isOpen) return;
     isOpen = false;
     cancelCommit();
-    stopHint();
-    hint.hidden = true;
     overlay.hidden = true;
     document.body.classList.remove("mv-open");
     card?.remove();
