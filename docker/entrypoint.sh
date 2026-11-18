@@ -22,7 +22,7 @@ fi
 # is used and this is a no-op.
 if [ ! -d node_modules ] || [ package.json -nt node_modules ]; then
   echo "==> Installing dependencies (source tree mounted?)"
-  npm ci --ignore-scripts || npm install --ignore-scripts
+  npm ci || npm install
 fi
 
 content_dir="${CONTENT_DIR:-notes}"

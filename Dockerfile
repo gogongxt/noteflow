@@ -27,9 +27,7 @@ WORKDIR /app
 # ---- deps: production node_modules, plus playwright-core for mermaid -------
 FROM base AS deps
 COPY package.json package-lock.json ./
-# --ignore-scripts: nothing here needs a postinstall, and it keeps the layer
-# reproducible.
-RUN npm ci --ignore-scripts
+RUN npm ci
 
 # ---- renderer: headless Chromium for mermaid prerendering ------------------
 # Without it the build still completes, but diagrams degrade to source blocks,
@@ -42,7 +40,8 @@ FROM renderer AS runtime
 # No NODE_ENV=production: the build runs mermaid and playwright-core, which are
 # devDependencies — npm would omit them under it.
 ENV PANDOC_BIN=pandoc \
-    PORT=8080
+    PORT=8080 \
+    PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
 # site.config.ts is the only file a self-hoster edits; theme, source and the
 # demo content are the rest of what the build reads.
 COPY site.config.ts ./
