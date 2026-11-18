@@ -208,6 +208,25 @@ test('abbrlink write-back: an existing EMPTY abbrlink field is replaced, not ref
   assert.equal(parseNote(out2).data?.abbrlink, 'abcd1234');
 });
 
+test('abbrlink write-back: a read-only content dir fails with an actionable error, not a raw EROFS', async () => {
+  const { writeAbbrlinks } = await import('../src/content/abbrlink.ts');
+  const dir = tmpDir('abbr-ro-');
+  const file = path.join(dir, 'ro', 'note.md');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, '---\ntitle: x\n---\n');
+  // Stubbing fs is more portable than chmod (root and overlayfs ignore modes).
+  const realWrite = fs.writeFileSync;
+  fs.writeFileSync = ((p: string, ...rest: unknown[]) => {
+    if (String(p).endsWith('note.md.tmp')) throw Object.assign(new Error('EROFS'), { code: 'EROFS' });
+    return (realWrite as (...a: unknown[]) => unknown)(p, ...rest);
+  }) as typeof fs.writeFileSync;
+  try {
+    assert.throws(() => writeAbbrlinks([{ path: file, text: 'x' }]), /content directory must be writable/);
+  } finally {
+    fs.writeFileSync = realWrite;
+  }
+});
+
 test('sanitize: whitelisted data:image URIs survive (the img transform must not be dead code)', () => {
   const out = sanitize('<img src="data:image/png;base64,iVBORw0KGgo=" alt="i">');
   assert.ok(out.includes('src="data:image/png;base64,'), `data: image src was dropped: ${out}`);

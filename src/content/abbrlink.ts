@@ -93,8 +93,19 @@ export function assertUnique(seen: Map<string, string>, entry: { abbrlink: strin
 export function writeAbbrlinks(writes: { path: string; text: string }[]): number {
   for (const w of writes) {
     const tmp = w.path + '.tmp';
-    fs.writeFileSync(tmp, w.text);
-    fs.renameSync(tmp, w.path);
+    try {
+      fs.writeFileSync(tmp, w.text);
+      fs.renameSync(tmp, w.path);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'EROFS' || code === 'EACCES' || code === 'EPERM') {
+        throw new BuildError(
+          `Cannot write back abbrlink to ${w.path} (${code}). The content directory must be writable: ` +
+            'a note gets its abbrlink once, on its first build. Mount it read-write, or add abbrlinks ahead of time.',
+        );
+      }
+      throw err;
+    }
   }
   return writes.length;
 }
