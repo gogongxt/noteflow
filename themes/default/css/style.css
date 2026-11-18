@@ -2341,7 +2341,7 @@ math[display="block"] {
   position: absolute;
   inset: -0.22rem -0.5rem;
   z-index: -1;
-  background-color: var(--accent-soft);
+  background-color: var(--mark-bg);
   border-radius: var(--radius-xs);
   animation: anchor-flash 1.8s var(--ease) forwards;
 }

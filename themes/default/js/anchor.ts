@@ -91,11 +91,14 @@ let flashTimer = 0;
 export function flashTarget(id: string): void {
   const node = document.getElementById(id);
   if (!node) return;
-  // An equation owns its id; a heading's id lives on its wrapping <section>.
+  // An equation owns its id; a heading's id lives on its wrapping <section>,
+  // so only the section itself resolves to the heading inside it. Anything
+  // else (a footnote <li>, an inline .footnote-ref) owns the id itself.
   const el =
     node.closest<HTMLElement>(".equation") ??
-    node.closest<HTMLElement>("section[id]")?.querySelector<HTMLElement>(":scope > :is(h1, h2, h3, h4, h5, h6)") ??
-    node.closest<HTMLElement>(":is(h1, h2, h3, h4, h5, h6)");
+    (node.matches("section[id]") ? node.querySelector<HTMLElement>(":scope > :is(h1, h2, h3, h4, h5, h6)") : null) ??
+    node.closest<HTMLElement>(":is(h1, h2, h3, h4, h5, h6)") ??
+    node;
   if (!el) return;
   if (flashEl) {
     clearTimeout(flashTimer);
