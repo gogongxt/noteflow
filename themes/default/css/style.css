@@ -1666,7 +1666,7 @@ article.page-index .post-body h4 {
   margin-right: 0.25rem;
   padding: 0;
   transform: translateY(-50%);
-  color: var(--fg-faint);
+  color: var(--accent);
   background: transparent;
   border: 0;
   border-radius: var(--radius-xs);
@@ -1676,7 +1676,7 @@ article.page-index .post-body h4 {
     background-color var(--dur) var(--ease);
 }
 
-.post-body :is(h2, h3, h4):hover > .heading-anchor,
+.post-body :is(h1, h2, h3, h4):hover > .heading-anchor,
 .heading-anchor:focus-visible,
 .heading-anchor[data-copied="true"] {
   opacity: 1;
