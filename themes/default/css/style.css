@@ -1778,7 +1778,6 @@ article.page-index .post-body h4 {
 
 .post-body :not(pre) > code {
   padding: 0.14em 0.4em;
-  /* margin, not padding: the clearance is *outside* the chip's tint. */
   margin-inline: 0.12em;
   font-family: var(--font-mono);
   font-size: 0.86em;
