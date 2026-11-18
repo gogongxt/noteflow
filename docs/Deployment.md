@@ -50,7 +50,7 @@ docker run --rm -p 8080:8080 \
   ghcr.io/gogongxt/noteflow:latest
 ```
 
-The image is built and published from a version tag by `.github/workflows/docker.yml`; it goes to GHCR, and to Docker Hub too once the `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` repository secrets exist. To build it yourself, `docker build -t noteflow .` from the repository root.
+The image is published from a version tag by `.github/workflows/docker.yml` — `linux/amd64` and `linux/arm64`, so Apple Silicon pulls a native build rather than emulating. It goes to GHCR, and to Docker Hub too once the `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` repository secrets exist. To build it yourself, `docker build -t noteflow .` from the repository root.
 
 For TLS, a domain, or several sites behind one proxy, run the container on a private port and put it behind the nginx setup below.
 
