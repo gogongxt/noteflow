@@ -128,12 +128,14 @@ function setCurrentInSidebar(root: Document): void {
     else a.removeAttribute("aria-current");
   }
 
-  // Only ever *open* ancestors: copying the server's `open` flags wholesale
-  // would collapse groups the user expanded themselves.
-  for (const next of root.querySelectorAll<HTMLDetailsElement>('#sidebar details[open]')) {
-    const key = next.dataset.href;
+  // Only ever *open* ancestors: server groups ship closed, so walk the current
+  // link's ancestors in the fetched sidebar and map them by relPath key.
+  const nextLink = current?.closest('#sidebar');
+  for (const d of nextLink?.querySelectorAll<HTMLDetailsElement>('details[data-href]') ?? []) {
+    if (!d.querySelector('[aria-current="page"]')) continue;
+    const key = d.dataset.key;
     if (!key) continue;
-    const local = sidebar.querySelector<HTMLDetailsElement>(`details[data-href="${CSS.escape(key)}"]`);
+    const local = sidebar.querySelector<HTMLDetailsElement>(`details[data-key="${CSS.escape(key)}"]`);
     if (local && !local.open) local.open = true;
   }
 

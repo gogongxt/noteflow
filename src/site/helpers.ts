@@ -63,7 +63,3 @@ export function bodyStartsWithH1(html: string): boolean {
 export function ancestorsOf(ctx: SiteCtx, page: Page): SidebarItem[] {
   return ctx.ancestorsOf.get(page.relPath) || [];
 }
-
-export function isAncestor(ctx: SiteCtx, item: SidebarItem, page: Page): boolean {
-  return ancestorsOf(ctx, page).some((a) => a.relPath === item.relPath);
-}

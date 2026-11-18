@@ -2,12 +2,12 @@
 import { esc } from '../core/util.ts';
 import type { Page, SidebarItem } from '../core/types.ts';
 import type { SiteCtx } from './layout.ts';
-import { isAncestor, siteUrl } from './helpers.ts';
+import { siteUrl } from './helpers.ts';
 
+// Groups ship closed; ui-boot.ts opens the current chain before paint.
 function sidebarItemHtml(ctx: SiteCtx, item: SidebarItem, page: Page | null): string {
   const href = item.href ? String(item.href) : null;
   const active = !!page && !!href && href === page.href;
-  const open = !!page && isAncestor(ctx, item, page);
   const children = item.children;
   const label = href
     ? `<a class="tree-link" href="${esc(href)}"${active ? ' aria-current="page"' : ''}>${esc(item.title)}</a>`
@@ -17,13 +17,26 @@ function sidebarItemHtml(ctx: SiteCtx, item: SidebarItem, page: Page | null): st
 
   const ul = '<ul>\n' + children.map((c) => sidebarItemHtml(ctx, c, page)).join('\n') + '\n</ul>';
   const tw =
-    `<button type="button" class="tw" data-tree-toggle aria-expanded="${open ? 'true' : 'false'}" aria-label="Expand or collapse">` +
+    '<button type="button" class="tw" data-tree-toggle aria-expanded="false" aria-label="Expand or collapse">' +
     '<svg class="tw-icon" viewBox="0 0 16 16" width="11" height="11" aria-hidden="true" focusable="false">' +
     '<path d="M6 3.5 10.5 8 6 12.5"/></svg></button>';
   return (
-    `<li class="tree-item has-children">\n<details data-href="${href ? esc(href) : ''}"${open ? ' open' : ''}>\n` +
+    `<li class="tree-item has-children">\n<details data-key="${esc(item.relPath)}"${href ? ` data-href="${esc(href)}"` : ''}>\n` +
     `<summary>${tw}${label}</summary>\n${ul}\n</details>\n</li>`
   );
+}
+
+/** Every group's relPath, which the client uses as its open-state key. */
+export function sidebarKeys(items: SidebarItem[]): string[] {
+  const out: string[] = [];
+  const walk = (list: SidebarItem[]): void => {
+    for (const it of list) {
+      if (it.children.length) out.push(it.relPath);
+      walk(it.children);
+    }
+  };
+  walk(items);
+  return out;
 }
 
 export function countNotes(items: SidebarItem[]): number {
@@ -40,14 +53,19 @@ export function sidebar(ctx: SiteCtx, { currentPage = null }: { currentPage?: Pa
   const tree = items.length
     ? '<ul class="tree">\n' + items.map((i) => sidebarItemHtml(ctx, i, currentPage)).join('\n') + '\n</ul>'
     : '<p class="tree-empty">No public notes yet</p>';
+  const keys = esc(JSON.stringify(sidebarKeys(items)));
   return (
-    '<aside id="sidebar" class="sidebar">\n' +
+    '<aside id="sidebar" class="sidebar" data-tree-groups="' + keys + '">\n' +
     '<div class="sidebar-filter">\n' +
     '<svg class="tf-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M10.8 4.6a6.2 6.2 0 1 0 0 12.4 6.2 6.2 0 0 0 0-12.4Z"/><path d="M15.4 15.4 19.4 19.4"/></svg>\n' +
     '<input type="text" id="tree-filter" class="tree-filter" placeholder="Filter notes…" autocomplete="off" spellcheck="false" aria-label="Filter notes by name">\n' +
     '<button type="button" class="tf-clear" aria-label="Clear filter" hidden>' +
     '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg></button>\n' +
     '<span class="tf-count"></span>\n' +
+    '<button type="button" class="tf-all" data-tree-all aria-label="Expand all" title="Expand all" aria-expanded="false">' +
+    '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' +
+    '<path class="tf-all-a" d="M7 9.5 12 4.5l5 5"/>' +
+    '<path class="tf-all-b" d="M7 16.5 12 11.5l5 5"/></svg></button>\n' +
     '</div>\n' +
     '<nav class="sidebar-nav" aria-label="Note directory">\n' +
     tree + '\n' +

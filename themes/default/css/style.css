@@ -795,6 +795,34 @@ a.brand-name:hover {
   background: var(--bg-hover);
 }
 
+.tf-all {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  color: var(--fg-faint);
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 120ms var(--ease), background-color 120ms var(--ease);
+}
+
+.tf-all:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+/* Chevrons point the way the click moves the tree: up to expand, down to collapse. */
+.tf-all svg {
+  transition: rotate 160ms var(--ease);
+}
+
+.tf-all.is-open svg {
+  rotate: 180deg;
+}
+
 .sidebar-nav {
   display: flex;
   flex-direction: column;

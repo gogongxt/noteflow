@@ -1,61 +1,98 @@
-// Sidebar tree: open-state persistence, toggle animation, and the name filter.
+// Sidebar tree: click-to-open-and-navigate, per-level open persistence, the
+// name filter, and the expand/collapse-all control.
 import { writeStore } from "./store.js";
+
+const KEY = "tree-open";
+
+function readOpen(): Record<string, boolean> {
+  try {
+    const v = JSON.parse(localStorage.getItem(KEY) || "{}");
+    return v && typeof v === "object" ? v : {};
+  } catch {
+    return {};
+  }
+}
 
 export function initTree(): void {
   const sidebar = document.getElementById("sidebar");
   if (!sidebar) return;
 
-  let stored: Record<string, boolean> = {};
-  try {
-    stored = JSON.parse(localStorage.getItem("tree-open") || "{}") || {};
-  } catch {
-    stored = {};
-  }
-  const save = (): void => writeStore(localStorage, "tree-open", JSON.stringify(stored));
-  const keyOf = (details: HTMLDetailsElement): string => details.dataset.href || "";
+  const detailsOf = (): HTMLDetailsElement[] => [...sidebar.querySelectorAll<HTMLDetailsElement>("details[data-key]")];
+  const keyOf = (d: HTMLDetailsElement): string => d.dataset.key || "";
+  const save = (open: Record<string, boolean>): void => writeStore(localStorage, KEY, JSON.stringify(open));
 
-  const animate = (details: HTMLDetailsElement): void => {
-    details.classList.add("tree-anim");
-    setTimeout(() => details.classList.remove("tree-anim"), 200);
+  const animate = (d: HTMLDetailsElement): void => {
+    d.classList.add("tree-anim");
+    setTimeout(() => d.classList.remove("tree-anim"), 200);
   };
 
-  for (const details of sidebar.querySelectorAll<HTMLDetailsElement>("details")) {
-    const key = keyOf(details);
-    if (key && key in stored && !details.open) details.open = stored[key] === true;
+  const open = (d: HTMLDetailsElement): void => {
+    if (d.open) return;
+    animate(d);
+    d.open = true;
+    const k = keyOf(d);
+    if (k) save({ ...readOpen(), [k]: true });
+  };
 
-    // Persist only explicit toggles (not programmatic open changes from the
-    // filter or the router).
-    const persist = (): void => {
-      if (key) {
-        stored[key] = details.open;
-        save();
-      }
-    };
+  const toggle = (d: HTMLDetailsElement): void => {
+    animate(d);
+    d.open = !d.open;
+    const k = keyOf(d);
+    if (k) save({ ...readOpen(), [k]: d.open });
+  };
 
-    const tw = details.querySelector<HTMLElement>(":scope > summary > .tw");
-    tw?.addEventListener("click", (e) => {
+  // The title is a link *and* the group's opener; the caret only expands.
+  sidebar.addEventListener("click", (e) => {
+    const target = e.target as Element | null;
+    if (!target) return;
+    const d = target.closest<HTMLDetailsElement>("details[data-key]");
+    if (!d) return;
+    if (target.closest(".tw")) {
       e.preventDefault();
-      e.stopPropagation();
-      animate(details);
-      details.open = !details.open;
-      persist();
-    });
+      toggle(d);
+      return;
+    }
+    if (!target.closest("summary > .tree-link") || e.button !== 0) return;
+    if (!d.open) open(d);
+  });
 
-    const label = details.querySelector<HTMLElement>(":scope > summary > .tree-link");
-    label?.addEventListener("click", (e) => {
-      if (details.open) return;
-      e.preventDefault();
-      animate(details);
-      details.open = true;
-      persist();
-      tw?.focus({ preventScroll: true });
-    });
-
-    details.addEventListener("toggle", () => {
-      tw?.setAttribute("aria-expanded", String(details.open));
-    });
-    tw?.setAttribute("aria-expanded", String(details.open));
+  sidebar.addEventListener("toggle", (e) => {
+    const d = e.target as HTMLDetailsElement;
+    d.querySelector<HTMLElement>(":scope > summary > .tw")?.setAttribute("aria-expanded", String(d.open));
+  }, true);
+  for (const d of detailsOf()) {
+    d.querySelector<HTMLElement>(":scope > summary > .tw")?.setAttribute("aria-expanded", String(d.open));
   }
+
+  const allBtn = sidebar.querySelector<HTMLElement>("[data-tree-all]");
+  const groups = (): string[] => {
+    try {
+      const v = JSON.parse(sidebar.dataset.treeGroups || "[]");
+      return Array.isArray(v) ? v : [];
+    } catch {
+      return [];
+    }
+  };
+  const syncAll = (): void => {
+    if (!allBtn) return;
+    const open = readOpen();
+    const keys = groups();
+    const every = keys.length > 0 && keys.every((k) => open[k]);
+    allBtn.setAttribute("aria-expanded", String(every));
+    allBtn.setAttribute("aria-label", every ? "Collapse all" : "Expand all");
+    allBtn.title = allBtn.getAttribute("aria-label") || "";
+    allBtn.classList.toggle("is-open", every);
+  };
+  allBtn?.addEventListener("click", () => {
+    const keys = groups();
+    const every = allBtn.getAttribute("aria-expanded") === "true";
+    const next: Record<string, boolean> = {};
+    for (const k of keys) next[k] = !every;
+    save(next);
+    for (const d of detailsOf()) d.open = next[keyOf(d)] === true;
+    syncAll();
+  });
+  syncAll();
 
   (function filter(): void {
     const input = sidebar.querySelector<HTMLInputElement>("#tree-filter");
@@ -70,7 +107,6 @@ export function initTree(): void {
 
     const allItems = sidebar.querySelectorAll("li.tree-item");
     const allLinks = sidebar.querySelectorAll("a.tree-link");
-    const allDetails = sidebar.querySelectorAll<HTMLDetailsElement>("details");
     const tree = sidebar.querySelector("ul.tree");
     const originals = new Map<Element, string>();
     // Open states captured at filter start; restore verbatim when cleared.
@@ -122,8 +158,8 @@ export function initTree(): void {
 
     const clearFilter = (): void => {
       if (snapshot) {
-        allDetails.forEach((d, i) => {
-          d.open = snapshot![i] || !!d.querySelector("[aria-current='page']");
+        detailsOf().forEach((d, i) => {
+          d.open = snapshot![i];
         });
         snapshot = null;
       }
@@ -131,6 +167,7 @@ export function initTree(): void {
       restoreLabels();
       clearBtn.hidden = true;
       countEl.textContent = String(allLinks.length);
+      syncAll();
     };
 
     const applyFilter = (): void => {
@@ -139,7 +176,7 @@ export function initTree(): void {
         clearFilter();
         return;
       }
-      if (!snapshot) snapshot = Array.from(allDetails, (d) => d.open);
+      if (!snapshot) snapshot = detailsOf().map((d) => d.open);
       restoreLabels();
       visibleNotes = 0;
       for (const child of tree?.children ?? []) walk(child, q, false);

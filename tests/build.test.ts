@@ -386,12 +386,20 @@ test('tag case merging: K8s and k8s are the same page', async () => {
   assert.equal(k8s.length, 1, `duplicate tag pages: ${dirs.join(', ')}`);
 });
 
-test('sidebar contains only public nodes; the current page\'s ancestors are expanded', async () => {
+test('sidebar contains only public nodes; groups ship closed and keyed for the boot script', async () => {
   await shared;
   const html = findPageByTitle(dist, 'Level 4');
   assert.ok(!html.includes('Private notes'));
   assert.ok(!html.includes('Account secrets'));
-  assert.ok(/<details\b[^>]*\sopen(?:\s|>)/.test(html), 'ancestors of the current page should be open');
+  // Every group is server-rendered closed; ui-boot.ts opens the current
+  // chain and any stored groups before the first frame.
+  assert.ok(!/<details\b[^>]*\sopen(?:\s|>)/.test(html), 'groups must ship closed');
+  assert.match(html, /<details data-key="tech\/docker\/deep"/, 'groups carry their relPath as the stable key');
+  assert.match(html, /data-tree-groups="[^"]*&quot;tech\/docker&quot;/, 'the expand-all control needs the full group list');
+  assert.ok(/data-tree-all/.test(html), 'the expand/collapse-all control must exist');
+  // One click opens and navigates: the group title is a plain link inside
+  // <summary>, with a separate caret button for pure expansion.
+  assert.match(html, /<summary><button type="button" class="tw"[^>]*><svg[^>]*>[\s\S]*?<\/button><a class="tree-link"/);
 });
 
 test('Subpages lists only immediate children; a directory child does not pull up its own subpages', async () => {
