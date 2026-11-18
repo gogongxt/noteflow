@@ -166,7 +166,7 @@ export function initMediaViewer(): () => void {
   const toolbar = document.createElement("div");
   toolbar.className = "mv-bar";
   toolbar.setAttribute("role", "toolbar");
-  toolbar.setAttribute("aria-label", "Zoom and actions");
+  toolbar.setAttribute("aria-label", "Viewer actions");
 
   const counter = document.createElement("span");
   counter.className = "mv-count";
