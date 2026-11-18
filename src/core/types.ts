@@ -112,6 +112,10 @@ export interface AssetUrls {
   /** Lazy-loaded in pages that render comments. */
   comments: string;
   favicon: string;
+  /** The square touch icon for home-screen bookmarks. */
+  touchIcon: string;
+  /** The wide theme mark, used by the header brand and the footer credit. */
+  mark: string;
   /** Empty when the theme ships no fonts. */
   fonts: string;
   /** Empty when no page has a mermaid diagram. */

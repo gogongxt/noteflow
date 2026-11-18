@@ -1,21 +1,15 @@
+import { esc } from '../core/util.ts';
+
+/** The theme artwork's intrinsic ratio (see `scripts/icons.sh`). */
+const ART_WIDTH = 144;
+const ART_HEIGHT = 97;
+
 // The noteflow mark, shared by the header brand and the footer's theme credit.
-// The gradient needs an id unique within the document, so each mount names it.
-export function logoMark(opts: { size?: number; id?: string; className?: string } = {}): string {
-  const { size = 24, id = 'logo-ink', className = 'logo-mark' } = opts;
-  return (
-    `<svg class="${className}" viewBox="0 0 32 32" width="${size}" height="${size}" aria-hidden="true" focusable="false">` +
-    '<defs>' +
-    `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="12.1" y1="0" x2="19.3" y2="0"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#6e6e73"/></linearGradient>` +
-    '</defs>' +
-    '<circle cx="16" cy="16" r="16" fill="#000"/>' +
-    '<rect x="9.4" y="6.6" width="13.2" height="16.4" rx="2.7" fill="#fff" fill-opacity=".42" stroke="#000" stroke-width="1.4" transform="rotate(-24 16 23.6)"/>' +
-    '<rect x="9.4" y="6.6" width="13.2" height="16.4" rx="2.7" fill="#fff" fill-opacity=".62" stroke="#000" stroke-width="1.4" transform="rotate(-8 16 23.6)"/>' +
-    '<rect x="9.4" y="6.6" width="13.2" height="16.4" rx="2.7" fill="#fff" fill-opacity=".81" stroke="#000" stroke-width="1.4" transform="rotate(8 16 23.6)"/>' +
-    '<g transform="rotate(24 16 23.6)">' +
-    '<rect x="9.4" y="6.6" width="13.2" height="16.4" rx="2.7" fill="#fff"/>' +
-    `<path d="M12.1 10.6h7.2M12.1 14.6h5.6" fill="none" stroke="url(#${id})" stroke-width="1.5" stroke-linecap="round"/>` +
-    `<path d="M12.1 18.6q1.7-2.2 3.4 0t3.4 0" fill="none" stroke="url(#${id})" stroke-width="1.3" stroke-linecap="round"/>` +
-    '</g>' +
-    '</svg>'
-  );
+// The artwork is a detailed render, so it ships as one hashed PNG the browser
+// caches forever rather than inline SVG repeated on every page.
+export function logoMark(opts: { src: string; height?: number; className?: string }): string {
+  const { src, height = 24, className = 'logo-mark' } = opts;
+  // Width follows the artwork's ratio; height drives the layout box.
+  const width = Math.round((height * ART_WIDTH) / ART_HEIGHT);
+  return `<img class="${esc(className)}" src="${esc(src)}" width="${width}" height="${height}" alt="" decoding="async">`;
 }

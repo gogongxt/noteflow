@@ -1132,19 +1132,18 @@ test('footer: the theme mark, the linked © line and the author credit, all opti
   const { footer } = await import('../src/site/footer.ts');
   const base = { url: 'https://example.com', siteName: 'my notes', lang: 'en', postPattern: '/posts/{abbrlink}', pageSize: { home: 5, feed: 5 } };
   const ctx = (site: object, builtAt = new Date('2026-03-04T00:00:00Z')) =>
-    ({ site, builtAt }) as unknown as Parameters<typeof footer>[0];
+    ({ site, builtAt, assets: { mark: '/static/img/mark.abc12345.png' } }) as unknown as Parameters<typeof footer>[0];
 
   const plain = footer(ctx(base));
   assert.ok(plain.startsWith('<footer class="site-footer" data-region="footer">'), 'the footer is a semantic, swappable region');
   // Without copyrightUrl the whole © line — mark and text — is the project link.
   assert.ok(
     plain.includes(
-      '<a class="foot-copy" href="https://github.com/gogongxt/noteflow" target="_blank" rel="noopener noreferrer"><svg',
+      '<a class="foot-copy" href="https://github.com/gogongxt/noteflow" target="_blank" rel="noopener noreferrer"><img class="logo-mark" src="/static/img/mark.abc12345.png"',
     ),
     plain,
   );
   assert.ok(plain.includes('© 2026 my notes</a>'), plain);
-  assert.ok(plain.includes('id="footer-logo-ink"'), 'the footer mark needs its own gradient id (the header has one)');
   assert.ok(!plain.includes('noteflow</a>') && !plain.includes('foot-by') && !plain.includes('foot-icp'), plain);
 
   // since → a year range; a custom template interpolates year and site.
@@ -1157,14 +1156,14 @@ test('footer: the theme mark, the linked © line and the author credit, all opti
   const prefixed = footer(ctx({ ...base, url: 'https://user.github.io/noteflow', footer: { copyrightUrl: '/about' } }));
   assert.ok(prefixed.includes('<a class="foot-copy" href="/noteflow/about">'), prefixed);
   assert.ok(prefixed.includes('© 2026 my notes</a>'), prefixed);
-  assert.ok(prefixed.includes('<svg'), 'the mark rides inside the linked © line');
+  assert.ok(prefixed.includes('<img class="logo-mark"'), 'the mark rides inside the linked © line');
   const sameHost = footer(ctx({ ...base, url: 'https://user.github.io/noteflow', footer: { copyrightUrl: 'https://user.github.io/noteflow/archives' } }));
   assert.ok(sameHost.includes('<a class="foot-copy" href="https://user.github.io/noteflow/archives">'), 'same-host links stay in the tab');
   const offsite = footer(ctx({ ...base, footer: { copyrightUrl: 'https://pandoc.org' } }));
   assert.ok(offsite.includes('<a class="foot-copy" href="https://pandoc.org" target="_blank" rel="noopener noreferrer">'), offsite);
   // credit: false keeps the © line but drops the mark.
   const noMark = footer(ctx({ ...base, footer: { copyrightUrl: '/about', credit: false } }));
-  assert.ok(!noMark.includes('<svg') && noMark.includes('<a class="foot-copy" href="/about">© 2026 my notes</a>'), noMark);
+  assert.ok(!noMark.includes('logo-mark') && noMark.includes('<a class="foot-copy" href="/about">© 2026 my notes</a>'), noMark);
 
   // By <author>, optionally linked; unset renders nothing.
   assert.ok(footer(ctx({ ...base, footer: { author: 'gogongxt' } })).includes('<span class="foot-by">By gogongxt</span>'));

@@ -68,7 +68,7 @@ function navSpinner(): string {
 export function header(ctx: SiteCtx, opts: { kind: PageKind; hasSidebar?: boolean; breadcrumbs?: string }): string {
   const { kind, hasSidebar = true, breadcrumbs = '' } = opts;
   const siteName = esc(ctx.site.siteName);
-  const brand = `<a class="brand" href="${esc(siteUrl(ctx.site, '/'))}" aria-label="Back to home">${logoMark({ id: 'logo-ink' })}<span class="brand-name">${siteName}</span></a>`;
+  const brand = `<a class="brand" href="${esc(siteUrl(ctx.site, '/'))}" aria-label="Back to home">${logoMark({ src: ctx.assets.mark })}<span class="brand-name">${siteName}</span></a>`;
   const nav = navItems(ctx).map((n) => {
     const active = n.kinds.includes(kind) ? ' aria-current="page" class="is-active"' : '';
     return `<li><a href="${n.href}"${active}>${n.label}</a></li>`;

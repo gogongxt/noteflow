@@ -334,7 +334,9 @@ test('public note URLs are extensionless directories (/posts/<abbrlink>/); exist
 test('image references are rewritten to root-absolute /assets/ and do not 404', async () => {
   await shared;
   const html = findPageByTitle(dist, 'Image references');
-  const srcs = [...html.matchAll(/<img[^>]+src="([^"]+)"/g)].map((m) => m[1]);
+  // Only the note's own images: the header brand and footer credit ship theme
+  // icons under /static/img/, not content attachments.
+  const srcs = [...html.matchAll(/<img(?![^>]*class="logo-mark")[^>]+src="([^"]+)"/g)].map((m) => m[1]);
   assert.ok(srcs.length >= 1);
   for (const s of srcs) {
     assert.match(s, /^\/assets\/[0-9a-f]{8}\//);
@@ -681,7 +683,7 @@ test('all static assets are content-addressed: hashed under /static/, HTML refer
   assert.equal(unhashed.length, 0, `unhashed static assets remain: ${unhashed.join(', ')}`);
 
   const index = fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
-  for (const legacy of ['/style.css', '/fonts.css', '/app.js', '/search.js', '/media.js', '/diagrams.css', '/favicon.svg']) {
+  for (const legacy of ['/style.css', '/fonts.css', '/app.js', '/search.js', '/media.js', '/diagrams.css', '/favicon.svg', '/favicon.png']) {
     assert.ok(!new RegExp(`(?:href|src)="${legacy}"`).test(index), `the page still references unhashed ${legacy}`);
   }
   assert.ok(/<link rel="stylesheet" href="\/static\/style\.[0-9a-f]{8}\.css">/.test(index), 'should reference the hashed style.css');
@@ -774,7 +776,7 @@ test('every page ends in a footer region; the docs profile adds the author credi
     assert.ok(html.indexOf('</main>') < html.indexOf('<footer class="site-footer"'), `${rel}: the footer must follow the main content`);
     // The neutral profile: one linked © line carrying the theme mark, nothing else.
     assert.ok(
-      /<a class="foot-copy" href="https:\/\/github\.com\/gogongxt\/noteflow" target="_blank" rel="noopener noreferrer"><svg[\s\S]*© \d{4} my notes<\/a>/.test(html),
+      /<a class="foot-copy" href="https:\/\/github\.com\/gogongxt\/noteflow" target="_blank" rel="noopener noreferrer"><img class="logo-mark"[\s\S]*© \d{4} my notes<\/a>/.test(html),
       `${rel}: the default © line should link this project as a whole`,
     );
     assert.ok(!html.includes('foot-by') && !html.includes('foot-icp') && !html.includes('Built with'), `${rel}: nothing else is configured`);
@@ -786,9 +788,11 @@ test('every page ends in a footer region; the docs profile adds the author credi
     docsHtml.includes('<span class="foot-by">By <a class="foot-author" href="https://github.com/gogongxt" target="_blank" rel="noopener noreferrer">gogongxt</a></span>'),
     'the docs profile adds a linked author credit',
   );
-  // The header and the footer both mount the mark; the gradient ids must not collide.
-  const ids = [...docsHtml.matchAll(/<linearGradient id="([^"]+)"/g)].map((m) => m[1]);
-  assert.equal(new Set(ids).size, ids.length, `duplicate SVG gradient ids: ${ids.join(', ')}`);
+  // The header and the footer share one hashed mark URL, so the icon is fetched once.
+  const marks = [...docsHtml.matchAll(/<img class="logo-mark" src="([^"]+)"/g)].map((m) => m[1]);
+  assert.equal(marks.length, 2, `the header and footer should each mount the mark: ${marks.join(', ')}`);
+  assert.equal(new Set(marks).size, 1, `the two marks must share one cached asset: ${marks.join(', ')}`);
+  assert.ok(/^\/noteflow\/static\/img\/mark\.[0-9a-f]{8}\.png$/.test(marks[0]), `the docs mark must carry the base path: ${marks[0]}`);
   // Off-site footer links must satisfy the audit's policy, which the builds
   // above already ran; assert the markup so a regression fails here, too.
   for (const m of docsHtml.matchAll(/<footer[\s\S]*?<\/footer>/g)) {

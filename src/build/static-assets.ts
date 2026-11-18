@@ -118,8 +118,17 @@ export function buildStaticAssets(input: StaticInput): StaticBundle {
 
   const cssBuf = fs.readFileSync(path.join(input.themeDir, 'css/style.css'));
   const styleUrl = add(hashedName('style.css', hash8(cssBuf)), cssBuf);
-  const faviconBuf = fs.readFileSync(path.join(input.themeDir, 'favicon.svg'));
-  const faviconUrl = add(hashedName('favicon.svg', hash8(faviconBuf)), faviconBuf);
+
+  // The icon set is one raster artwork at several sizes; the wide mark is the
+  // header/footer glyph, the square one is the tab/touch icon.
+  const iconDir = path.join(input.themeDir, 'img');
+  const icon = (name: string): string => {
+    const buf = fs.readFileSync(path.join(iconDir, name));
+    return add(`img/${hashedName(name, hash8(buf))}`, buf);
+  };
+  const markUrl = icon('mark.png');
+  const faviconUrl = icon('favicon.png');
+  const touchIconUrl = icon('apple-touch-icon.png');
 
   let fontsUrl = '';
   const fontsDir = path.join(input.themeDir, 'fonts');
@@ -161,6 +170,8 @@ export function buildStaticAssets(input: StaticInput): StaticBundle {
       media: urls.get('media.js')!,
       comments: urls.get('comments.js')!,
       favicon: faviconUrl,
+      touchIcon: touchIconUrl,
+      mark: markUrl,
       fonts: fontsUrl,
       diagrams: diagramsUrl,
       searchIndex: searchIndexUrl,

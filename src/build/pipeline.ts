@@ -172,7 +172,7 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
     themeInitSrc,
     uiBootSrc,
     // Replaced with content-hashed URLs before rendering; the placeholder never reaches output.
-    assets: { style: '', app: '', spa: '', search: '', media: '', comments: '', favicon: '', fonts: '', diagrams: '', searchIndex: '' },
+    assets: { style: '', app: '', spa: '', search: '', media: '', comments: '', favicon: '', touchIcon: '', mark: '', fonts: '', diagrams: '', searchIndex: '' },
     builtAt: buildTime,
   };
 

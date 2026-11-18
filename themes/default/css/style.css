@@ -446,9 +446,19 @@ a.brand-name:hover {
   color: var(--fg);
 }
 
+/* The mark is a bitmap; the height attribute sets the row's box, width follows
+   the artwork ratio (144×97). Without the fixed height it paints at natural
+   size and dwarfs the header. */
 .logo-mark {
   display: block;
   flex: none;
+  height: 1.5rem;
+  width: auto;
+  object-fit: contain;
+}
+
+.site-footer .logo-mark {
+  height: 1.125rem;
 }
 
 .header-actions {

@@ -193,6 +193,7 @@ export function pageShell(ctx: SiteCtx, theme: Theme, opts: ShellOpts): string {
     diagrams_css: a.diagrams ? `<link rel="stylesheet" href="${esc(a.diagrams)}">\n` : '',
     style_css: esc(a.style),
     favicon: esc(a.favicon),
+    touch_icon: esc(a.touchIcon),
     app_js: esc(a.app),
     page_kind: opts.kind,
     shell_class: hasSidebar ? '' : ' no-sidebar',

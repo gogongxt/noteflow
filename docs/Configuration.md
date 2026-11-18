@@ -33,7 +33,7 @@ footer: {
   authorUrl: 'https://github.com/you',
   icp: '京ICP备00000000号',        // 备案号, linked to beian.miit.gov.cn
   icpUrl: 'https://beian.miit.gov.cn/',  // optional: point the 备案 link elsewhere
-  credit: false,                  // drop the theme mark
+  credit: false,                  // drop the mark and the project link
 },
 ```
 
@@ -42,6 +42,7 @@ footer: {
 - `author` renders `By <name>`, optionally linked; unset renders nothing.
 - `icp` prints the filing number and links it to the MIIT query page. Set `icpUrl` if your filing is queried at another address.
 - Without `copyrightUrl` the whole © line (mark included) links this project; setting it retargets that one link.
+- `credit: false` drops the mark; the © text then renders as plain, unlinked text.
 
 Footer links are audited like every other link: a site path must exist in the output, and an off-site link without a new-tab target fails the build.
 
