@@ -64,7 +64,7 @@ export function sidebar(ctx: SiteCtx, { currentPage = null }: { currentPage?: Pa
     '<span class="tf-count"></span>\n' +
     '<button type="button" class="tf-all" data-tree-all aria-label="Expand all" title="Expand all" aria-expanded="false">' +
     '<svg class="tf-all-svg" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' +
-    '<g class="tf-all-out"><path d="M9.5 4.5 4.5 9.5M4.5 5v4.5H9M14.5 19.5 19.5 14.5M19.5 19v-4.5H14.5"/></g>' +
+    '<g class="tf-all-out"><path d="M9.5 9.5 4.5 4.5M8.5 4.5H4.5V8.5M14.5 14.5 19.5 19.5M15.5 19.5H19.5V15.5"/></g>' +
     '<g class="tf-all-in"><path d="M4.5 4.5 9.5 9.5M5.5 9.5H9.5V5.5M19.5 19.5 14.5 14.5M18.5 14.5H14.5V18.5"/></g></svg></button>\n' +
     '</div>\n' +
     '<nav class="sidebar-nav" aria-label="Note directory">\n' +
