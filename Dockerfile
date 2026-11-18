@@ -1,6 +1,6 @@
 # noteflow in a container: mount your notes, get a served site.
 #
-#   docker run --rm -p 8080:8080 -v "$PWD/notes:/app/notes" gogongxt/noteflow
+#   docker run --rm -p 8080:8080 -v "$PWD/notes:/app/notes:rw" ghcr.io/gogongxt/noteflow:latest
 #
 # The image builds the site from /app/notes on every start (abbrlinks are
 # written back there, so the mount is read-write) and serves it through the

@@ -7,7 +7,7 @@
 services:
   noteflow:
     build: .
-    image: gogongxt/noteflow:latest
+    image: ghcr.io/gogongxt/noteflow:latest
     ports:
       - "8080:8080"
     volumes:
