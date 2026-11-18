@@ -41,6 +41,15 @@ npm test                       # full test suite (includes a real build)
 Without a content directory of your own, the build falls back to `docs/` — this
 documentation tree, which doubles as the demo.
 
+**No toolchain?** The container brings its own — Node, pandoc, Chromium:
+
+```bash
+docker run --rm -p 8080:8080 -v "$PWD/notes:/app/notes:rw" ghcr.io/gogongxt/noteflow:latest
+```
+
+It builds the mounted notes on every start and serves them at
+<http://localhost:8080>. See [Docker in the deployment guide](https://gogongxt.github.io/noteflow/posts/211fd193).
+
 ## What it is
 
 You keep everything — drafts, private notes, published posts — in one Markdown

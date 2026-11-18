@@ -31,6 +31,8 @@ export interface SiteConfig {
   pageSize: { home: number; feed: number };
   /** When set, public notes show comments by default; `comments: false` opts out per note. */
   giscus?: GiscusConfig;
+  /** Repository URL shown as a GitHub icon in the header; hidden when unset. */
+  repoUrl?: string;
   /** Also carry the CSP in a <meta> tag — for hosts that cannot send headers
    *  (GitHub Pages). nginx and serve.ts keep sending theirs. */
   cspMeta?: boolean;

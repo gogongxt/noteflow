@@ -25,6 +25,9 @@ const config: AppConfig = {
   postPattern: '/posts/{abbrlink}',
   pageSize: { home: 20, feed: 20 },
 
+  // Optional: a header GitHub icon linking to your repository. Remove to hide.
+  // repoUrl: 'https://github.com/you/your-notes',
+
   // Comments via GitHub Discussions: add a giscus block (repo, repoId, …)
   // to enable; remove it to disable (frame-src becomes 'none').
   // giscus: { repo: 'user/repo', repoId: '…', category: 'Announcements', categoryId: '…' },

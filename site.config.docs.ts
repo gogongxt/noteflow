@@ -10,6 +10,9 @@ const config: AppConfig = {
   lang: 'en',
   description: 'noteflow — a pandoc-powered knowledge-base static site generator',
 
+  // Header GitHub icon → this repository.
+  repoUrl: 'https://github.com/gogongxt/noteflow',
+
   contentDir: 'docs',
   outDir: 'dist-docs',
   themeDir: 'themes/default',

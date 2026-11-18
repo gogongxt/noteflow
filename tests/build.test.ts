@@ -738,6 +738,18 @@ test('pages mark soft-navigation regions, and header controls live inside the he
   assert.ok(html.includes('data-search-open'), 'the search entry should be delegation-friendly');
 });
 
+test('repoUrl turns into a header GitHub link that opens off-site', async () => {
+  await sharedDocs;
+  // The docs profile is the one with repoUrl set; the neutral default has none.
+  const docsHtml = fs.readFileSync(path.join(docsDist, 'index.html'), 'utf8');
+  assert.ok(
+    docsHtml.includes('<a class="icon-btn repo-link" href="https://github.com/gogongxt/noteflow" target="_blank" rel="noopener noreferrer"'),
+    'the docs header is missing the GitHub link',
+  );
+  const html = fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
+  assert.ok(!html.includes('repo-link'), 'without repoUrl the header must not link anywhere');
+});
+
 test('nginx /assets/ types cover every publishable attachment type', async () => {
   const { ATTACHMENT_TYPES } = await import('../src/render/attachments.ts');
   const nginx = fs.readFileSync(path.join(REPO, 'deploy/nginx/noteflow.conf'), 'utf8');

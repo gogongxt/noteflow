@@ -16,6 +16,7 @@ All configuration lives in `site.config.ts`; CLI flags (`--content`, `--out`) an
 | `postPattern` | URL shape of a note, `/posts/{abbrlink}` by default. |
 | `pageSize` | Entries per page for the home list and the feed. |
 | `giscus` | Comments via GitHub Discussions; remove the block to disable. |
+| `repoUrl` | A repository URL shown as a GitHub icon in the header, opening in a new tab. Unset hides it. |
 | `cspMeta` | Also carry the CSP in a `<meta>` tag — for hosts that cannot send response headers (GitHub Pages). |
 
 ## Named profiles

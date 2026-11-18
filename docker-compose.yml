@@ -1,0 +1,29 @@
+# noteflow: mount your notes, get a served site on http://localhost:8080.
+#
+#   docker compose up --build
+#
+# The image is rebuilt on every start, so `--build` only matters when the
+# project's own files changed.
+services:
+  noteflow:
+    build: .
+    image: gogongxt/noteflow:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      # Adjust the left side to your notes directory. Read-write on purpose:
+      # a note's abbrlink is written into its frontmatter on the first build.
+      - ./notes:/app/notes:rw
+      # Optional: run from a source tree instead of the image's code (a fork,
+      # or a checkout newer than the tag). node_modules is installed on start
+      # when this mount hides the image's own.
+      # - .:/app:ro
+      # Personal values: site.config.local.ts merges over the neutral config.
+      # - ./site.config.local.ts:/app/site.config.local.ts:ro
+    environment:
+      # A named site.config.* profile instead of site.config.ts, e.g.
+      # site.config.docs.ts. Mount it in /app and make sure its contentDir is
+      # the directory mounted here.
+      # CONFIG: site.config.docs.ts
+      PORT: "8080"
+    restart: unless-stopped

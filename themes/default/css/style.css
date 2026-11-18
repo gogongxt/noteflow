@@ -597,6 +597,11 @@ a.brand-name:hover {
   stroke-linejoin: round;
 }
 
+.icon-btn.repo-link svg {
+  fill: currentColor;
+  stroke: none;
+}
+
 .theme-toggle .icon-moon {
   display: none;
 }
