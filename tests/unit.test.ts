@@ -1184,6 +1184,8 @@ test('config validation: footer shape is checked up front, not mid-build', async
     ["footer: { links: [{ label: '', href: '/x' }] },", /needs non-empty label and href/],
     ["footer: { links: [{ label: 'x', href: 'javascript:alert(1)' }] },", /must start with \/ , http\(s\):\/\/, mailto: or tel:/],
     ["footer: { links: [{ label: 'x', href: 'pandoc.org' }] },", /must start with \/ , http\(s\):\/\/, mailto: or tel:/],
+    ["footer: { links: [{ label: 'x', href: '//evil.example/x' }] },", /must start with \/ , http\(s\):\/\/, mailto: or tel:/],
+    ["footer: { links: [{ label: 'x', href: '/\\\\evil.example/x' }] },", /must start with \/ , http\(s\):\/\/, mailto: or tel:/],
     ["footer: { icpUrl: 'mailto:x' },", /footer\.icpUrl must start with http/],
   ];
   for (const [src, re] of bad) {

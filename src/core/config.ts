@@ -147,7 +147,8 @@ function validate(cfg: AppConfig): AppConfig {
         }
         // A site path is resolved against the base path; anything else must be
         // a link the audit can classify (mailto:/tel: are not tab links at all).
-        if (!l.href.startsWith('/') && !/^(https?:\/\/|mailto:|tel:)/i.test(l.href)) {
+        // `//host` and `/\host` are protocol-relative — rejected, not prefixed.
+        if (/^\/(?:\/|\\|\/\\|\\)/.test(l.href) || (!l.href.startsWith('/') && !/^(https?:\/\/|mailto:|tel:)/i.test(l.href))) {
           throw new BuildError(`site.config.ts: footer link "${l.label}" must start with / , http(s)://, mailto: or tel:`);
         }
       }
