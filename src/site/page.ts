@@ -4,7 +4,7 @@ import { CSP_META_TAG } from '../core/csp.ts';
 import { fillLayout } from './layout.ts';
 import type { SiteCtx, Theme } from './layout.ts';
 import type { Page } from '../core/types.ts';
-import { absUrl, ancestorsOf, bodyStartsWithH1, descriptionOf, firstParagraph, fmtDate, pageTitleHtml, siteUrl, titleOf } from './helpers.ts';
+import { absUrl, ancestorsOf, descriptionOf, firstParagraph, fmtDate, pageTitleHtml, siteUrl, titleOf } from './helpers.ts';
 import { header, pageClass } from './header.ts';
 import type { PageKind } from './header.ts';
 import { breadcrumbs, sidebar } from './sidebar.ts';
@@ -75,7 +75,7 @@ function postMeta(page: Page, ctx: SiteCtx): string {
 }
 
 function articleTitle(page: Page): string {
-  return bodyStartsWithH1(page.html || '') ? '' : `<h1 class="post-title">${esc(titleOf(page))}</h1>\n`;
+  return `<h1 class="post-title">${esc(titleOf(page))}</h1>\n`;
 }
 
 const ICON_SUMMARY =

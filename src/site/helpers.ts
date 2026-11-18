@@ -56,12 +56,6 @@ export function titleOf(page: Page | null | undefined): string {
   return String(page?.title ?? '');
 }
 
-/** The body's own opening heading, when the author wrote one: `pandoc`'s
- *  section-divs puts it inside a level-1 section, so both shapes count. */
-export function bodyStartsWithH1(html: string): boolean {
-  return /^\s*(?:<!--[\s\S]*?-->\s*)*(?:<section\b[^>]*>\s*)?<h1[\s>]/i.test(String(html || ''));
-}
-
 export function ancestorsOf(ctx: SiteCtx, page: Page): SidebarItem[] {
   return ctx.ancestorsOf.get(page.relPath) || [];
 }
