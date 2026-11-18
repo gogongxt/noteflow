@@ -3460,6 +3460,7 @@ article.page-404 h1 {
 }
 
 .post-body .code-head {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3471,6 +3472,22 @@ article.page-404 h1 {
   color: var(--fg-subtle);
   background: var(--code-head);
   border-bottom: 1px solid var(--code-border);
+}
+
+/* A fence title is centered in the bar, so it neither shifts the language
+   label nor competes with the copy button. Out of flow: the label and the
+   copy keep their own flex positions, and the title truncates instead of
+   pushing them apart. The symmetric insets leave room for both sides. */
+.post-body .code-title {
+  position: absolute;
+  inset-inline: 4rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: center;
+  color: var(--fg-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
 }
 
 .post-body .code-lang {

@@ -1,7 +1,7 @@
 // Build-time code-block chrome: every pandoc <pre> ships wrapped in
-// .sourceCode > .code-wrap — a head bar (language + copy) when a language is
+// .sourceCode > .code-wrap — a head bar (title, language, copy) when either is
 // known, a plain card otherwise. Nothing is reconstructed client-side.
-import { append, classesOf, element, setAttr, SVG_NS, text, type P5Any } from '../core/dom.ts';
+import { append, classesOf, dropAttr, element, getAttr, setAttr, SVG_NS, text, type P5Any } from '../core/dom.ts';
 
 const ICON_COPY_D = 'M9 9h10v10H9z M5 15V5h10';
 const ICON_CHECK_D = 'M5 12.5l4.5 4.5L19 7.5';
@@ -48,8 +48,10 @@ export function normalizeCodeBlock(pre: P5Any): void {
 
   const preIsBoxed = parent.nodeName === 'div' && classesOf(parent).includes('sourceCode');
   const lang = codeLangOf(pre);
+  // Highlighted blocks carry `title` on the sourceCode div; plain ones on <pre>.
+  const title = ((preIsBoxed ? getAttr(parent, 'title') : '') || getAttr(pre, 'title') || '').trim();
   const box = preIsBoxed ? parent : element('div', 'sourceCode');
-  if (!lang && !classesOf(box).includes('code-plain')) {
+  if (!lang && !title && !classesOf(box).includes('code-plain')) {
     setAttr(box, 'class', [...classesOf(box), 'code-plain'].join(' '));
   }
   const boxKids = preIsBoxed ? kids : (box.childNodes = [pre]);
@@ -59,11 +61,22 @@ export function normalizeCodeBlock(pre: P5Any): void {
   }
 
   const wrap = element('div', 'code-wrap');
-  if (lang) {
+  if (lang || title) {
     const head = element('div', 'code-head');
-    const label = element('span', 'code-lang');
-    text(label, lang);
-    append(head, label);
+    // Symmetric insets: the title centers without shifting the label or copy.
+    if (title) {
+      const t = element('span', 'code-title');
+      text(t, title);
+      append(head, t);
+      // Consumed; a tooltip repeating the visible title is noise.
+      dropAttr(pre, 'title');
+      if (preIsBoxed) dropAttr(parent, 'title');
+    }
+    if (lang) {
+      const label = element('span', 'code-lang');
+      text(label, lang);
+      append(head, label);
+    }
     append(head, copyButton(true));
     append(wrap, head);
   } else {

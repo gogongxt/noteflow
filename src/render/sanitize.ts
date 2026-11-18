@@ -88,7 +88,8 @@ export const SANITIZE_OPTIONS = {
     source: ['src', 'type'],
     track: ['src', 'kind', 'srclang', 'label', 'default'],
     code: ['class', 'id'],
-    pre: ['class', 'id'],
+    // A fence's `title` becomes the code block's centered header.
+    pre: ['class', 'id', 'title'],
     div: ['class', 'id', 'data-note', 'data-icon', 'data-title', 'data-mermaid-key', 'style'],
     th: ['class', 'id', 'style', 'colspan', 'rowspan', 'scope'],
     td: ['class', 'id', 'style', 'colspan', 'rowspan'],

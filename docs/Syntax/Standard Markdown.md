@@ -154,6 +154,20 @@ def greet(name):
 ```
 :::
 
+A `title` attribute names the block; it centers in the head bar while the
+language keeps the left edge:
+
+::: {.demo}
+````markdown
+```{.ts title="sort.ts"}
+export const byName = (a, b) => a.name.localeCompare(b.name);
+```
+````
+```{.ts title="sort.ts"}
+export const byName = (a, b) => a.name.localeCompare(b.name);
+```
+:::
+
 A fence without a language (or with one the highlighter does not know) has no
 highlighting, but the same frame and copy button:
 

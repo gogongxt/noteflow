@@ -75,9 +75,9 @@ export function splitSections(html: string): Section[] {
   const visit = (node: P5Any): void => {
     if (SKIP.has(node.nodeName)) return;
     const cls = (getAttr(node, 'class') || '').split(/\s+/);
-    // Build-time chrome (code-lang) and external og text (link-card) are not
-    // the author's prose; keep them out of the corpus.
-    if (cls.includes('code-lang') || cls.includes('link-card')) return;
+    // Build-time chrome (code-lang, code-title) and external og text
+    // (link-card) are not the author's prose; keep them out of the corpus.
+    if (cls.includes('code-lang') || cls.includes('code-title') || cls.includes('link-card')) return;
     const hm = /^h([1-3])$/.exec(node.nodeName);
     if (hm) {
       const heading = norm(collect(node));

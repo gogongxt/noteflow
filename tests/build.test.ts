@@ -238,6 +238,10 @@ test('code blocks: every block ships its chrome at build time (indented / langua
   // With a language: head bar with label + copy. Language-less: plain card
   // (code-plain) with an icon-only corner copy, no head bar.
   assert.ok(html.includes('<span class="code-lang">js</span>'), 'highlighted block shows its language');
+  // A fence title lands in the head bar alongside the language, and the
+  // consumed attribute never survives as a tooltip.
+  assert.ok(html.includes('<span class="code-title">sort.ts</span><span class="code-lang">ts</span>'), 'a titled fence shows its title');
+  assert.ok(!/<(?:pre|div)\b[^>]*\btitle="sort\.ts"/.test(html), 'the fence title must be consumed, not duplicated');
   assert.ok(html.includes('class="sourceCode code-plain"'), 'language-less blocks become plain cards');
   const plainBox = html.slice(html.indexOf('code-plain'), html.indexOf('</pre>', html.indexOf('code-plain')));
   assert.ok(!plainBox.includes('code-head'), 'plain cards carry no head bar');

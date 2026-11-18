@@ -456,6 +456,18 @@ test('code blocks: every pre ships chrome; a hand-written div.sourceCode keeps i
   // with a language: head bar with the label
   assert.ok(html.includes('<span class="code-lang">js</span>'), html);
   assert.ok(/<\/pre><\/div><p>note<\/p><\/div>/.test(html), `sibling lost: ${html}`);
+
+  // A fence title becomes a centered header; pandoc puts it on the <pre> for
+  // an unhighlighted block and on the sourceCode div when highlighting.
+  const plainTitle = pp('<pre class="ts" title="sort.ts"><code>x</code></pre>');
+  assert.ok(plainTitle.html.includes('<span class="code-title">sort.ts</span><span class="code-lang">ts</span>'), plainTitle.html);
+  assert.ok(!plainTitle.html.includes('title="sort.ts"'), 'the consumed title must not linger as a tooltip');
+  const boxed = pp('<div class="sourceCode" title="app.ts"><pre class="ts"><code>x</code></pre></div>');
+  assert.ok(boxed.html.includes('<span class="code-title">app.ts</span>'), boxed.html);
+  assert.ok(!boxed.html.includes('title="app.ts"'), boxed.html);
+  // Title without a language still earns a head bar (not a plain card).
+  const titleOnly = pp('<pre title="notes"><code>x</code></pre>');
+  assert.ok(titleOnly.html.includes('code-head') && !titleOnly.html.includes('code-plain'), titleOnly.html);
 });
 
 test('link rewriting: private target → plain text "(page not public)"', () => {
