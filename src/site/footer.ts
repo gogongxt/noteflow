@@ -19,15 +19,11 @@ function resolveHref(ctx: SiteCtx, href: string): string {
 
 /** Same policy as note links and the output audit: another host opens a new
  *  tab, anything on this site (or mailto:/tel:) stays in the current one. */
-export function footerAnchor(ctx: SiteCtx, label: string, href: string, cls = ''): string {
+function footerAnchor(ctx: SiteCtx, label: string, href: string): string {
   const url = resolveHref(ctx, href);
   const offsite = isOffsiteHref(url, siteHostOf(ctx.site.url));
   const attrs = offsite ? ' target="_blank" rel="noopener noreferrer"' : '';
-  return `<a${cls ? ` class="${cls}"` : ''} href="${esc(url)}"${attrs}>${esc(label)}</a>`;
-}
-
-function anchor(ctx: SiteCtx, label: string, href: string): string {
-  return footerAnchor(ctx, label, href);
+  return `<a href="${esc(url)}"${attrs}>${esc(label)}</a>`;
 }
 
 /** `© {year} {site}`: the year expands to `since–year` once `since` is set. */
@@ -38,8 +34,8 @@ function copyrightText(footer: FooterConfig, siteName: string, now: Date): strin
   return esc(template).replace(/\{year\}/g, range).replace(/\{site\}/g, esc(siteName));
 }
 
-/** One row of the footer's normal flow: a border, then identity on the left and
- *  the credit/ICP on the right. Below 768px it wraps into stacked lines. */
+/** Identity (copyright, links) on the left, filing number and credit on the
+ *  right; the row stacks below 768px. */
 export function footer(ctx: SiteCtx): string {
   const cfg: FooterConfig = ctx.site.footer ?? {};
   const copyright = copyrightText(cfg, ctx.site.siteName, ctx.builtAt);
@@ -50,7 +46,7 @@ export function footer(ctx: SiteCtx): string {
   if (links.length) {
     identity.push(
       '<nav class="foot-links" aria-label="Footer">\n<ul>\n' +
-        links.map((l) => `<li>${anchor(ctx, l.label, l.href)}</li>`).join('\n') +
+        links.map((l) => `<li>${footerAnchor(ctx, l.label, l.href)}</li>`).join('\n') +
         '\n</ul>\n</nav>',
     );
   }
