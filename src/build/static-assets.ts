@@ -1,8 +1,5 @@
-// Content-addressed static assets: everything ships as
-// /static/<name>.<hash>.<ext> and caches forever. Browser modules are emitted
-// in dependency order with import specifiers rewritten to hashed filenames;
-// the graph is derived from the sources and a missing import or cycle fails
-// the build.
+// Content-addressed static assets under /static/<name>.<hash>.<ext>. Browser
+// modules emit in dependency order; a missing import or cycle fails the build.
 import fs from 'node:fs';
 import path from 'node:path';
 import { hash8, hashedName, staticUrl } from '../core/util.ts';

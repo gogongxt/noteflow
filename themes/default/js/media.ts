@@ -3,10 +3,8 @@ const ID_PREFIX = "mv-";
 const ZOOM_MIN = 0.1;
 const ZOOM_MAX = 12;
 const DIAGRAM_PAD = 22;
-// Zoom lays the media out at the target size and only uses a transform during
-// the gesture: Chromium caches a composited layer's raster at a capped scale,
-// so a pure CSS scale leaves text blurry. Input idle for this long commits the
-// transform into layout, which re-rasterizes the text as vectors.
+// Chromium caches a composited layer's raster at a capped scale, so a pure CSS
+// scale leaves text blurry. Idle for this long commits the transform into layout.
 const COMMIT_DELAY = 140;
 // A laid-out layer above this many pixels on either side costs too much
 // memory; past it the zoom stays a transform (bitmap scaling).
@@ -222,11 +220,9 @@ export function initMediaViewer(): () => void {
     return sel.toString().trim();
   };
 
-  // While a gesture is in flight the card stays at its laid-out size and a
-  // transform on the card does the scaling, which the compositor handles without
-  // layout or raster work. commit() then moves the same scale into layout, so
-  // the text is rasterized at its final size; both states put the card's
-  // top-left at (panX, panY), so the swap does not move anything on screen.
+  // During a gesture a transform does the scaling; commit() moves the same scale
+  // into layout, re-rasterizing the text. Both states pin the card's top-left at
+  // (panX, panY), so the swap moves nothing on screen.
   const place = (): void => {
     if (!card || !canvas) return;
     const it = item();

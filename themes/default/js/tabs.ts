@@ -1,7 +1,6 @@
-// Progressive enhancement for `::: {.tabs}` groups. The build emits every panel
-// visible under its data-title (the whole no-JS experience); this module
-// upgrades each group to an ARIA tab widget. Panels are hidden, never removed,
-// so they stay in the DOM and the search index.
+// Progressive enhancement for `::: {.tabs}` groups: the build emits every panel
+// visible, and this upgrades each group to an ARIA tab widget. Panels hide, never
+// leave the DOM, so the search index keeps them.
 
 import { jumpTo } from "./anchor.js";
 
@@ -89,10 +88,8 @@ export function initTabs(doc: Document = document): void {
   for (const root of doc.querySelectorAll<HTMLElement>(".post-body .tabs")) enhance(root, index++);
 }
 
-/**
- * Reveal the group that owns the heading `id`, so a link into a hidden panel
- * scrolls somewhere visible. Returns true when a group handled it.
- */
+/** Reveal the group owning the heading `id`, so a link into a hidden panel
+ *  scrolls somewhere visible. True when a group handled it. */
 export function revealAnchor(id: string): boolean {
   const target = document.getElementById(id);
   const tab = target?.closest<HTMLElement>(".tab");

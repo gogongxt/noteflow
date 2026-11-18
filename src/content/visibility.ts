@@ -122,10 +122,8 @@ export function resolveTree(parsedRoot: ParsedNode): ResolveResult {
       privateItems.push({ kind: 'page', absPath: node.mdPath, relPath: node.relPath, title, abbrlink });
     }
 
-    // A directory switched private by `_index.md` guards its whole prefix,
-    // attachments included. Only the node where privacy starts needs a record:
-    // when there is an `x.md`, the page item's relPath already prefixes `x/`,
-    // and a private parent's prefix covers every private child as well.
+    // Only the node where privacy starts needs a record: its relPath already
+    // prefixes every private child's, attachments included.
     if (node.dirPath && !node.mdPath && parentPublic && !isPublic) {
       privateItems.push({ kind: 'dir', absPath: node.dirPath, relPath: node.relPath, title, abbrlink });
     }

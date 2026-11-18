@@ -1,12 +1,6 @@
-// abbrlink: the CRC32 URL slug in frontmatter. The hash input is pinned so a
-// given title+date always yields the same URL: `crc32Hex(title + "|" + date)`,
-// where date is the frontmatter's own date text cut to YYYY-MM-DD.
-//
-// Two find-and-write-back paths live here: the build (assignAbbrlinks, over the
-// scanned TreeNode+Page model) and the `backfill-abbrlink` CLI (collectMissing,
-// over raw files, so it also covers private notes). Both must keep computing
-// slugs and verifying write-back identically, or the same note gets different
-// URLs from the two entry points.
+// abbrlink: the CRC32 URL slug in frontmatter, `crc32Hex(title + "|" + date)`
+// with the date cut to YYYY-MM-DD. The build and the `backfill-abbrlink` CLI
+// must compute and verify write-back identically, or a note gets two URLs.
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';

@@ -1,6 +1,5 @@
 // Build orchestration: scan → abbrlink → mermaid → pandoc → postprocess →
-// link cards → render → write → audit → manifest. Everything here is pure
-// sequencing; each step lives in its own layer module.
+// link cards → render → write → audit → manifest. Pure sequencing only.
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -94,7 +93,7 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
   const broken: { relPath: string; msg: string }[] = [];
   const warnings: string[] = [];
   const privateLeakWarns: string[] = [];
-  // The <meta> CSP's style hashes must be known before pages render.
+  // The <meta> CSP's style hashes must be known before rendering.
   const bodyInlineStyles = new Set<string>();
   const assets = makeAssetNamer(realRoot);
   try {
@@ -171,7 +170,7 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
     tagSlugs: buildTagSlugs(pages),
     themeInitSrc,
     uiBootSrc,
-    // Replaced with content-hashed URLs before rendering; the placeholder never reaches output.
+    // Replaced with content-hashed URLs before rendering.
     assets: { style: '', app: '', spa: '', search: '', media: '', comments: '', favicon: '', touchIcon: '', mark: '', fonts: '', diagrams: '', searchIndex: '' },
     builtAt: buildTime,
   };
@@ -193,8 +192,8 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
   for (const [rel, content] of staticBundle.files) outputs.set(toPosix(rel), content);
 
   // ---- meta CSP (hosts that cannot send headers, e.g. GitHub Pages) --------
-  // upgrade-insecure-requests stays out so a plain-http preview of the same
-  // dist/ still loads; the audit cross-checks the style hashes after writing.
+  // No upgrade-insecure-requests: the same dist/ must stay previewable over
+  // plain http. The audit cross-checks the style hashes after writing.
   if (cfg.cspMeta) {
     const tag = `<meta http-equiv="Content-Security-Policy" content="${esc(buildCsp({ script: scriptHashes, style: [...bodyInlineStyles].map(styleHash) }, cfg))}">`;
     for (const [rel, content] of outputs) {

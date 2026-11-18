@@ -1,7 +1,6 @@
 // The security boundary for everything pandoc emits: an output-side allowlist
 // (notes rely on raw HTML, so parsing cannot be disabled). Anything not listed
-// here is silently dropped — every new Markdown extension needs an entry and a
-// test, or its content just disappears.
+// is silently dropped, so a new Markdown extension needs an entry and a test.
 import sanitizeHtml from 'sanitize-html';
 import { BITMAP_DATA_MIMES } from '../core/util.ts';
 

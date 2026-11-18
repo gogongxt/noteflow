@@ -20,10 +20,8 @@ export function writeAtomic(absPath: string, content: string | Buffer): void {
   fs.renameSync(absPath + '.tmp', absPath);
 }
 
-/** Existing dist files keyed by posix rel path; attachments get `null` bytes.
- *  They are listed so stale ones are still collected, but never read: a video
- *  must not be loaded into memory, and writeDiff never emits under assets/ to
- *  compare against. */
+/** Existing dist files by rel path. Attachments list as `null` bytes: stale
+ *  ones still get collected, but a video is never read into memory. */
 function readTree(dir: string): Map<string, Buffer | null> {
   const out = new Map<string, Buffer | null>();
   let files: string[];

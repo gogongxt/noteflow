@@ -1,10 +1,7 @@
 // Hand-rolled giscus embed: the official client injects giscus.app scripts and
-// styles, which `script-src/style-src 'self'` forbids (and we do not relax).
-// What remains is the iframe, whose height arrives over postMessage. This file
-// reproduces the parts of client.ts that matter: the ?giscus=<session> OAuth
-// handoff (without it sign-in silently fails in the parent), signOut reload,
-// resize, and theme sync. The term comes from the build's data-term, never
-// location.pathname, so the discussion key survives URL-shape changes.
+// styles, which our CSP forbids. The iframe is kept plus the parts of client.ts
+// that matter — the ?giscus=<session> OAuth handoff, resize and theme sync. The
+// term comes from data-term, so the discussion key survives URL changes.
 
 const GISCUS_ORIGIN = "https://giscus.app";
 const SESSION_KEY = "giscus-session";

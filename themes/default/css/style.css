@@ -788,7 +788,6 @@ a.brand-name:hover {
   min-width: 0;
 }
 
-/* Default: the whole © line links this project, mark included. */
 .foot-copy {
   display: inline-flex;
   align-items: center;
@@ -2697,7 +2696,6 @@ pre.lang-mermaid {
   opacity: 0;
 }
 
-/* Sidebar entry, sitting directly above the site nav. */
 /* Jump-to-comments entry under the TOC list (inside .toc-panel). */
 .toc-foot {
   margin-top: 0.55rem;

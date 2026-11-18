@@ -34,15 +34,14 @@ const TYPES: Record<string, string> = {
   '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.pdf': 'application/pdf',
 };
 
-/** Attachment types come from the build's own table, so a newly allowed media
- *  type cannot be served as application/octet-stream here (Safari then refuses
- *  to play it). nginx declares the same set in deploy/. */
+/** Types come from the build's own table: a new media type must not be served
+ *  as octet-stream (Safari then refuses to play it). nginx mirrors the set. */
 for (const [ext, mime] of Object.entries(ATTACHMENT_TYPES)) {
   TYPES['.' + ext] = mime.startsWith('text/') ? `${mime}; charset=utf-8` : mime;
 }
 
-/** CSP hashes are re-read when the manifest's mtime changes, never per request;
- *  a missing/unreadable manifest keeps the last good hashes. */
+/** Re-read on manifest mtime change, never per request (the manifest is written
+ *  atomically). A missing manifest keeps the last good hashes. */
 const MANIFEST_SOURCES = (): string[] => [path.join(ROOT, 'build-info.json'), repoPath(cfg.manifestFile)];
 let hashCache: { key: string; hashes: CspHashes } | null = null;
 

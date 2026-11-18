@@ -1,7 +1,6 @@
-// Regenerates the nginx security-header snippet from a build manifest (CSP
-// hashes change per build). --out writes atomically and a refused manifest
-// never touches the file — never redirect stdout into the snippet instead:
-// the shell truncates the target before this script can refuse.
+// Regenerates the nginx security-header snippet from a build manifest (the CSP
+// hashes change per build). Write with --out: shell redirection truncates the
+// target before this script can refuse.
 import fs from 'node:fs';
 import path from 'node:path';
 import { basePathOf, loadConfig } from '../core/config.ts';

@@ -102,11 +102,8 @@ function requireString(cfg: Record<string, unknown>, key: string): void {
   }
 }
 
-/** A footer href: a site path (base path added at render time) or an absolute
- *  http(s)/mailto/tel URL — anything the output audit can classify. `//host`
- *  and `/\host` are protocol-relative, so a bare starts-with-slash check would
- *  wave them through.
- */
+/** A footer href: a site path or an absolute http(s)/mailto/tel URL. `//host`
+ *  is protocol-relative, so the leading-slash check cannot be naive. */
 function checkFooterHref(href: string, key: string): void {
   const bad =
     typeof href !== 'string' ||
@@ -172,10 +169,7 @@ export async function loadConfig(file?: string): Promise<AppConfig> {
   return validate(merged as unknown as AppConfig);
 }
 
-/**
- * The site's own host:port, as the link policy compares against. A relative or
- * scheme-only url is a config error, reported like every other one.
- */
+/** The site's own host:port, as the link policy compares against. */
 export function siteHostOf(siteUrl: string): string {
   try {
     return new URL(siteUrl).host;
@@ -184,10 +178,8 @@ export function siteHostOf(siteUrl: string): string {
   }
 }
 
-/** The URL path prefix every emitted URL carries, derived from `url`'s own
- *  pathname — a GitHub Pages project site (`https://user.github.io/<repo>/`)
- *  serves under one. '' for a root deployment. The prefix lives in URL space
- *  only; dist/ keeps its unprefixed layout. */
+/** The URL path prefix every emitted URL carries, from `url`'s pathname (a
+ *  GitHub Pages project site has one). '' for root; dist/ stays unprefixed. */
 export function basePathOf(siteUrl: string): string {
   const pathname = new URL(siteUrl).pathname.replace(/\/+$/, '');
   return pathname === '/' ? '' : pathname;

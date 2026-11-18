@@ -1,8 +1,6 @@
-// External video embeds. A note writes an ordinary link to a YouTube or
-// Bilibili watch page and marks it `.embed`; the build swaps it for the
-// provider's privacy-friendly iframe. Only the origins in EMBED_ORIGINS get a
-// frame (the CSP's frame-src lists exactly those), and the iframe is sandboxed
-// so a hostile provider page cannot reach the parent.
+// External video embeds: a link to a provider watch page marked `.embed` becomes
+// the provider's privacy-friendly iframe. Only EMBED_ORIGINS get a frame (the
+// CSP's frame-src lists exactly those); containment is CSP, not sandbox.
 import { append, element, getAttr, setAttr, type P5Any } from '../core/dom.ts';
 import { markExternal } from './links.ts';
 
@@ -72,11 +70,8 @@ export function expandEmbed(node: P5Any, embed: Embed): P5Any {
   // on its own; the reader clicks play.
   setAttr(frame, 'allow', 'encrypted-media; picture-in-picture; fullscreen; presentation');
   setAttr(frame, 'allowfullscreen', '');
-  // No sandbox: Bilibili's player cannot initialise in a sandboxed frame (it
-  // needs same-origin storage; allowing both same-origin and scripts is no
-  // sandbox at all). Containment is CSP instead — frame-src names exactly the
-  // provider origins, the audit rejects any other iframe, and Permissions-
-  // Policy withholds camera/microphone/geolocation from the framed page.
+  // No sandbox: Bilibili needs same-origin storage, and allowing both that and
+  // scripts is no sandbox at all. Containment is frame-src plus Permissions-Policy.
   append(wrap, frame);
 
   const fallback = element('a', 'embed-fallback');

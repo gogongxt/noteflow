@@ -1,7 +1,6 @@
 // Watch mode: rebuild on content/theme/config changes. Each rebuild is a child
-// process (a crash cannot poison the watcher, and config edits take effect);
-// the debounce coalesces editor save-storms into one rebuild, and a rebuild in
-// flight finishes before a queued one starts.
+// process (a crash cannot poison the watcher; config edits take effect), debounced
+// so an editor save-storm is one rebuild.
 import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';

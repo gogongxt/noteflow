@@ -131,10 +131,8 @@ export function runAuditDetailed(input: AuditInput): AuditResult {
             }
           }
         }
-        // Both directions of the link policy, except inside code blocks, where
-        // markup is quoted rather than live (postprocess never rewrites those).
-        // Off-site (another host) and attachment downloads open a new tab;
-        // every other link is page navigation and must stay in this one.
+        // Off-site and attachment links open a new tab; everything else is
+        // page navigation. Code blocks quote markup, so they are exempt.
         if (node.nodeName === 'a' && !insideCode(node)) {
           const target = node.attrs?.find((a) => a.name === 'target')?.value;
           const relValue = node.attrs?.find((a) => a.name === 'rel')?.value ?? '';

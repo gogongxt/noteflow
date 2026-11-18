@@ -139,7 +139,6 @@ function setCurrentInSidebar(root: Document): void {
     if (local && !local.open) local.open = true;
   }
 
-  // Bring the active entry into view, like a full load.
   const active = sidebar.querySelector<HTMLElement>('[aria-current="page"]');
   const nav = sidebar.querySelector<HTMLElement>(".sidebar-nav");
   if (!active || !nav) return;
@@ -150,8 +149,8 @@ function setCurrentInSidebar(root: Document): void {
   }
 }
 
-/** Replace the header's contents, not the header: the sticky element keeps its
- *  identity (no backdrop repaint); only nav/crumbs differ between pages. */
+/** Replace the header's contents, not the element: it keeps its identity, so
+ *  the sticky backdrop is never repainted. */
 function setHeader(root: Document): void {
   const next = root.querySelector(".site-header > .header-inner");
   const current = document.querySelector(".site-header > .header-inner");
@@ -161,8 +160,8 @@ function setHeader(root: Document): void {
   document.dispatchEvent(new CustomEvent("noteflow:header", { bubbles: false }));
 }
 
-/** The footer is page-invariant today, but it renders from config: swapping it
- *  keeps a profile change (or a future per-page variant) honest without a reload. */
+/** Swapped rather than kept: it renders from config, so a profile change shows
+ *  without a reload. */
 function setFooter(root: Document): void {
   const next = root.querySelector(".site-footer[data-region='footer']");
   const current = document.querySelector(".site-footer[data-region='footer']");
@@ -174,8 +173,7 @@ function setFooter(root: Document): void {
     current.replaceWith(document.importNode(next, true));
     return;
   }
-  // A full-load page always has a footer; the branch keeps a stale cached
-  // page from losing it silently.
+  // A stale cached page has no footer of its own; keep the old one.
   const shell = document.querySelector(".shell");
   if (shell) shell.appendChild(document.importNode(next, true));
 }
@@ -220,7 +218,6 @@ async function navigate(url: URL, opts: { replace?: boolean; pop?: boolean } = {
     const nextMain = root.getElementById("main");
     if (!main || !nextMain) throw new Error("Page is missing main#main");
 
-    // A soft navigation must land at the top unless the link targets a heading.
     const hash = url.hash;
     document.title = titleOf(root);
     const pageKind = root.body.dataset.page;
@@ -232,8 +229,7 @@ async function navigate(url: URL, opts: { replace?: boolean; pop?: boolean } = {
     setCurrentInSidebar(root);
     ensureStyles(root);
 
-    // Hooks reshape the layout (table wrappers, tab panels); run them before
-    // measuring the scroll target.
+    // Hooks reshape the layout (table wrappers, tab panels): run before measuring.
     for (const hook of hooks) {
       try {
         hook(root);
@@ -302,7 +298,6 @@ export function initSoftNav(): void {
     void navigate(new URL(location.href), { pop: true });
   });
 
-  // Prefetch on hover/focus so the bar completes almost instantly when it can.
   const prefetched = new Set<string>();
   const prefetch = (e: Event): void => {
     const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
@@ -315,10 +310,8 @@ export function initSoftNav(): void {
   document.addEventListener("pointerover", prefetch, { passive: true });
   document.addEventListener("focusin", prefetch, { passive: true });
 
-  // Tag the first entry so popstate can tell; remember where to come back.
   history.replaceState({ ...(history.state || {}), soft: true, y: window.scrollY }, "", location.href);
 
-  // Persist the position before leaving, so popstate can restore it.
   addEventListener("pagehide", () => {
     history.replaceState({ ...(history.state || {}), y: window.scrollY }, "", location.href);
   });

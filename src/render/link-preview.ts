@@ -1,7 +1,6 @@
-// Build-time link cards: [fallback](https://…){.link-preview} alone on a line
-// becomes a card. Metadata is fetched here (the CSP forbids runtime fetching),
-// cached under <cacheDir>/link-previews/, and enters output only as escaped
-// parse5 text nodes. Failures degrade to plain links.
+// Build-time link cards: [x](https://…){.link-preview} alone on a line becomes a
+// card. Metadata is fetched here (CSP forbids runtime fetching) and cached;
+// external strings enter output as escaped text only. Failures stay plain links.
 import fs from 'node:fs';
 import path from 'node:path';
 import dns from 'node:dns/promises';
@@ -141,9 +140,7 @@ export async function loadCards(hrefs: string[], opts: LoadOptions): Promise<Loa
         }
         const prev = cache.get(href);
         if (prev?.ok) {
-          // A failed refresh must not destroy working metadata: keep the last
-          // known good entry (and keep serving it) — the next --refresh-links
-          // retries; ordinary builds never revisit a cached-ok url.
+          // Keep the last good entry: a failed refresh must not destroy it.
           cards.set(href, { url: href, ...prev });
           notes.push(`refetch failed (${entry.error}), keeping cached card: ${href.slice(0, 80)}`);
         } else {
@@ -157,7 +154,6 @@ export async function loadCards(hrefs: string[], opts: LoadOptions): Promise<Loa
   }
 
   if (dirty) {
-    // Prune entries for links the content no longer carries.
     const live = new Set(unique);
     for (const k of cache.keys()) if (!live.has(k)) cache.delete(k);
     writeCache(cacheFile, cache);
@@ -210,7 +206,7 @@ async function fetchEntry(href: string, deadline: number, dnsMemo: Map<string, P
       return { ok: false, at: Date.now(), error: err.message, retry: err.kind, fast: err.fast, noCache: err.noCache };
     }
     // Unknown failures get the short TTL: a builder bug must not pin a link
-    // as broken for 24h.
+    // as broken for a day.
     const msg = err instanceof Error ? err.message : String(err);
     return { ok: false, at: Date.now(), error: msg.split('\n')[0].slice(0, 120), retry: 'net', fast: true };
   }
@@ -263,8 +259,7 @@ interface ReadResult {
   headEnd: number;
 }
 
-/** Read at most `cap` bytes, stopping once `marker` appears (metadata only
- *  needs the <head>). */
+/** Read at most `cap` bytes, stopping once `marker` appears. */
 async function readCapped(hop: Hop, cap: number, marker?: string): Promise<ReadResult> {
   if (!hop.res.body) return { buf: Buffer.alloc(0), headEnd: 0 };
   const chunks: Buffer[] = [];
@@ -551,10 +546,9 @@ export interface ExpandResult {
   expanded: number;
 }
 
-/** Promote sole-line `a.link-preview` links to card markup in place, keeping
- *  other attributes. Inline occurrences and metadata-less links stay plain.
- *  Returns the input unchanged when nothing expanded: the parse5 round-trip
- *  is not byte-preserving and must not churn output. */
+/** Promote sole-line `a.link-preview` links to card markup in place. Returns the
+ *  input untouched when nothing expanded: the parse5 round-trip is not
+ *  byte-preserving and must not churn output. */
 export function expandLinkCards(html: string, cards: ReadonlyMap<string, LinkCardMeta>, siteHost = ''): ExpandResult {
   const root = parseFragment(html) as unknown as P5Any;
   let expanded = 0;

@@ -1,7 +1,5 @@
-// Print config values for shell scripts: `node src/cli/config-print.ts [--config <file>] <key> [key...]`
-// One node boot per script invocation, and the exact same resolution path as
-// the builder itself (site.config.ts ← site.config.local.mjs ← defaults; a
-// named --config profile replaces that stack entirely).
+// Print config values for shell scripts: `config-print.ts [--config <file>] <key>…`
+// One node boot per invocation, the builder's own resolution path.
 import path from 'node:path';
 import { parseArgs } from '../core/util.ts';
 import { loadConfig } from '../core/config.ts';
