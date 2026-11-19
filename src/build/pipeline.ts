@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { loadConfig, siteHostOf, basePathOf, type AppConfig, type SiteConfig } from '../core/config.ts';
-import { BuildError, esc, log, nfc, toPosix, type CliArgs } from '../core/util.ts';
+import { BuildError, boolArg, esc, log, nfc, toPosix, type CliArgs } from '../core/util.ts';
 import { assertReserved, scanTree } from '../content/scan.ts';
 import { buildCsp, CSP_META_TAG } from '../core/csp.ts';
 import { buildSidebar, collectChildPages, resolveTree } from '../content/visibility.ts';
@@ -103,8 +103,9 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
     await pandoc.smokeTest();
     log.info(`pandoc ${pandoc.info?.version} server ready (:${pandoc.port})`);
 
-    // --check is read-only, so it never writes the cache.
+    // --check is read-only; --no-render-cache converts every page.
     const cache = new RenderCache({
+      read: boolArg(args['render-cache'], true),
       dir: path.resolve(root, cfg.cacheDir, 'render'),
       root: renderCacheRoot({
         pandocVersion: pandoc.info?.version ?? '',

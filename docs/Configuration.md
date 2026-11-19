@@ -52,6 +52,11 @@ comment at the top of the template gives editors autocomplete; `npx tsc
   own source are all unchanged, so a warm rebuild skips pandoc for every page
   you did not touch. `--check` never writes this cache.
 
+To ignore it — for example to prove a suspicious page really is stale-proof —
+add `--no-render-cache`: every page converts, and existing entries are left
+alone (refreshed by a normal build). `./start.sh check --no-render-cache` is
+then a cold verification: nothing read, nothing written.
+
 # Footer
 
 Every page ends in one quiet line: the theme mark, the copyright line, an optional author credit, and the filing number on the right. Without configuration the © line reads `© <year> <siteName>` and links this project as a whole — mark and text are one target. The `footer` block changes any of those pieces:

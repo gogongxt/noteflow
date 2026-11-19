@@ -87,6 +87,8 @@ export class RenderCache {
   private readonly dir: string;
   private readonly root: string;
   private readonly write: boolean;
+  /** False for --no-render-cache: existing entries are ignored, not deleted. */
+  private readonly read: boolean;
   private readonly contentRoot: string;
   private readonly live = new Set<string>();
   /** Entries carry the build digest in their name: the docs profile and the
@@ -97,10 +99,11 @@ export class RenderCache {
   private converted = 0;
   private seq = 0;
 
-  constructor({ dir, root, write, contentRoot }: { dir: string; root: string; write: boolean; contentRoot: string }) {
+  constructor({ dir, root, write, read = true, contentRoot }: { dir: string; root: string; write: boolean; read?: boolean; contentRoot: string }) {
     this.dir = dir;
     this.root = root;
     this.write = write;
+    this.read = read;
     this.contentRoot = contentRoot;
     this.ns = root.slice(0, 16);
   }
@@ -145,6 +148,7 @@ export class RenderCache {
   /** Returns the entry only when it was written for exactly this page state. */
   get(page: Page): CachedRender | null {
     this.live.add(page.abbrlink);
+    if (!this.read) return null;
     let raw: string;
     try {
       raw = fs.readFileSync(this.fileOf(page), 'utf8');
@@ -197,6 +201,6 @@ export class RenderCache {
   report(): void {
     if (!this.reused && !this.converted) return;
     const total = this.reused + this.converted;
-    process.stdout.write(`  render cache: ${this.reused} of ${total} pages reused\n`);
+    process.stdout.write(`  render cache: ${this.reused} of ${total} pages reused${this.read ? '' : ' (disabled)'}\n`);
   }
 }

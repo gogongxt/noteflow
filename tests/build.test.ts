@@ -678,6 +678,45 @@ suite('build variants', { concurrency: 6 }, () => {
     assert.ok(!fs.existsSync(cacheDir), '--check must not write the render cache');
   });
 
+  test('--no-render-cache re-converts every page and yields byte-identical output', async () => {
+    const copy = makeContentCopy();
+    const cacheDir = path.join(tmpDir('blog-nocache-'), 'r');
+    const out = tmpDir('blog-nocacheout-');
+    const profile = path.join(manifestDir, `nocache-${buildSeq++}.mjs`);
+    fs.writeFileSync(
+      profile,
+      `export default { url: 'https://example.com', siteName: 't', lang: 'en',` +
+        ` contentDir: ${JSON.stringify(copy)}, outDir: ${JSON.stringify(out)}, themeDir: 'themes/default',` +
+        ` cacheDir: ${JSON.stringify(cacheDir)}, manifestFile: ${JSON.stringify(path.join(manifestDir, `nocachem-${buildSeq++}.json`))}, postPattern: '/posts/{abbrlink}',` +
+        ` pageSize: { home: 5, feed: 5 } };\n`,
+    );
+    const build = (extra: string[]): Promise<BuildResult> => runBuild(['--config', profile, '--out', out, ...extra], { content: copy, out });
+
+    const cold = await build([]);
+    assert.equal(cold.status, 0, cold.stderr);
+    const html = listFiles(out).filter((f) => f.endsWith('.html')).map((f) => [path.relative(out, f), fs.readFileSync(f, 'utf8')] as const);
+
+    // Warm without the flag: everything is reused.
+    const warm = await build([]);
+    assert.equal(warm.status, 0, warm.stderr);
+    assert.match(warm.stdout, /render cache: (\d+) of \1 pages reused\n/);
+
+    // With the flag a warm build re-converts anyway, and says so.
+    const forced = await build(['--no-render-cache']);
+    assert.equal(forced.status, 0, forced.stderr);
+    assert.match(forced.stdout, /render cache: 0 of \d+ pages reused \(disabled\)/);
+
+    // Skipping the cache never changes what is written.
+    for (const [rel, before] of html) assert.equal(fs.readFileSync(path.join(out, rel), 'utf8'), before, `${rel} changed with --no-render-cache`);
+
+    // Combined with --check it is a cold verification: nothing read or written.
+    fs.rmSync(cacheDir, { recursive: true, force: true });
+    const verified = await build(['--check', '--no-render-cache']);
+    assert.equal(verified.status, 0, verified.stderr);
+    assert.match(verified.stdout, /render cache: 0 of \d+ pages reused \(disabled\)/);
+    assert.ok(!fs.existsSync(cacheDir), '--check --no-render-cache must not write the cache');
+  });
+
   test('a crafted abbrlink fails the build before any cache file is written', async () => {
     const copy = tmpDir('blog-badabbr-');
     fs.writeFileSync(path.join(copy, 'a.md'), '---\ntitle: 越界\npublic: true\nabbrlink: "../../package"\n---\n\nbody\n');
