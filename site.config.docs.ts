@@ -30,6 +30,15 @@ const config: AppConfig = {
   postPattern: '/posts/{abbrlink}',
   pageSize: { home: 20, feed: 20 },
 
+  // Public by design: the ids locate the repo/category, not grant write access.
+  giscus: {
+    repo: 'gogongxt/noteflow',
+    repoId: 'R_kgDOVyD3CA',
+    category: 'Announcements',
+    categoryId: 'DIC_kwDOVyD3CM4DLfXx',
+    lang: 'en',
+  },
+
   // Pages cannot send response headers; the CSP rides in a <meta> tag instead.
   cspMeta: true,
 };
