@@ -197,6 +197,28 @@ function ensureStyles(root: Document): void {
 
 const titleOf = (root: Document): string => root.querySelector("title")?.textContent || document.title;
 
+/** Per-page head tags: the canonical URL, the description (giscus sends it to
+ *  its widget) and the social-preview tags. CSP, the inline scripts and the
+ *  stylesheet are build output and stay. Each tag is identified by the
+ *  attribute that names it (rel / name / property). */
+const NAV_TECH_HEAD = "link[rel='canonical'], meta[name='description'], meta[property^='og:'], meta[name^='twitter:']";
+
+function headKey(el: Element): string {
+  return el.tagName + "\0" + (el.getAttribute("rel") || el.getAttribute("property") || el.getAttribute("name") || "");
+}
+
+function setHeadMeta(root: Document): void {
+  const current = new Map<string, Element>();
+  for (const el of document.head.querySelectorAll(NAV_TECH_HEAD)) current.set(headKey(el), el);
+  const seen = new Set<string>();
+  for (const el of root.head.querySelectorAll(NAV_TECH_HEAD)) {
+    const key = headKey(el);
+    seen.add(key);
+    current.get(key)?.replaceWith(document.importNode(el, true));
+  }
+  for (const [key, el] of current) if (!seen.has(key)) el.remove();
+}
+
 async function navigate(url: URL, opts: { replace?: boolean; pop?: boolean } = {}): Promise<void> {
   const href = url.pathname + url.search;
   if (pendingUrl === href) return;
@@ -221,6 +243,7 @@ async function navigate(url: URL, opts: { replace?: boolean; pop?: boolean } = {
 
     const hash = url.hash;
     document.title = titleOf(root);
+    setHeadMeta(root);
     const pageKind = root.body.dataset.page;
     if (pageKind) document.body.dataset.page = pageKind;
 

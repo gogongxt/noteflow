@@ -17,6 +17,10 @@ export interface ParsedNode {
 interface NodeShape {
   dir: boolean;
   md: boolean;
+  /** The on-disk names. Keys are NFC for comparison and URLs; a macOS (NFD)
+   *  volume needs the original bytes to open the file. */
+  dirName?: string;
+  mdName?: string;
 }
 
 const COLLATOR = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' });
@@ -43,6 +47,7 @@ export function collectNodes(dir: string, relDir = ''): Map<string, NodeShape> {
     if (e.isDirectory()) {
       const cur = nodes.get(name) ?? { dir: false, md: false };
       cur.dir = true;
+      cur.dirName = e.name;
       nodes.set(name, cur);
     } else if (e.isFile()) {
       if (!name.endsWith('.md')) continue; // sort.txt / attachments etc.
@@ -50,6 +55,7 @@ export function collectNodes(dir: string, relDir = ''): Map<string, NodeShape> {
       if (!base) continue; // a file literally named ".md"
       const cur = nodes.get(base) ?? { dir: false, md: false };
       cur.md = true;
+      cur.mdName = e.name;
       nodes.set(base, cur);
     } else {
       throw new BuildError(`non-regular file in the content tree: ${toPosix(path.join(relDir, e.name))}`);
@@ -112,12 +118,12 @@ function buildNode(node: ParsedNode, absDir: string, relDir: string): void {
   for (const name of sortChildren(nodes, declared, relDir)) {
     const info = nodes.get(name)!;
     const childRel = toPosix(path.join(relDir, name));
-    const dirPath = info.dir ? path.join(absDir, name) : null;
+    const dirPath = info.dir ? path.join(absDir, info.dirName ?? name) : null;
     const indexPath = dirPath && fs.existsSync(path.join(dirPath, INDEX_FILE)) ? path.join(dirPath, INDEX_FILE) : null;
     const child: ParsedNode = {
       name,
       relPath: childRel,
-      mdPath: info.md ? path.join(absDir, `${name}.md`) : null,
+      mdPath: info.md ? path.join(absDir, info.mdName ?? `${name}.md`) : null,
       dirPath: dirPath ? fs.realpathSync(dirPath) : null,
       indexPath,
       children: [],

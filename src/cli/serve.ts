@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { decodeURIComponentSafe, fatal, parseArgs } from '../core/util.ts';
+import { decodeURIComponentSafe, fatal, parseArgs, realInside } from '../core/util.ts';
 import { basePathOf, loadConfig, repoPath } from '../core/config.ts';
 import { buildCsp, hashesOf, type CspHashes } from '../core/csp.ts';
 import { ATTACHMENT_TYPES } from '../render/attachments.ts';
@@ -84,14 +84,20 @@ async function resolveFile(urlPath: string): Promise<string | null> {
   if (decoded.includes('\0')) return null;
   const abs = path.normalize(path.join(ROOT, decoded));
   if (abs !== ROOT && !abs.startsWith(ROOT + path.sep)) return null;
-  const st = await fsp.stat(abs).catch(() => null);
+  // The preview routinely serves through a symlink (deploy's current →
+  // releases/<id>); the lexical check above cannot see where it lands.
+  const real = await fsp.realpath(abs).catch(() => null);
+  if (!real) return null;
+  const realRoot = await fsp.realpath(ROOT).catch(() => ROOT);
+  if (!realInside(realRoot, real)) return null;
+  const st = await fsp.stat(real).catch(() => null);
   if (!st) return null;
   if (st.isDirectory()) {
-    const idx = path.join(abs, 'index.html');
+    const idx = path.join(real, 'index.html');
     const ist = await fsp.stat(idx).catch(() => null);
     return ist?.isFile() ? idx : null;
   }
-  return st.isFile() ? abs : null;
+  return st.isFile() ? real : null;
 }
 
 /** Legacy `/posts/<abbrlink>.html` → `/posts/<abbrlink>` (mirrors nginx). */

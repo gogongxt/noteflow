@@ -31,7 +31,7 @@ comment at the top of the template gives editors autocomplete; `npx tsc
 | --- | --- |
 | `url` | Absolute site URL. Its **pathname is the base path**: `https://user.github.io/noteflow` makes every emitted link carry `/noteflow` (GitHub Pages project site); an empty path builds for a root deployment. |
 | `siteName` / `lang` / `description` | Site identity and HTML language. |
-| `contentDir` / `outDir` | Markdown tree and build output, repo-relative. |
+| `contentDir` / `outDir` | Markdown tree and build output, repo-relative. `outDir` may not be, contain, or sit inside the content tree, `src/`, or the theme: a build deletes whatever it did not just emit, so that would erase its own input. |
 | `themeDir` / `cacheDir` / `manifestFile` | Theme directory, caches (mermaid prerender, link-card metadata, per-page render results), and the build manifest. |
 | `postPattern` | URL shape of a note, `/posts/{abbrlink}` by default. |
 | `pageSize` | Entries per page for the home list and the feed. |
@@ -48,9 +48,10 @@ comment at the top of the template gives editors autocomplete; `npx tsc
 - `mermaid/` — rendered diagram SVGs, keyed by diagram source.
 - `link-previews/` — fetched Open Graph metadata for link cards.
 - `render/` — each page's pandoc output and body HTML. A page is reused only
-  when its source, its URL, the attachments it references and the builder's
-  own source are all unchanged, so a warm rebuild skips pandoc for every page
-  you did not touch. `--check` never writes this cache.
+  when its source, its URL, the attachments it references, the builder's own
+  source and the versions of `sanitize-html`/`parse5` are all unchanged, so a
+  warm rebuild skips pandoc for every page you did not touch and a library
+  upgrade still re-converts. `--check` never writes this cache.
 
 To ignore it — for example to prove a suspicious page really is stale-proof —
 add `--no-render-cache`: every page converts, and existing entries are left

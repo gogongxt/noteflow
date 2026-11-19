@@ -366,6 +366,34 @@ test('media references are rewritten to root-absolute /assets/ and ship the file
   assert.ok(!/<(?:video|audio)\b[^>]*\bautoplay/.test(html), 'autoplay must never reach a media element');
 });
 
+test('outDir overlapping the content, the source, or the theme is refused before anything is deleted', async () => {
+  const copy = makeContentCopy();
+  const marker = path.join(copy, 'articles/post-1.md');
+  const before = fs.readFileSync(marker, 'utf8');
+
+  // writeDiff deletes everything in dist/ it did not emit, so each of these
+  // would erase its own input.
+  for (const [label, out] of [
+    ['the content tree', copy],
+    ['a subdirectory of the content tree', path.join(copy, 'out')],
+    ['the builder source', path.join(REPO, 'src')],
+  ] as const) {
+    const r = await runBuild(['--out', out, '--content', copy]);
+    assert.notEqual(r.status, 0, `outDir at ${label} must be refused`);
+    assert.match(r.stderr, /outDir overlaps/, `expected an overlap error for ${label}: ${r.stderr}`);
+    assert.equal(fs.readFileSync(marker, 'utf8'), before, `${label} must be left untouched`);
+  }
+});
+
+test('--skip-audit waives only the style-hash claim, never a link or private-content finding', async () => {
+  const copy = tmpDir('blog-skipaudit-');
+  fs.writeFileSync(path.join(copy, 'pub.md'), '---\ntitle: Public Doc\npublic: true\n---\n\n[leak](/secret)\n');
+  const out = tmpDir('blog-skipaudit-out-');
+  const r = await runBuild(['--out', out, '--content', copy, '--skip-audit'], { content: copy, out });
+  assert.notEqual(r.status, 0, '--skip-audit must not let a nonexistent internal link ship');
+  assert.match(r.stderr, /output audit failed[\s\S]*nonexistent file/i);
+});
+
 test('rebuilding into the same dist collects stale attachments and keeps the live one', async () => {
   const copy = makeContentCopy();
   const out = tmpDir('blog-rebuild-');

@@ -1436,3 +1436,47 @@ test('local config: --config (a profile) never merges local overrides', async ()
   const cfg = await loadConfig(profile, content);
   assert.equal(cfg.siteName, 'profile', 'a profile replaces the stack; content-root overrides are not read');
 });
+
+test('render cache digest covers library versions, not just the builder source', async () => {
+  const { renderCacheRoot } = await import('../src/build/render-cache.ts');
+  const srcDir = tmpDir('nf-src-');
+  fs.writeFileSync(path.join(srcDir, 'a.ts'), 'export {};\n');
+  const base = {
+    pandocVersion: '3.13',
+    urlMap: new Map([['a', '/posts/a']]),
+    privateRels: [] as string[],
+    basePath: '',
+    siteHost: 'example.com',
+    allowPrivateAssets: false,
+    contentRoot: '/content',
+    srcDirs: [srcDir],
+  };
+  const v1 = renderCacheRoot({ ...base, versions: { sanitizeHtml: '2.18.1', parse5: '8.1.1' } });
+  assert.equal(v1, renderCacheRoot({ ...base, versions: { sanitizeHtml: '2.18.1', parse5: '8.1.1' } }), 'same inputs, same digest');
+  // A sanitizer or DOM-parser upgrade can change rendered bytes with src/ untouched.
+  assert.notEqual(v1, renderCacheRoot({ ...base, versions: { sanitizeHtml: '2.19.0', parse5: '8.1.1' } }));
+  assert.notEqual(v1, renderCacheRoot({ ...base, versions: { sanitizeHtml: '2.18.1', parse5: '9.0.0' } }));
+});
+
+test('realInside resolves through symlinks, including a path that does not exist yet', async () => {
+  const { realInside } = await import('../src/core/util.ts');
+  const root = tmpDir('nf-real-');
+  const releases = path.join(root, 'releases/a');
+  fs.mkdirSync(releases, { recursive: true });
+  fs.symlinkSync(releases, path.join(root, 'current'), 'dir');
+  assert.ok(realInside(root, path.join(root, 'current/x.html')), 'a path through the current symlink is inside');
+  assert.ok(realInside(root, path.join(root, 'not/created/yet.html')), 'a not-yet-existing path under root is inside');
+  assert.ok(!realInside(root, `${root}-sibling/x`), 'a sibling sharing the root as a prefix is outside');
+});
+
+test('scan: an NFD-named note (a macOS volume) opens through its on-disk name', () => {
+  const root = tmpDir('nf-nfd-');
+  // "é" decomposed: e + U+0301. A Mac volume reports exactly these bytes, and
+  // the NFC form it normalizes to is a different path that does not exist here.
+  const nfd = 'é';
+  writeFile(root, `${nfd}.md`, '---\ntitle: NFD\npublic: true\n---\nbody\n');
+  const { root: tree } = scanTree(root);
+  const note = tree.children.find((c) => c.name === nfd.normalize('NFC'));
+  assert.ok(note, 'the node key is NFC');
+  assert.ok(note!.mdPath && fs.existsSync(note!.mdPath), 'the recorded path is the real, on-disk one');
+});

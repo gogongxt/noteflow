@@ -36,9 +36,12 @@ function isRender(r: CachedRender | undefined): r is CachedRender {
 
 /** What every page's conversion depends on, hashed once per build. The source
  *  tree rides in whole: any edit to the renderer invalidates all entries, which
- *  costs one full rebuild and needs no revision constant kept in sync. */
+ *  costs one full rebuild and needs no revision constant kept in sync.
+ *  `versions` covers the libraries whose output the sanitizer and DOM pass
+ *  produce: they can change the bytes without a byte of `src/` changing. */
 export function renderCacheRoot(opts: {
   pandocVersion: string;
+  versions?: { sanitizeHtml: string; parse5: string };
   urlMap: ReadonlyMap<string, string>;
   privateRels: Iterable<string>;
   basePath: string;
@@ -55,6 +58,7 @@ export function renderCacheRoot(opts: {
   h.update('\0');
   h.update(opts.pandocVersion);
   h.update('\0');
+  if (opts.versions) h.update(`${opts.versions.sanitizeHtml}\0${opts.versions.parse5}\0`);
   for (const [rel, href] of [...opts.urlMap].sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))) {
     h.update(rel);
     h.update('\0');

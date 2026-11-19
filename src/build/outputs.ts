@@ -3,13 +3,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { BuildError, hashFileInto, toPosix, walkFiles } from '../core/util.ts';
+import { BuildError, hashFileInto, realInside, toPosix, walkFiles } from '../core/util.ts';
 
-/** Resolve under `dist`; an escape (crafted abbrlink `../../x`) is a hard error. */
+/** Resolve under `dist`; an escape (crafted abbrlink `../../x`, or a symlink
+ *  inside dist) is a hard error. */
 function outPath(dist: string, rel: string): string {
   const root = path.resolve(dist);
   const abs = path.resolve(root, toPosix(rel));
-  if (abs !== root && !abs.startsWith(root + path.sep)) throw new BuildError(`output path escapes the root: ${rel}`);
+  if (!realInside(root, abs)) throw new BuildError(`output path escapes the root: ${rel}`);
   return abs;
 }
 

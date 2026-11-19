@@ -89,6 +89,29 @@ export function isInside(root: string, p: string): boolean {
   return x === r || x.startsWith(r + path.sep);
 }
 
+/** Symlinks resolved on both sides; for paths that `isInside` must not mistake
+ *  for an escape (/srv/current → /srv/releases/x). A path that does not exist
+ *  yet resolves through its deepest existing ancestor. */
+export function realInside(root: string, p: string): boolean {
+  const real = (x: string): string => {
+    const rest: string[] = [];
+    let cur = path.resolve(x);
+    for (;;) {
+      try {
+        return path.join(fs.realpathSync(cur), ...rest);
+      } catch {
+        const parent = path.dirname(cur);
+        if (parent === cur) return path.resolve(x);
+        rest.unshift(path.basename(cur));
+        cur = parent;
+      }
+    }
+  };
+  const r = real(root);
+  const x = real(p);
+  return x === r || x.startsWith(r + path.sep);
+}
+
 /** 'YYYY-MM-DD' prefix of a date value, or null. */
 export function datePart(value: unknown): string | null {
   if (value == null) return null;

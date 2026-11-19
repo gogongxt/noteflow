@@ -27,9 +27,17 @@ export interface FinishedBuild {
 }
 
 export function finishBuild(input: ManifestInput, manifestFile: string): FinishedBuild {
+  // --skip-audit only waives the "style hashes are complete" claim (gen-nginx
+  // refuses such a manifest); private-content and link findings always fail.
+  const audit = runAuditDetailed({ dist: input.dist, pages: input.pages, privateItems: input.privateItems, cfg: input.cfg });
+  if (audit.findings.length) {
+    throw new BuildError(
+      `Output audit failed (${audit.findings.length} findings):\n` +
+        audit.findings.slice(0, 30).map((f) => `  - ${f.file}: ${f.msg}`).join('\n'),
+    );
+  }
   let inlineStyles: string[] = [];
   if (!input.skipAudit) {
-    const audit = runAuditDetailed({ dist: input.dist, pages: input.pages, privateItems: input.privateItems, cfg: input.cfg });
     inlineStyles = audit.inlineStyles;
     // Anything the audit sees in the final output but postprocess did not
     // collect would ship unhashed in the meta CSP.
@@ -38,12 +46,6 @@ export function finishBuild(input: ManifestInput, manifestFile: string): Finishe
       throw new BuildError(
         `Output audit failed: ${unknown.length} inline style attribute(s) appeared after postprocess; the meta CSP would block them:\n` +
           unknown.slice(0, 5).map((s) => `  - ${s.slice(0, 60)}`).join('\n'),
-      );
-    }
-    if (audit.findings.length) {
-      throw new BuildError(
-        `Output audit failed (${audit.findings.length} findings):\n` +
-          audit.findings.slice(0, 30).map((f) => `  - ${f.file}: ${f.msg}`).join('\n'),
       );
     }
   }

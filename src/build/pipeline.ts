@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { loadConfig, siteHostOf, basePathOf, type AppConfig, type SiteConfig } from '../core/config.ts';
+import { loadConfig, siteHostOf, basePathOf, ROOT, type AppConfig, type SiteConfig } from '../core/config.ts';
 import { BuildError, boolArg, esc, log, nfc, toPosix, type CliArgs } from '../core/util.ts';
 import { assertReserved, scanTree } from '../content/scan.ts';
 import { buildCsp, CSP_META_TAG } from '../core/csp.ts';
@@ -38,6 +38,7 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
   const manifestFile = args.manifest ? path.resolve(root, String(args.manifest)) : path.resolve(root, cfg.manifestFile);
   const themeDir = path.resolve(root, cfg.themeDir);
   const fix = args.check !== true; // --fix by default; --check is read-only
+  // Only the "style hashes are complete" claim, never the private-content probes.
   const skipAudit = args['skip-audit'] === true;
   const allowPrivateAssets = args['allow-private-assets'] === true;
   const noMermaid = args.mermaid === false || args['skip-mermaid'] === true;
@@ -49,6 +50,7 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
   const buildTime = buildTimeOf(args);
 
   if (!fs.existsSync(content)) throw new BuildError(`Content directory not found: ${content}`);
+  assertSafeOutput({ root, content, dist, themeDir });
   const loc = new Intl.Collator('zh-CN').resolvedOptions().locale;
   if (loc !== 'zh-CN') throw new BuildError(`Node lacks full ICU (zh-CN locale unavailable, got ${loc})`);
 
@@ -109,6 +111,7 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
       dir: path.resolve(root, cfg.cacheDir, 'render'),
       root: renderCacheRoot({
         pandocVersion: pandoc.info?.version ?? '',
+        versions: dependencyVersions(root),
         urlMap,
         privateRels: privateRel,
         basePath,
@@ -261,9 +264,47 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
   }
 }
 
+/** Sanitize + parse5 versions: a library upgrade can change the cached bytes
+ *  without a byte of `src/` changing. Unreadable → '' (one extra rebuild). */
+function dependencyVersions(root: string): { sanitizeHtml: string; parse5: string } {
+  const versionOf = (name: string): string => {
+    for (const dir of [root, ROOT]) {
+      try {
+        return String(JSON.parse(fs.readFileSync(path.join(dir, 'node_modules', name, 'package.json'), 'utf8')).version ?? '');
+      } catch {
+        /* try the next root */
+      }
+    }
+    return '';
+  };
+  return { sanitizeHtml: versionOf('sanitize-html'), parse5: versionOf('parse5') };
+}
+
 function buildTimeOf(args: CliArgs): Date {
   const reproducible = args.reproducible === true || !!process.env.SOURCE_DATE_EPOCH;
   if (!reproducible) return new Date();
   const epoch = Number(process.env.SOURCE_DATE_EPOCH);
   return Number.isFinite(epoch) && epoch > 0 ? new Date(epoch * 1000) : new Date(0);
+}
+
+/** writeDiff deletes everything in dist/ it did not just emit, so a mistyped
+ *  outDir ('.', the content tree, 'src') would erase the files the build reads. */
+function assertSafeOutput({ root, content, dist, themeDir }: { root: string; content: string; dist: string; themeDir: string }): void {
+  const real = (p: string): string => (fs.existsSync(p) ? fs.realpathSync(p) : path.resolve(p));
+  const out = real(dist);
+  const label = path.relative(process.cwd(), dist) || dist;
+  const r = real(root);
+  if (out === r) throw new BuildError(`outDir is the project root: ${label} (a build would delete this repository)`);
+  // dist/ inside the project is normal; the project inside dist/ is not.
+  if (r.startsWith(out + path.sep)) {
+    throw new BuildError(`outDir contains the project root: ${label} (a build would delete this repository)`);
+  }
+  const surrounds = (a: string, b: string): boolean => a === b || a.startsWith(b + path.sep) || b.startsWith(a + path.sep);
+  for (const [what, p] of [
+    ['the content directory', content],
+    ['the builder source', path.join(root, 'src')],
+    ['the theme', themeDir],
+  ] as const) {
+    if (surrounds(out, real(p))) throw new BuildError(`outDir overlaps ${what}: ${label} (a build would delete its input files)`);
+  }
 }
