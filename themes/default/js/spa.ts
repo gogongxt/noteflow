@@ -301,7 +301,10 @@ export function initSoftNav(): void {
     const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
     if (!a || !isSoftNavigable(a, e as MouseEvent)) return;
     const url = new URL(a.href, location.href);
-    if (sameDocument(url)) return; // in-page anchor: leave it to the anchors module
+    if (sameDocument(url)) {
+      if (!url.hash || url.hash === location.hash) e.preventDefault();
+      return;
+    }
     e.preventDefault();
     void navigate(url);
   });
