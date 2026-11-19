@@ -52,18 +52,16 @@ article.page-index {
   text-wrap: balance;
 }
 
-/* Hovering the title reveals the pencil; it opens the note's source file in
-   the forge's editor (site.config.ts `edit`). */
 .post-edit {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   margin-left: 0.55rem;
   padding: 0.24rem;
-  /* The chip's bottom edge rests on the baseline; lift it to the caps' center. */
+  /* Lift the chip from the baseline to the caps' center. */
   translate: 0 -0.1em;
   border-radius: var(--radius-xs);
-  color: var(--fg-faint);
+  color: var(--accent);
   text-decoration: none;
   opacity: 0;
   transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease),
@@ -278,12 +276,10 @@ article.page-index .post-body h4 {
   color: var(--accent);
 }
 
-/* The section-anchor “#” trails the heading text and appears on hover; a
-   click copies the link to that section (the check confirms the copy). */
+/* The “#” trails the heading; clicking copies the section link and swaps the
+   glyph for a check. Both marks share one 1em square, so the swap cannot
+   move or resize the button. */
 .heading-anchor {
-  /* A square box one heading-em wide. Both marks are stacked in it, so the
-     click swap cannot move or resize the button. Baseline-aligned and lifted,
-     the box straddles the caps instead of hanging below the text. */
   display: inline-block;
   position: relative;
   width: 1em;
@@ -346,8 +342,7 @@ article.page-index .post-body h4 {
   display: flex;
 }
 
-/* No hover on touch: a hidden control would be an invisible tap target sitting
-   inside the heading, so keep both controls visible there. */
+/* No hover on touch: a hidden control would be an invisible tap target. */
 @media (hover: none) {
   .post-edit,
   .heading-anchor {

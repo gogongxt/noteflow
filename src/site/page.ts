@@ -75,7 +75,6 @@ function postMeta(page: Page, ctx: SiteCtx): string {
   return `<div class="post-header-meta">\n${meta}${tagHtml ? '\n' + tagHtml : ''}\n</div>`;
 }
 
-// Hovering the page title reveals it; opens the file's edit page in the forge.
 const ICON_PENCIL =
   '<svg class="icon i-pencil" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="none" ' +
   'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +

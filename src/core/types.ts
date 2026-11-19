@@ -76,9 +76,8 @@ export interface IndexPage extends PageBase {
 
 export type Page = NotePage | IndexPage;
 
-/** The page's Markdown file, relative to the content root. A generated
- *  directory listing (`needsIndex` with no `_index.md`) has no file of its
- *  own, so it returns null rather than naming a file that does not exist. */
+/** The page's Markdown file, relative to the content root; null for a
+ *  generated directory listing, which has no file of its own. */
 export function sourceRelOf(page: Page): string | null {
   if (page.kind === 'note') return `${page.relPath}.md`;
   return page.node.indexPath ? `${page.relPath}/_index.md` : null;

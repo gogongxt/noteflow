@@ -11,15 +11,15 @@ export const ROOT = path.resolve(import.meta.dirname, '..', '..');
 export const EDIT_PROVIDERS = ['gitea', 'github', 'gitlab'] as const;
 export type EditProvider = (typeof EDIT_PROVIDERS)[number];
 
-/** The content tree's source repository; enables the per-note edit link. */
+/** The content tree's source repository; enables the per-page edit link. */
 export interface EditConfig {
   /** Web URL of the repository, e.g. https://git.example.com/you/notes. */
   repoUrl: string;
-  /** Branch the site builds from; 'main' by default. */
+  /** Branch the site builds from. Default 'main'. */
   branch?: string;
-  /** Forge flavor — the edit-route shape differs; 'gitea' by default. */
+  /** Default 'gitea'; the edit route differs per forge. */
   provider?: EditProvider;
-  /** Where the content directory sits inside the repo; '' when it is the repo root. */
+  /** The content dir's path inside the repo; '' when it is the repo root. */
   root?: string;
 }
 
@@ -70,8 +70,8 @@ export interface SiteConfig {
   giscus?: GiscusConfig;
   /** Repository URL shown as a GitHub icon in the header; hidden when unset. */
   repoUrl?: string;
-  /** Source repository of the notes; hovering a page title then offers an edit
-   *  link into that file. Hidden when unset. */
+  /** Source repository of the notes; page titles gain an edit link into their
+   *  file. Hidden when unset. */
   edit?: EditConfig;
   /** Also carry the CSP in a <meta> tag — for hosts that cannot send headers
    *  (GitHub Pages). nginx and serve.ts keep sending theirs. */
@@ -155,19 +155,16 @@ function validate(cfg: AppConfig): AppConfig {
   const e = cfg.edit;
   if (e !== undefined) {
     if (typeof e !== 'object' || !e || Array.isArray(e)) throw new BuildError('site.config.ts: edit must be an object');
-    const repo = (() => {
-      try {
-        return new URL(String(e.repoUrl));
-      } catch {
-        return null;
-      }
-    })();
+    let repo: URL | null = null;
+    try {
+      repo = new URL(String(e.repoUrl));
+    } catch {}
     if (!repo || !/^https?:$/.test(repo.protocol)) {
       throw new BuildError('site.config.ts: edit.repoUrl must be an absolute http(s) URL');
     }
+    // editUrlOf concatenates onto repoUrl; a ?query or #hash would land after
+    // the file path and silently point at the wrong page.
     if (repo.search || repo.hash) {
-      // editUrlOf concatenates onto repoUrl, so a query or fragment would land
-      // after the file path and silently point at the wrong page.
       throw new BuildError('site.config.ts: edit.repoUrl must not carry a query string or fragment');
     }
     if (e.branch !== undefined && (typeof e.branch !== 'string' || !e.branch.trim())) {
@@ -269,18 +266,17 @@ export function frameSrcOf(cfg: { giscus?: GiscusConfig }): string {
   return origins.length ? origins.join(' ') : "'none'";
 }
 
-/** The edit route each supported forge hangs off the repository URL. */
 const EDIT_ROUTES: Record<EditProvider, string> = {
   gitea: '/_edit/',
   github: '/edit/',
   gitlab: '/-/edit/',
 };
 
-/** Path segments encoded one by one so '/' survives as a separator. */
+/** Encode each segment so '/' survives as a separator. */
 const encPath = (p: string): string => p.split('/').map(encodeURIComponent).join('/');
 
-/** URL of a source file's edit page in its forge; the file path is relative to
- *  the content root, `edit.root` says where that root sits in the repository. */
+/** The forge edit page for a file relative to the content root; `edit.root`
+ *  prefixes where that root sits in the repository. */
 export function editUrlOf(cfg: { edit?: EditConfig }, srcRel: string): string | null {
   const e = cfg.edit;
   if (!e) return null;
