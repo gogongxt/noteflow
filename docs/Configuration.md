@@ -12,13 +12,24 @@ All configuration lives in `site.config.ts`; CLI flags (`--content`, `--out`) an
 | `url` | Absolute site URL. Its **pathname is the base path**: `https://user.github.io/noteflow` makes every emitted link carry `/noteflow` (GitHub Pages project site); an empty path builds for a root deployment. |
 | `siteName` / `lang` / `description` | Site identity and HTML language. |
 | `contentDir` / `outDir` | Markdown tree and build output, repo-relative. |
-| `themeDir` / `cacheDir` / `manifestFile` | Theme directory, caches (mermaid prerender, link-card metadata), and the build manifest. |
+| `themeDir` / `cacheDir` / `manifestFile` | Theme directory, caches (mermaid prerender, link-card metadata, per-page render results), and the build manifest. |
 | `postPattern` | URL shape of a note, `/posts/{abbrlink}` by default. |
 | `pageSize` | Entries per page for the home list and the feed. |
 | `giscus` | Comments via GitHub Discussions; remove the block to disable. |
 | `repoUrl` | A repository URL shown as a GitHub icon in the header, opening in a new tab. Unset hides it — that is the default, so a site you deploy does not inherit this project's link. |
 | `cspMeta` | Also carry the CSP in a `<meta>` tag — for hosts that cannot send response headers (GitHub Pages). |
 | `footer` | The site footer. Every field is optional and renders only when set; see below. |
+
+# Build cache
+
+`cacheDir` holds three caches, all of them derived data you can delete at any time:
+
+- `mermaid/` — rendered diagram SVGs, keyed by diagram source.
+- `link-previews/` — fetched Open Graph metadata for link cards.
+- `render/` — each page's pandoc output and body HTML. A page is reused only
+  when its source, its URL, the attachments it references and the builder's
+  own source are all unchanged, so a warm rebuild skips pandoc for every page
+  you did not touch. `--check` never writes this cache.
 
 # Footer
 

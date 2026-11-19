@@ -4,5 +4,6 @@ export { loadTheme, fillLayout } from './layout.ts';
 export type { SiteCtx } from './layout.ts';
 export { buildTagSlugs } from './tags.ts';
 export { renderAll, postHref, byRecency } from './aggregates.ts';
-export { renderFeed, renderRobots } from './feed.ts';
+export { renderFeed } from './feed.ts';
+export { renderSitemap, renderRobots } from './sitemap.ts';
 export { firstParagraph } from './helpers.ts';

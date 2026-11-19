@@ -44,8 +44,21 @@ export interface AssetEntry {
   stat: { size: number; mtimeMs: number };
 }
 
+/** An attachment a page rendered against, as recorded for a cached render. */
+export interface PinnedAsset {
+  srcRel: string;
+  outRel: string;
+  size: number;
+  mtimeMs: number;
+}
+
 interface AssetNamer {
+  /** Name the attachment's URL, hashing the file on first use. */
   assign(pageAbbr: string, srcRel: string): string;
+  /** Re-register an attachment a cached page recorded, pinning the URL it
+   *  rendered with; the cache has already verified the bytes are unchanged. */
+  restore(pageAbbr: string, pinned: PinnedAsset): void;
+  pinOf(pageAbbr: string, srcRel: string): PinnedAsset | undefined;
   entries(): AssetEntry[];
   count(): number;
 }
@@ -53,25 +66,35 @@ interface AssetNamer {
 export function makeAssetNamer(realRoot: string): AssetNamer {
   const byPage = new Map<string, Map<string, AssetEntry>>();
   const used = new Map<string, Set<string>>();
+  const claim = (pageAbbr: string, srcRel: string, outRel: string, abs: string, stat: { size: number; mtimeMs: number }): AssetEntry => {
+    let m = byPage.get(pageAbbr);
+    if (!m) byPage.set(pageAbbr, (m = new Map()));
+    if (!used.has(pageAbbr)) used.set(pageAbbr, new Set());
+    used.get(pageAbbr)!.add(path.posix.basename(outRel));
+    const entry = { pageAbbr, srcRel, outRel, abs, stat };
+    m.set(srcRel, entry);
+    return entry;
+  };
   return {
     assign(pageAbbr, srcRel) {
-      let m = byPage.get(pageAbbr);
-      if (!m) byPage.set(pageAbbr, (m = new Map()));
-      const known = m.get(srcRel);
+      const known = byPage.get(pageAbbr)?.get(srcRel);
       if (known) return known.outRel;
-      if (!used.has(pageAbbr)) used.set(pageAbbr, new Set());
-      const names = used.get(pageAbbr)!;
       const abs = resolveAsset(realRoot, srcRel);
       const st = fs.statSync(abs);
       const hash = hashFile8(abs);
       const base = path.posix.basename(srcRel);
       let name = hashedName(base, hash);
       let n = 2;
-      while (names.has(name)) name = hashedName(base, `${hash}-${n++}`);
-      names.add(name);
-      const entry = { pageAbbr, srcRel, outRel: `assets/${pageAbbr}/${name}`, abs, stat: { size: st.size, mtimeMs: st.mtimeMs } };
-      m.set(srcRel, entry);
-      return entry.outRel;
+      while (used.get(pageAbbr)?.has(name)) name = hashedName(base, `${hash}-${n++}`);
+      return claim(pageAbbr, srcRel, `assets/${pageAbbr}/${name}`, abs, { size: st.size, mtimeMs: st.mtimeMs }).outRel;
+    },
+    restore(pageAbbr, pinned) {
+      if (byPage.get(pageAbbr)?.has(pinned.srcRel)) return;
+      claim(pageAbbr, pinned.srcRel, pinned.outRel, resolveAsset(realRoot, pinned.srcRel), { size: pinned.size, mtimeMs: pinned.mtimeMs });
+    },
+    pinOf(pageAbbr, srcRel) {
+      const e = byPage.get(pageAbbr)?.get(srcRel);
+      return e ? { srcRel: e.srcRel, outRel: e.outRel, size: e.stat.size, mtimeMs: e.stat.mtimeMs } : undefined;
     },
     entries() {
       return [...byPage.values()].flatMap((m) => [...m.values()]);

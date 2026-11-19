@@ -4,6 +4,7 @@ import { parseFragment, serialize } from 'parse5';
 import { decodeURIComponentSafe, encodePath, nfc } from '../core/util.ts';
 import { append, classesOf, element, getAttr, setAttr, replaceWithText, SKIP, text, textOf, walk, type P5Any } from '../core/dom.ts';
 import { expandEmbed, parseEmbed } from './embeds.ts';
+import { reportBroken } from './broken.ts';
 import { sanitize } from './sanitize.ts';
 import { normalizeCodeBlock } from './code-blocks.ts';
 import { normalizeCallout } from './callouts.ts';
@@ -58,7 +59,7 @@ function expandSoleEmbed(node: P5Any, ctx: PostprocessCtx): void {
   if (!embed) {
     // A `.embed` link that is not a provider URL is a mistake worth naming; an
     // in-site link keeps its normal rewrite (rewriteLink runs first on `a`).
-    if (isOffsiteHref(href, ctx.siteHost)) broken(ctx, `a.embed is not a supported YouTube/Bilibili video: ${href}`);
+    if (isOffsiteHref(href, ctx.siteHost)) broken(ctx, `a.embed is not a supported YouTube/Bilibili video: ${href}`, link);
     return;
   }
   const wrap = expandEmbed(link, embed);
@@ -68,18 +69,18 @@ function expandSoleEmbed(node: P5Any, ctx: PostprocessCtx): void {
   parent.childNodes[parent.childNodes.indexOf(node)] = wrap;
 }
 
-function broken(ctx: PostprocessCtx, msg: string): void {
-  ctx.onBroken?.({ relPath: ctx.pageRelPath, msg });
+function broken(ctx: PostprocessCtx, msg: string, node: P5Any): void {
+  reportBroken(ctx, msg, node);
 }
 
 /** Resolve an attachment through the context and report a failure like any
  *  other broken reference, instead of throwing an unlabelled error out of the
  *  worker (which would hide every other page's problems). */
-function addAsset(ctx: PostprocessCtx, ref: AssetRef): string | null {
+function addAsset(ctx: PostprocessCtx, ref: AssetRef, node: P5Any): string | null {
   try {
     return ctx.assets.add(ref);
   } catch (err) {
-    broken(ctx, (err as Error).message);
+    broken(ctx, (err as Error).message, node);
     return null;
   }
 }
@@ -122,7 +123,7 @@ function rewriteLink(node: P5Any, ctx: PostprocessCtx): void {
   if (/\.(md|markdown)$/i.test(pathPart)) {
     const targetRel = resolveIn(relDir, pathPart.replace(/\.(md|markdown)$/i, ''));
     if (targetRel == null) {
-      broken(ctx, `link escapes the content root: ${pathPart}`);
+      broken(ctx, `link escapes the content root: ${pathPart}`, node);
       return;
     }
     if (ctx.isPrivatePage(targetRel)) {
@@ -131,7 +132,7 @@ function rewriteLink(node: P5Any, ctx: PostprocessCtx): void {
     }
     const href2 = ctx.urlMap.get(targetRel);
     if (!href2) {
-      broken(ctx, `link target does not exist: ${pathPart}`);
+      broken(ctx, `link target does not exist: ${pathPart}`, node);
       return;
     }
     setAttr(node, 'href', withHash(href2, hash));
@@ -171,14 +172,14 @@ function rewriteLink(node: P5Any, ctx: PostprocessCtx): void {
   if (/\.[a-z0-9]{1,8}$/i.test(pathPart) && !pathPart.endsWith('/')) {
     const assetRel = resolveIn(relDir, pathPart);
     if (assetRel == null) {
-      broken(ctx, `attachment escapes the content root: ${pathPart}`);
+      broken(ctx, `attachment escapes the content root: ${pathPart}`, node);
       return;
     }
     if (!ctx.isPublicAsset(assetRel)) {
       replaceWithText(node, '(attachment not public)');
       return;
     }
-    const out = addAsset(ctx, { srcRel: assetRel, origin: pathPart, attr: 'href', node: 'a' });
+    const out = addAsset(ctx, { srcRel: assetRel, origin: pathPart, attr: 'href', node: 'a' }, node);
     if (out) setAttr(node, 'href', withHash(ctx.basePath + '/' + encodePath(out), hash));
     markExternal(node); // a download, not page navigation: never replaces the reading page
     return;
@@ -186,9 +187,9 @@ function rewriteLink(node: P5Any, ctx: PostprocessCtx): void {
 
   // No recognizable shape: report it rather than ship a href that 404s.
   if (dirRel == null) {
-    broken(ctx, `link escapes the content root: ${pathPart}`);
+    broken(ctx, `link escapes the content root: ${pathPart}`, node);
   } else {
-    broken(ctx, `link target does not exist: ${pathPart}`);
+    broken(ctx, `link target does not exist: ${pathPart}`, node);
   }
 }
 
@@ -213,7 +214,7 @@ function rewriteAssetAttr(node: P5Any, attr: string, ctx: PostprocessCtx, mediaS
   const value = getAttr(node, attr);
   if (!value) return;
   if (mediaSrc && isOffsiteHref(value, ctx.siteHost)) {
-    broken(ctx, `${attr} points off-site, which media-src (default-src 'self') blocks; use a link card: ${value}`);
+    broken(ctx, `${attr} points off-site, which media-src (default-src 'self') blocks; use a link card: ${value}`, node);
     return;
   }
   if (isExternal(value)) return;
@@ -227,14 +228,14 @@ function rewriteAssetAttr(node: P5Any, attr: string, ctx: PostprocessCtx, mediaS
   }
   const rel = resolveIn(relDirOf(ctx.pageRelPath), pathPart);
   if (rel == null) {
-    broken(ctx, `${attr} escapes the content root: ${pathPart}`);
+    broken(ctx, `${attr} escapes the content root: ${pathPart}`, node);
     return;
   }
   if (!ctx.isPublicAsset(rel)) {
     replaceWithText(node, '(media not public)');
     return;
   }
-  const out = addAsset(ctx, { srcRel: rel, origin: pathPart, attr, node: node.nodeName });
+  const out = addAsset(ctx, { srcRel: rel, origin: pathPart, attr, node: node.nodeName }, node);
   if (out) setAttr(node, attr, ctx.basePath + '/' + encodePath(out));
 }
 
@@ -247,14 +248,14 @@ function rewriteImage(node: P5Any, ctx: PostprocessCtx): void {
   const pathPart = nfc(decodeURIComponentSafe(src)).split('#')[0].split('?')[0];
   const rel = resolveIn(relDirOf(ctx.pageRelPath), pathPart);
   if (rel == null) {
-    broken(ctx, `image escapes the content root: ${pathPart}`);
+    broken(ctx, `image escapes the content root: ${pathPart}`, node);
     return;
   }
   if (!ctx.isPublicAsset(rel)) {
     replaceWithText(node, '(image not public)');
     return;
   }
-  const out = addAsset(ctx, { srcRel: rel, origin: src, attr: 'src', node: 'img' });
+  const out = addAsset(ctx, { srcRel: rel, origin: src, attr: 'src', node: 'img' }, node);
   if (!out) return;
   setAttr(node, 'src', ctx.basePath + '/' + encodePath(out));
 }

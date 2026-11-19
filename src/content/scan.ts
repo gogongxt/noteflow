@@ -127,7 +127,7 @@ function buildNode(node: ParsedNode, absDir: string, relDir: string): void {
   }
 }
 
-const RESERVED_ROOT = new Set(['archives', 'tags', 'feed.xml', '404.html', 'robots.txt']);
+const RESERVED_ROOT = new Set(['archives', 'tags', 'feed.xml', 'sitemap.xml', '404.html', 'robots.txt']);
 
 export function assertReserved(root: ParsedNode): void {
   for (const child of root.children) {

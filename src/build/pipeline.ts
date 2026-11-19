@@ -10,17 +10,18 @@ import { buildCsp, CSP_META_TAG } from '../core/csp.ts';
 import { buildSidebar, collectChildPages, resolveTree } from '../content/visibility.ts';
 import { assignAbbrlinks } from '../content/abbrlink.ts';
 import { PandocServer } from '../render/pandoc.ts';
-import { postprocess } from '../render/postprocess.ts';
-import type { AssetRef } from '../render/postprocess-types.ts';
-import { applyMermaid, prepareMermaid, type MermaidState } from '../render/mermaid.ts';
+import type { BrokenLink } from '../render/postprocess-types.ts';
+import { RenderCache, renderCacheRoot } from './render-cache.ts';
+import { convertWorker } from './worker.ts';
+import { finishBuild } from './manifest.ts';
+import { prepareMermaid } from '../render/mermaid.ts';
 import { expandPageCards } from '../render/link-preview.ts';
 import { makeAssetNamer } from '../render/attachments.ts';
 import { buildSearchIndex } from '../render/search-index.ts';
-import { loadTheme, postHref, renderAll, renderFeed, renderRobots, buildTagSlugs, byRecency, type SiteCtx } from '../site/index.ts';
+import { loadTheme, postHref, renderAll, renderFeed, renderSitemap, renderRobots, buildTagSlugs, byRecency, type SiteCtx } from '../site/index.ts';
 import { buildStaticAssets } from './static-assets.ts';
 import { readInlineScript, stripTypes } from './frontend.ts';
-import { runAuditDetailed } from './audit.ts';
-import { hashContent, hashDist, styleHash, writeAtomic, writeDiff, writeMissing } from './outputs.ts';
+import { styleHash, writeDiff, writeMissing } from './outputs.ts';
 import type { Page, SidebarItem, TreeNode } from '../core/types.ts';
 
 const CONCURRENCY = 8;
@@ -88,7 +89,7 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
 
   // ---- pandoc conversion ---------------------------------------------------
   const pandoc = new PandocServer({ bin: process.env.PANDOC_BIN || 'pandoc' });
-  const broken: { relPath: string; msg: string }[] = [];
+  const broken: BrokenLink[] = [];
   const warnings: string[] = [];
   const privateLeakWarns: string[] = [];
   // The <meta> CSP's style hashes must be known before rendering.
@@ -98,6 +99,23 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
     await pandoc.start();
     await pandoc.smokeTest();
     log.info(`pandoc ${pandoc.info?.version} server ready (:${pandoc.port})`);
+
+    // --check is read-only, so it never writes the cache.
+    const cache = new RenderCache({
+      dir: path.join(root, cfg.cacheDir, 'render'),
+      root: renderCacheRoot({
+        pandocVersion: pandoc.info?.version ?? '',
+        urlMap,
+        privateRels: privateRel,
+        basePath,
+        siteHost,
+        allowPrivateAssets,
+        contentRoot: realRoot,
+        srcDirs: [path.join(root, 'src'), path.join(root, 'themes', 'default', 'css')],
+      }),
+      write: fix,
+      contentRoot: realRoot,
+    });
     const cursor = { next: 0 };
     await Promise.all(
       Array.from({ length: Math.min(CONCURRENCY, pages.length || 1) }, () =>
@@ -116,20 +134,23 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
           inPrivateSubtree,
           allowPrivateAssets,
           mermaid,
+          cache,
         }),
       ),
     );
+    cache.prune();
+    cache.report();
   } finally {
     await pandoc.waitExit();
     await mermaid.renderer?.close();
   }
 
   if (broken.length) {
-    const lines = broken.slice(0, 20).map((b) => `  - ${b.relPath}: ${b.msg}`);
+    const lines = broken.slice(0, 20).map((b) => `  - ${b.relPath}${b.where ? ` › 「${b.where}」` : ''}: ${b.msg}`);
     const more = broken.length > 20 ? `\n  … and ${broken.length - 20} more` : '';
     throw new BuildError(
       `Build failed: ${broken.length} broken reference(s)\n${lines.join('\n')}${more}\n` +
-        '  Each line is the note, then the element whose path could not be resolved.',
+        '  Each line is the note, the heading it sits under, then the reference that could not be resolved.',
     );
   }
   if (privateLeakWarns.length) {
@@ -186,7 +207,8 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
 
   const outputs: Map<string, string | Buffer> = renderAll(siteCtx, theme);
   outputs.set('feed.xml', renderFeed(siteCtx));
-  outputs.set('robots.txt', renderRobots());
+  outputs.set('sitemap.xml', renderSitemap(siteCtx));
+  outputs.set('robots.txt', renderRobots(siteCtx));
   for (const [rel, content] of staticBundle.files) outputs.set(toPosix(rel), content);
 
   // ---- meta CSP (hosts that cannot send headers, e.g. GitHub Pages) --------
@@ -204,61 +226,30 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
   // ---- write + attachments -------------------------------------------------
   const keep = new Set(assets.entries().map((a) => toPosix(a.outRel)));
   keep.add('build-info.json');
-  const writeResult = writeDiff(dist, outputs, keep);
+  const written = writeDiff(dist, outputs, keep);
   for (const a of assets.entries()) writeMissing(dist, toPosix(a.outRel), a.abs, a.stat);
 
   // ---- audit + manifest ----------------------------------------------------
-  let inlineStyles: string[] = [];
-  if (!skipAudit) {
-    const audit = runAuditDetailed({ dist, pages, privateItems, cfg });
-    inlineStyles = audit.inlineStyles;
-    // Anything the audit sees in the final output but postprocess did not
-    // collect would ship unhashed in the meta CSP.
-    const unknown = audit.inlineStyles.filter((s) => !bodyInlineStyles.has(s));
-    if (unknown.length) {
-      throw new BuildError(
-        `Output audit failed: ${unknown.length} inline style attribute(s) appeared after postprocess; the meta CSP would block them:\n` +
-          unknown.slice(0, 5).map((s) => `  - ${s.slice(0, 60)}`).join('\n'),
-      );
-    }
-    if (audit.findings.length) {
-      throw new BuildError(
-        `Output audit failed (${audit.findings.length} findings):\n` +
-          audit.findings.slice(0, 30).map((f) => `  - ${f.file}: ${f.msg}`).join('\n'),
-      );
-    }
-  }
-
-  const manifest = {
-    buildId: buildTime.toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z'),
-    builtAt: buildTime.toISOString(),
-    pandocVersion: pandoc.info?.version,
-    counts: {
-      ...siteCtx.counts,
-      private: privateItems.length,
-      assets: assets.count(),
-      searchDocs: searchIndex.docs.length,
+  const finished = finishBuild(
+    {
+      dist,
+      contentRoot: realRoot,
+      pages,
+      privateItems,
+      cfg,
+      skipAudit,
+      bodyInlineStyles,
+      counts: { ...siteCtx.counts, assets: assets.count(), searchDocs: searchIndex.docs.length },
+      buildTime,
+      pandocVersion: pandoc.info?.version,
+      scriptHashes,
     },
-    contentHash: hashContent(realRoot),
-    distHash: hashDist(dist),
-    // --skip-audit style hashes are incomplete; gen-nginx must refuse them.
-    audited: !skipAudit,
-    csp: {
-      inlineScriptHashes: scriptHashes,
-      inlineStyleHashes: inlineStyles.map(styleHash),
-    },
-  };
-  writeAtomic(manifestFile, JSON.stringify(manifest, null, 2) + '\n');
-  // The CSP hashes ride inside dist/ for serve.ts to find.
-  writeAtomic(
-    path.join(dist, 'build-info.json'),
-    JSON.stringify({ buildId: manifest.buildId, builtAt: manifest.builtAt, csp: manifest.csp }) + '\n',
+    manifestFile,
   );
-
-  log.info(`✓ Output: ${writeResult.written} written, ${writeResult.removed} removed, ${writeResult.total} total (unchanged files skipped)`);
+  log.info(`✓ Output: ${written.written} written, ${written.removed} removed, ${written.total} total (unchanged files skipped)`);
   log.info(
-    `✓ Build complete: ${manifest.counts.published} public + ${manifest.counts.indexes} index pages, ` +
-      `${manifest.counts.private} private, ${manifest.counts.assets} attachments, in ${Date.now() - t0}ms`,
+    `✓ Build complete: ${finished.counts.published} public + ${finished.counts.indexes} index pages, ` +
+      `${finished.counts.private} private, ${finished.counts.assets} attachments, in ${Date.now() - t0}ms`,
   );
   if (warnings.length) {
     log.info(`  ${warnings.length} notes:`);
@@ -272,77 +263,3 @@ function buildTimeOf(args: CliArgs): Date {
   const epoch = Number(process.env.SOURCE_DATE_EPOCH);
   return Number.isFinite(epoch) && epoch > 0 ? new Date(epoch * 1000) : new Date(0);
 }
-
-interface WorkerCtx {
-  pandoc: PandocServer;
-  broken: { relPath: string; msg: string }[];
-  warnings: string[];
-  privateLeakWarns: string[];
-  assets: ReturnType<typeof makeAssetNamer>;
-  urlMap: Map<string, string>;
-  siteHost: string;
-  basePath: string;
-  bodyInlineStyles: Set<string>;
-  pageByRel: Map<string, Page>;
-  isPrivatePage: (rel: string) => boolean;
-  inPrivateSubtree: (rel: string) => boolean;
-  allowPrivateAssets: boolean;
-  mermaid: MermaidState;
-}
-
-/** One worker loop; all workers share `cursor`, so each page converts once. */
-async function convertWorker(pages: Page[], cursor: { next: number }, w: WorkerCtx): Promise<void> {
-  let pandocDead: string | null = null;
-  while (cursor.next < pages.length) {
-    if (pandocDead) throw new BuildError(pandocDead);
-    const page = pages[cursor.next++];
-    const sourceRel = page.kind === 'index' ? `${page.relPath}/_index.md` : `${page.relPath}.md`;
-    let html: string;
-    try {
-      const res = await w.pandoc.convert(page.content);
-      if (res.error || res.html == null) {
-        w.broken.push({ relPath: sourceRel, msg: `pandoc conversion failed: ${res.error}` });
-        continue;
-      }
-      html = res.html;
-    } catch (err) {
-      // Transport failure = the server is gone; fail with the single cause.
-      pandocDead = `pandoc server failed while converting ${sourceRel}: ${(err as Error).message}`;
-      throw new BuildError(pandocDead);
-    }
-
-    const r = postprocess(html, {
-      pageRelPath: sourceRel,
-      siteHost: w.siteHost,
-      basePath: w.basePath,
-      urlMap: w.urlMap,
-      assets: {
-        add: ({ srcRel, origin, attr, node }: AssetRef): string | null => {
-          if (w.inPrivateSubtree(srcRel) && !w.allowPrivateAssets) {
-            throw new BuildError(
-              `references an attachment under private content: ${srcRel}\n` +
-                `  Refused by default (fail-closed). After confirming the file is safe to publish, rebuild with --allow-private-assets.`,
-            );
-          }
-          if (w.inPrivateSubtree(srcRel)) w.privateLeakWarns.push(`${sourceRel} references private file ${srcRel} (published via --allow-private-assets)`);
-          try {
-            return w.assets.assign(page.abbrlink, srcRel);
-          } catch (err) {
-            throw new BuildError(`<${node} ${attr}="${origin}"> → ${(err as Error).message}`);
-          }
-        },
-      },
-      isPublicAsset: (srcRel: string): boolean => !w.inPrivateSubtree(srcRel),
-      isPrivatePage: w.isPrivatePage,
-      inPrivateSubtree: w.inPrivateSubtree,
-      dirIndexHref: (dirRel: string): string | null => w.pageByRel.get(nfc(dirRel))?.href ?? null,
-      onBroken: (b) => w.broken.push(b),
-      onWarn: (m) => w.warnings.push(m),
-    });
-
-    page.html = applyMermaid(r.html, page, w.mermaid);
-    page.toc = r.toc;
-    for (const s of r.inlineStyles) w.bodyInlineStyles.add(s);
-  }
-}
-

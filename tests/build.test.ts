@@ -30,7 +30,10 @@ function makeContentCopy(): string {
 
 function brokenLinkTree(): string {
   const dest = tmpDir('blog-badlink-');
-  fs.writeFileSync(path.join(dest, 'a.md'), '---\ntitle: 坏链接\npublic: true\n---\n\n[不存在](./不存在.md)\n');
+  fs.writeFileSync(
+    path.join(dest, 'a.md'),
+    '---\ntitle: 坏链接\npublic: true\n---\n\n[intro](./不存在.md)\n\n# 组件源码\n\n[第一处](./missing-one.md)\n\n# 部署步骤\n\n## 子小节\n\n[第二处](./missing-two.md)\n',
+  );
   return dest;
 }
 
@@ -399,6 +402,40 @@ test('archives and RSS include only public notes with a date', async () => {
   assert.ok(/2026-0?9[\-\/?[\s\S]{0,400}Post 1: from notes to blog<\/span><\/a>/.test(archives));
 });
 
+test('sitemap.xml lists every public page once, as absolute URLs, and nothing private', async () => {
+  await shared;
+  const xml = fs.readFileSync(path.join(dist, 'sitemap.xml'), 'utf8');
+  assert.match(xml, /^<\?xml version="1\.0" encoding="UTF-8"\?>\n<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">\n/);
+  assert.match(xml, /<\/urlset>\n$/);
+  const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+  assert.equal(new Set(locs).size, locs.length, 'duplicate <loc> entries');
+  for (const loc of locs) assert.match(loc, /^https:\/\/example\.com\//, `a loc must be absolute: ${loc}`);
+
+  // Every loc resolves to a built page, and every HTML page except the 404 is listed.
+  const listed = new Set(locs.map((l) => new URL(l).pathname));
+  for (const pathname of listed) {
+    assert.ok(
+      fs.existsSync(path.join(dist, pathname.slice(1))) || fs.existsSync(path.join(dist, pathname.slice(1), 'index.html')),
+      `sitemap points to a nonexistent page: ${pathname}`,
+    );
+  }
+  const pages = listFiles(dist)
+    .filter((f) => f.endsWith('.html'))
+    .map((f) => '/' + path.relative(dist, f).split(path.sep).join('/').replace(/index\.html$/, '').replace(/\/$/, ''))
+    .filter((p) => p !== '/404.html');
+  for (const p of pages) assert.ok(listed.has(p === '/' ? '/' : p), `page missing from the sitemap: ${p}`);
+
+  for (const secret of ['Account secrets', 'Weekend journal', 'Private attachment', 'Draft: unsettled ideas']) {
+    assert.ok(!xml.includes(secret), `sitemap leaks private content "${secret}"`);
+  }
+  assert.ok(!/<loc>[^<]*私人/.test(xml), 'sitemap leaks a private path');
+  // A dated note carries lastmod; the date is the note's own, never the build time.
+  assert.match(xml, /<loc>https:\/\/example\.com\/posts\/d1b06489<\/loc>\n<lastmod>2026-09-12<\/lastmod>/);
+
+  const robots = fs.readFileSync(path.join(dist, 'robots.txt'), 'utf8');
+  assert.match(robots, /Sitemap: https:\/\/example\.com\/sitemap\.xml/);
+});
+
 test('tag case merging: K8s and k8s are the same page', async () => {
   await shared;
   const dirs = fs.readdirSync(path.join(dist, 'tags')).sort();
@@ -563,12 +600,59 @@ suite('build variants', { concurrency: 6 }, () => {
     assert.ok(after.startsWith('---\ntitle: 新笔记\ndate: 2026-11-01\npublic: true\ncustom: keep-me\n'));
   });
 
-  test('a broken link fails the build and names the file', async () => {
+  test('a broken link fails the build, naming the file and the heading it sits under', async () => {
     const copy = brokenLinkTree();
     const r = await runBuild([], { content: copy });
     assert.notEqual(r.status, 0);
-    assert.match(r.stderr + r.stdout, /a\.md/);
-    assert.match(r.stderr + r.stdout, /link target does not exist/);
+    const out = r.stderr + r.stdout;
+    assert.match(out, /a\.md/);
+    assert.match(out, /link target does not exist/);
+    assert.match(out, /a\.md › 「组件源码」: link target does not exist: \.\/missing-one\.md/);
+    // The nested heading is the nearest section: "部署步骤" wraps "子小节".
+    assert.match(out, /a\.md › 「子小节」: link target does not exist: \.\/missing-two\.md/);
+    // A reference above the first heading has no section to name.
+    assert.match(out, /a\.md: link target does not exist: \.\/不存在\.md/);
+  });
+
+  test('the render cache reuses unchanged pages, re-converts only the edited one, and never changes the output', async () => {
+    const copy = makeContentCopy();
+    const cacheDir = tmpDir('blog-cache-');
+    const out = tmpDir('blog-cacheout-');
+    const profile = path.join(manifestDir, `cache-${buildSeq++}.mjs`);
+    fs.writeFileSync(
+      profile,
+      `export default { url: 'https://example.com', siteName: 't', lang: 'en',` +
+        ` contentDir: ${JSON.stringify(copy)}, outDir: ${JSON.stringify(out)}, themeDir: 'themes/default',` +
+        ` cacheDir: ${JSON.stringify(cacheDir)}, manifestFile: 'unused.json', postPattern: '/posts/{abbrlink}',` +
+        ` pageSize: { home: 5, feed: 5 } };\n`,
+    );
+    // --skip-mermaid: mermaid hashes Chromium's SVG output, so cached HTML
+    // with figures is only reproducible on the same browser build.
+    const build = (): Promise<BuildResult> => runBuild(['--config', profile, '--out', out], { content: copy, out });
+    const first = await build();
+    assert.equal(first.status, 0, first.stderr);
+    const cold = listFiles(out).filter((f) => f.endsWith('.html')).map((f) => [path.relative(out, f), fs.readFileSync(f, 'utf8')] as const);
+
+    const second = await build();
+    assert.equal(second.status, 0, second.stderr);
+    assert.match(second.stdout, /render cache: \d+ of \d+ pages reused/);
+    for (const [rel, html] of cold) assert.equal(fs.readFileSync(path.join(out, rel), 'utf8'), html, `${rel} changed on a warm rebuild`);
+
+    // One edited note: its page re-converts, the rest stay cached.
+    const edited = path.join(copy, 'articles/post-1.md');
+    fs.writeFileSync(edited, fs.readFileSync(edited, 'utf8') + '\nAn edited paragraph.\n');
+    const third = await build();
+    assert.equal(third.status, 0, third.stderr);
+    const m = /render cache: (\d+) of (\d+) pages reused/.exec(third.stdout);
+    assert.ok(m, 'the cache should report its reuse');
+    assert.equal(Number(m[1]), Number(m[2]) - 1, 'exactly the edited page must re-convert');
+    assert.ok(fs.readFileSync(path.join(out, 'posts/d1b06489/index.html'), 'utf8').includes('An edited paragraph.'));
+
+    // --check is read-only: it must not create or refresh the cache.
+    fs.rmSync(cacheDir, { recursive: true, force: true });
+    const checked = await runBuild(['--config', profile, '--out', out, '--check'], { content: copy, out });
+    assert.equal(checked.status, 0, checked.stderr);
+    assert.ok(!fs.existsSync(cacheDir), '--check must not write the render cache');
   });
 
   test('a non-boolean public fails the build (fail-open guard)', async () => {
@@ -989,12 +1073,17 @@ suite('base-path profile: every emitted URL carries the url pathname prefix', ()
     assert.ok(!rootHome.includes('http-equiv="Content-Security-Policy"'), 'cspMeta is opt-in');
   });
 
-  test('feed and canonical URLs carry the Pages origin + base path', async () => {
+  test('feed, sitemap and canonical URLs carry the Pages origin + base path', async () => {
     const feed = fs.readFileSync(path.join(out, 'feed.xml'), 'utf8');
     assert.ok(feed.includes(`<link>https://user.github.io${BASE}/</link>`), 'feed home link');
     assert.match(feed, /<link>https:\/\/user\.github\.io\/noteflow\/posts\/[0-9a-f]{8}<\/link>/);
     const html = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
     assert.match(html, /<link rel="canonical" href="https:\/\/user\.github\.io\/noteflow\/">/);
+    const sitemap = fs.readFileSync(path.join(out, 'sitemap.xml'), 'utf8');
+    const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    assert.ok(locs.length > 5, 'expected every public page in the sitemap');
+    assert.ok(locs.every((l) => l.startsWith(`https://user.github.io${BASE}/`)), 'every loc carries the base path');
+    assert.ok(fs.readFileSync(path.join(out, 'robots.txt'), 'utf8').includes(`Sitemap: https://user.github.io${BASE}/sitemap.xml`));
   });
 
   function walkHtml(dir: string): string[] {

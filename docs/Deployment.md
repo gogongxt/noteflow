@@ -5,7 +5,7 @@ description: Self-hosting with nginx, GitHub Pages, and custom domains
 abbrlink: "211fd193"
 ---
 
-`dist/` is a fully static tree — no application server, no runtime. Any static host works.
+`dist/` is a fully static tree — no application server, no runtime. Any static host works. Next to the pages it holds `feed.xml` (RSS), `sitemap.xml` (every public page, absolute URLs, one `<lastmod>` per entry) and a `robots.txt` that points at the sitemap.
 
 # Docker
 

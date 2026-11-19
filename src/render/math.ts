@@ -3,6 +3,7 @@
 // there; every unresolvable ref fails the build.
 import { append, classesOf, element, getAttr, replaceNode, replaceWithText, setAttr, SKIP, text, textOf, walk, type P5Any } from '../core/dom.ts';
 import type { PostprocessCtx } from './postprocess-types.ts';
+import { reportBroken } from './broken.ts';
 
 /** Wrap display math in a numbered `.equation` span; `\label{k}` becomes
  *  id="eq-k", `\tag{x}` overrides the shown number. Returns label → number. */
@@ -79,14 +80,14 @@ export function rewriteMathRefs(root: P5Any, labels: ReadonlyMap<string, string>
     const m = EQ_REF.exec(raw);
     if (!m) {
       if (!/\\(?:eq)?ref\s*\{/.test(raw)) return undefined;
-      ctx.onBroken?.({ relPath: ctx.pageRelPath, msg: `\\ref inside a formula pandoc cannot parse; put it in its own $...$: ${raw.slice(0, 80)}` });
+      reportBroken(ctx, `\\ref inside a formula pandoc cannot parse; put it in its own $...$: ${raw.slice(0, 80)}`, node);
       replaceWithText(node, '(math error)');
       return SKIP;
     }
     const [, parens, label] = m;
     const num = labels.get(label.trim());
     if (!num) {
-      ctx.onBroken?.({ relPath: ctx.pageRelPath, msg: `\\ref target not found on this page: ${raw}` });
+      reportBroken(ctx, `\\ref target not found on this page: ${raw}`, node);
       replaceWithText(node, parens ? '(??)' : '??');
       return SKIP;
     }
@@ -107,7 +108,7 @@ export function assertNoRawRefs(root: P5Any, ctx: PostprocessCtx): void {
     for (let cur = node.parentNode; cur; cur = cur.parentNode) {
       if (cur.nodeName === 'pre' || cur.nodeName === 'code') return undefined; // sample source
     }
-    ctx.onBroken?.({ relPath: ctx.pageRelPath, msg: `unrendered \\ref in body text: ${raw.trim().slice(0, 80)}` });
+    reportBroken(ctx, `unrendered \\ref in body text: ${raw.trim().slice(0, 80)}`, node);
     return undefined;
   });
 }

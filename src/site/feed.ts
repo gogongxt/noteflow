@@ -1,18 +1,9 @@
-// RSS feed and robots.txt.
+// The RSS feed.
 import { datePart } from '../core/util.ts';
 import type { SiteCtx } from './layout.ts';
 import { absUrl, descriptionOf, titleOf } from './helpers.ts';
 import { byRecency } from './aggregates.ts';
-
-function xmlEsc(str: unknown): string {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;')
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
-}
+import { xmlEsc } from './sitemap.ts';
 
 /** 'YYYY-MM-DD' to the RFC-822 string for that day, 00:00:00 UTC. */
 function rfc822(dateStr: unknown): string | null {
@@ -58,8 +49,4 @@ export function renderFeed(ctx: SiteCtx): string {
   }
   lines.push('</channel>', '</rss>', '');
   return lines.join('\n');
-}
-
-export function renderRobots(): string {
-  return 'User-agent: *\nAllow: /\n';
 }

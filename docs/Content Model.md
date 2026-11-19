@@ -98,7 +98,9 @@ tags: [docker, ops]
 # Privacy
 
 Privacy works by **physical exclusion**: private content is never built, so it
-cannot leak through search, feeds, archives or the sitemap.
+cannot leak through search, feeds, archives or the sitemap. A page's title
+still reaches the build-failure report when *that page* has a broken link —
+the build refuses to publish and exits non-zero, so nothing is exposed.
 
 - A node is public only when its frontmatter says `public: true`.
 - A private parent keeps its whole subtree private, regardless of a child's own

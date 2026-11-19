@@ -4,6 +4,8 @@ import type { TocItem } from '../core/types.ts';
 export interface BrokenLink {
   relPath: string;
   msg: string;
+  /** The heading of the section the broken element sits under, if any. */
+  where?: string;
 }
 
 /** Argument to `assets.add`: what the author wrote, so a failure can name the
