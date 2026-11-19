@@ -11,7 +11,10 @@ import { buildCsp, hashesOf, type CspHashes } from '../core/csp.ts';
 import { ATTACHMENT_TYPES } from '../render/attachments.ts';
 
 const args = parseArgs(process.argv.slice(2));
-const cfg = await loadConfig(args.config ? path.resolve(process.cwd(), String(args.config)) : undefined);
+const cfg = await loadConfig(
+  args.config ? path.resolve(process.cwd(), String(args.config)) : undefined,
+  typeof args.content === 'string' ? path.resolve(process.cwd(), args.content) : undefined,
+);
 // URL space carries the base path, dist/ does not — like on the real host.
 const BASE = basePathOf(cfg.url);
 const ROOT = path.resolve(String(args.root || cfg.outDir));

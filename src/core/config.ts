@@ -104,10 +104,26 @@ const DEFAULTS: Partial<AppConfig> = {
   pageSize: { home: 20, feed: 20 },
 };
 
-/** Local override files, highest priority first. */
+/** Project-root local overrides, highest priority first. */
 const LOCAL_CONFIG_FILES = ['site.config.local.ts', 'site.config.local.mjs'];
-/** Files whose change invalidates a watcher. */
+/** At the content root: plain JS, no imports, so it travels with the notes repo. */
+export const CONTENT_CONFIG_FILE = 'site.config.local.mjs';
 export const CONFIG_FILES = ['site.config.ts', ...LOCAL_CONFIG_FILES];
+
+export interface LocalConfig {
+  file: string;
+  atContentRoot: boolean;
+}
+
+/** A project-root override wins over one at the content root. */
+export function localConfigOf(root: string, contentDir: string): LocalConfig | null {
+  for (const f of LOCAL_CONFIG_FILES) {
+    const p = path.join(root, f);
+    if (fs.existsSync(p)) return { file: p, atContentRoot: false };
+  }
+  const inContent = path.resolve(root, contentDir, CONTENT_CONFIG_FILE);
+  return fs.existsSync(inContent) ? { file: inContent, atContentRoot: true } : null;
+}
 
 async function readModule(file: string): Promise<Record<string, unknown>> {
   const mod = (await import(pathToFileURL(file).href)) as { default?: unknown };
@@ -207,15 +223,26 @@ function validate(cfg: AppConfig): AppConfig {
   return cfg;
 }
 
-/** Load site.config.ts, then apply the first existing local override. With
- *  `file` (--config), that profile replaces the whole stack — no local
- *  overrides — so CI and docs builds never see a developer's personal values. */
-export async function loadConfig(file?: string): Promise<AppConfig> {
-  const baseFile = file ?? path.join(ROOT, 'site.config.ts');
-  let merged: Record<string, unknown> = { ...DEFAULTS, ...(await readModule(baseFile)) };
+/** Load site.config.ts plus the first local override (see localConfigOf).
+ *  With `file` (--config) the profile replaces the whole stack: CI and docs
+ *  never see a developer's personal values. */
+export async function loadConfig(file?: string, contentDir?: string, root: string = ROOT): Promise<AppConfig> {
+  const baseFile = file ?? path.join(root, 'site.config.ts');
+  const base = { ...DEFAULTS, ...(await readModule(baseFile)) } as Record<string, unknown>;
+  let merged = base;
   if (!file) {
-    const local = LOCAL_CONFIG_FILES.map((f) => path.join(ROOT, f)).find((f) => fs.existsSync(f));
-    if (local) merged = { ...merged, ...(await readModule(local)) };
+    const local = localConfigOf(root, contentDir ?? String(base.contentDir));
+    if (local) {
+      const over = await readModule(local.file);
+      // The file was found *by* this contentDir; re-pointing it would move the
+      // build while the file keeps being read from the old tree.
+      if (local.atContentRoot && over.contentDir !== undefined) {
+        throw new BuildError(
+          `${CONTENT_CONFIG_FILE} at the content root cannot set contentDir; put that override in a project-root local config`,
+        );
+      }
+      merged = { ...base, ...over };
+    }
   }
   return validate(merged as unknown as AppConfig);
 }

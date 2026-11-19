@@ -7,6 +7,21 @@ abbrlink: "5ec70f90"
 
 All configuration lives in `site.config.ts`; CLI flags (`--content`, `--out`) and the `PANDOC_BIN` env var take precedence over it. A gitignored `site.config.local.ts` (or `.mjs`) merges personal overrides on top.
 
+# Where local overrides are read from
+
+The first that exists wins:
+
+1. `site.config.local.ts`, then `.mjs`, at the project root.
+2. `site.config.local.mjs` at the root of the **content directory** — so site
+   settings travel with the notes repo — `{ url, siteName, giscus: { … } }`.
+
+That file is plain JavaScript with no imports: it must not reference the
+builder's sources, or it breaks when the same notes are built by another
+checkout or the Docker image.
+
+A named `--config` profile (e.g. `site.config.docs.ts`) replaces this whole
+stack; no local override is read then.
+
 | Key | Meaning |
 | --- | --- |
 | `url` | Absolute site URL. Its **pathname is the base path**: `https://user.github.io/noteflow` makes every emitted link carry `/noteflow` (GitHub Pages project site); an empty path builds for a root deployment. |

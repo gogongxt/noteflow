@@ -105,7 +105,8 @@ function watchAll(cfg: AppConfig): void {
 }
 
 const configArg = typeof args.config === 'string' ? path.resolve(ROOT, String(args.config)) : undefined;
-const cfg = await loadConfig(configArg);
+const contentArg = typeof args.content === 'string' ? path.resolve(ROOT, args.content) : undefined;
+const cfg = await loadConfig(configArg, contentArg);
 const contentDir = typeof args.content === 'string' ? args.content : cfg.contentDir;
 if (!fs.existsSync(path.resolve(ROOT, contentDir))) {
   console.error(`Content directory not found: ${path.resolve(ROOT, contentDir)}`);
@@ -119,7 +120,7 @@ rebuild();
 
 // Re-establish watchers periodically (directories and config files appear).
 setInterval(() => {
-  loadConfig(configArg).then(watchAll, () => {});
+  loadConfig(configArg, contentArg).then(watchAll, () => {});
 }, 5000).unref();
 
 for (const sig of ['SIGINT', 'SIGTERM'] as const) {

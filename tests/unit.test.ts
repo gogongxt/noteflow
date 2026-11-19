@@ -1299,3 +1299,82 @@ test('abbrlink is a URL path segment: traversal and separators are refused', () 
   assert.equal(readAbbrlink({ abbrlink: '' }), null);
   assert.equal(readAbbrlink({}), null);
 });
+
+test('local config: a project-root override wins over one at the content root', async () => {
+  const { localConfigOf, CONTENT_CONFIG_FILE } = await import('../src/core/config.ts');
+  const root = tmpDir('nf-local-');
+  const content = path.join(root, 'notes');
+  fs.mkdirSync(content, { recursive: true });
+  const fileOf = (r: ReturnType<typeof localConfigOf>): { file: string; atContentRoot: boolean } | null =>
+    r && { file: r.file, atContentRoot: r.atContentRoot };
+
+  // Nothing configured anywhere: no override.
+  assert.equal(localConfigOf(root, 'notes'), null);
+
+  // Content-root override is found when the project root has none...
+  const inContent = path.join(content, CONTENT_CONFIG_FILE);
+  fs.writeFileSync(inContent, 'export default { siteName: "from notes" };\n');
+  assert.deepEqual(fileOf(localConfigOf(root, 'notes')), { file: inContent, atContentRoot: true }, 'content-root config applies as a fallback');
+  // ...and an absolute contentDir resolves it too.
+  assert.deepEqual(fileOf(localConfigOf(root, content)), { file: inContent, atContentRoot: true }, 'an absolute contentDir works');
+
+  // ...but a project-root override shadows it, .ts before .mjs.
+  const rootMjs = path.join(root, 'site.config.local.mjs');
+  fs.writeFileSync(rootMjs, 'export default {};\n');
+  assert.deepEqual(fileOf(localConfigOf(root, 'notes')), { file: rootMjs, atContentRoot: false }, 'root .mjs beats a content-root file');
+  const rootTs = path.join(root, 'site.config.local.ts');
+  fs.writeFileSync(rootTs, 'export default {};\n');
+  assert.deepEqual(fileOf(localConfigOf(root, 'notes')), { file: rootTs, atContentRoot: false }, 'root .ts is the highest priority');
+
+  // The content tree keeps only the .mjs spelling: a .ts there is ignored
+  // (the notes repo must not import this project's sources for types).
+  const other = path.join(root, 'other');
+  fs.mkdirSync(other, { recursive: true });
+  fs.writeFileSync(path.join(other, 'site.config.local.ts'), 'export default {};\n');
+  assert.deepEqual(fileOf(localConfigOf(root, 'other')), { file: rootTs, atContentRoot: false }, 'a .ts in the content root is not picked up (root override still wins)');
+});
+
+test('local config: the content-root file must not re-point contentDir', async () => {
+  const { loadConfig } = await import('../src/core/config.ts');
+  // Each case needs its own tree: config modules are cached per path within the
+  // process, so rewriting one file in place would keep reading the old module.
+  const baseSrc = (name: string): string =>
+    "export default { url: 'https://example.com', siteName: '" + name + "', contentDir: 'notes', postPattern: '/posts/{abbrlink}', pageSize: { home: 1, feed: 1 } };\n";
+
+  // A content-root override that only tweaks site identity is fine.
+  const root1 = tmpDir('nf-cfg-move-');
+  fs.writeFileSync(path.join(root1, 'site.config.ts'), baseSrc('base'));
+  fs.mkdirSync(path.join(root1, 'notes'));
+  fs.writeFileSync(path.join(root1, 'notes', 'site.config.local.mjs'), "export default { siteName: 'from notes' };\n");
+  assert.equal((await loadConfig(undefined, undefined, root1)).siteName, 'from notes');
+
+  // One that re-points contentDir is refused: it would silently relocate the tree.
+  const root2 = tmpDir('nf-cfg-move-');
+  fs.writeFileSync(path.join(root2, 'site.config.ts'), baseSrc('base'));
+  fs.mkdirSync(path.join(root2, 'notes'));
+  fs.writeFileSync(path.join(root2, 'notes', 'site.config.local.mjs'), "export default { contentDir: 'elsewhere' };\n");
+  await assert.rejects(loadConfig(undefined, undefined, root2), /at the content root cannot set contentDir/);
+
+  // The same override at the project root is allowed (that file is not found by a contentDir).
+  const root3 = tmpDir('nf-cfg-move-');
+  fs.writeFileSync(path.join(root3, 'site.config.ts'), baseSrc('base'));
+  fs.mkdirSync(path.join(root3, 'notes'));
+  fs.writeFileSync(path.join(root3, 'site.config.local.mjs'), "export default { contentDir: 'elsewhere' };\n");
+  assert.equal((await loadConfig(undefined, undefined, root3)).contentDir, 'elsewhere');
+});
+
+test('local config: --config (a profile) never merges local overrides', async () => {
+  const { loadConfig } = await import('../src/core/config.ts');
+  const dir = tmpDir('nf-profile-');
+  const profile = path.join(dir, 'profile.mjs');
+  fs.writeFileSync(
+    profile,
+    "export default { url: 'https://example.com', siteName: 'profile', contentDir: 'notes', postPattern: '/posts/{abbrlink}', pageSize: { home: 1, feed: 1 } };\n",
+  );
+  // A content-root override that would otherwise apply.
+  const content = path.join(dir, 'notes');
+  fs.mkdirSync(content, { recursive: true });
+  fs.writeFileSync(path.join(content, 'site.config.local.mjs'), "export default { siteName: 'leaked' };\n");
+  const cfg = await loadConfig(profile, content);
+  assert.equal(cfg.siteName, 'profile', 'a profile replaces the stack; content-root overrides are not read');
+});

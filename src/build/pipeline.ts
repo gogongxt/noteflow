@@ -29,7 +29,10 @@ const CONCURRENCY = 8;
 export async function buildSite({ args, root, t0 }: { args: CliArgs; root: string; t0: number }): Promise<void> {
   if (process.env.BLOG_LOG_LEVEL === 'quiet') log.info = () => {};
 
-  const cfg: AppConfig = await loadConfig(args.config ? path.resolve(root, String(args.config)) : undefined);
+  const cfg: AppConfig = await loadConfig(
+    args.config ? path.resolve(root, String(args.config)) : undefined,
+    typeof args.content === 'string' ? path.resolve(root, args.content) : undefined,
+  );
   const content = path.resolve(root, String(args.content || cfg.contentDir));
   const dist = path.resolve(root, String(args.out || cfg.outDir));
   const manifestFile = args.manifest ? path.resolve(root, String(args.manifest)) : path.resolve(root, cfg.manifestFile);

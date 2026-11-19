@@ -4,6 +4,8 @@
 //
 // Personal overrides: create site.config.local.ts (or .mjs; gitignored) that
 // default-exports the keys to change — they are merged on top of this file.
+// A plain site.config.local.mjs at the content root also works, so the settings
+// travel with the notes repo; a project-root override wins over it.
 import type { AppConfig } from './src/core/config.ts';
 
 const config: AppConfig = {
