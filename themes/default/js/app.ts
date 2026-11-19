@@ -8,7 +8,8 @@ import { initDrawer } from "./drawer.js";
 import { initTree } from "./tree.js";
 import { initSidebarCollapse, initSidebarResize, initSidebarScroll } from "./sidebar.js";
 import { setupScrollspy } from "./toc.js";
-import { initCodeCopy, initCrumbFlyouts, initAnchors, setupHeadingLinks, setupTables } from "./article.js";
+import { initCodeCopy, initAnchors, setupHeadingLinks, setupTables } from "./article.js";
+import { initCrumbMenu } from "./crumb-menu.js";
 import { initCodeFold, revealCodeFold } from "./code-block.js";
 import { initSearchEntry } from "./search-entry.js";
 import { armMedia, armComments } from "./media-comments.js";
@@ -23,7 +24,7 @@ initSidebarResize();
 initSidebarScroll();
 initCodeCopy();
 initCodeFold();
-initCrumbFlyouts();
+initCrumbMenu();
 initAnchors();
 
 // Re-applied after every full load and soft navigation.

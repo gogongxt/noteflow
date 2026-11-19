@@ -537,16 +537,21 @@ test('page identity lives on <article>, never in a class on <body> (a shared cla
   }
 });
 
-test('breadcrumbs: the current page also gets a sibling menu; directory entries get cascading submenus', async () => {
+test('breadcrumbs: the current page also gets a sibling menu; directory entries get cascading panels', async () => {
   await shared;
   const html = findPageByTitle(dist, 'Level 4');
   const nav = html.slice(html.indexOf('<nav class="crumbs"'), html.indexOf('</nav>', html.indexOf('<nav class="crumbs"')));
   assert.ok(nav, 'the page should render breadcrumbs');
   assert.equal((nav.match(/<li class="crumb\b/g) || []).length, 5, 'should contain Home / 技术笔记 / Docker / 深层 / 第四层');
   const currentLi = nav.slice(nav.indexOf('<li class="crumb current"'));
-  assert.match(currentLi, /class="crumb-menu"/, 'the current page\'s breadcrumb must open its own level');
-  assert.match(nav, /<li class="has-sub"><a [^>]*>[^<]+<\/a>\s*<ul class="crumb-sub">/);
-  assert.match(nav, /aria-current="page" class="is-current"/);
+  assert.match(currentLi, /data-crumb-key="4"/, 'the current page\'s breadcrumb must open its own level');
+  // Panels are flat siblings in one layer, never nested inside the crumb list.
+  const layer = html.slice(html.indexOf('<div class="crumb-layer"'), html.indexOf('</div>', html.indexOf('<div class="crumb-layer"')));
+  assert.match(layer, /<ul class="crumb-panel" data-crumb-panel="4"/);
+  assert.match(layer, /<ul class="crumb-panel" data-crumb-panel="0"/);
+  // A directory row inside a panel is the trigger of its own panel, by key.
+  assert.match(layer, /<li class="crumb-item has-sub" data-crumb-key="[\d.]+"/);
+  assert.match(layer, /class="crumb-item-link is-current" href="[^"]+" aria-current="page"/);
 });
 
 test("CSP constraints: no <style> blocks; inline styles come only from note content", async () => {
@@ -841,7 +846,7 @@ suite('build variants', { concurrency: 6 }, () => {
     const tamperedRoot = tmpDir('blog-links-audit-root-');
     fs.cpSync(dist, tamperedRoot, { recursive: true });
     const inverse = path.join(tamperedRoot, 'posts/12341234/index.html');
-    fs.writeFileSync(inverse, fs.readFileSync(inverse, 'utf8').replace(/<a href="(\/posts\/[^"]+)"/, '<a href="$1" target="_blank"'));
+    fs.writeFileSync(inverse, fs.readFileSync(inverse, 'utf8').replace(/<a class="crumb-label" href="(\/posts\/[^"]+)"/, '<a class="crumb-label" href="$1" target="_blank"'));
 
     const { runAuditDetailed } = await import('../src/build/audit.ts');
     const { loadConfig } = await import('../src/core/config.ts');

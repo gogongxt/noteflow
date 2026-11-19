@@ -880,6 +880,7 @@ body::before {
   display: flex;
   align-items: center;
   min-width: 0;
+  flex-wrap: nowrap;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -933,72 +934,54 @@ body::before {
   outline-offset: -1px;
 }
 
-.crumb-menu {
-  position: absolute;
-  top: calc(100% + 0.3rem);
-  left: 0;
+/* Menu layer: the client positions each panel with inline left/top and
+   MaxHeight (JS) the first time it opens; CSS owns appearance only. */
+.crumb-layer {
+  position: fixed;
+  inset: 0;
   z-index: 70;
+  pointer-events: none;
+}
+
+.crumb-layer[hidden] {
+  display: none;
+}
+
+@media (hover: none) {
+  .crumb-layer {
+    display: none !important;
+  }
+}
+
+.crumb-panel {
+  position: fixed;
   display: none;
   min-width: 12rem;
   max-width: 20rem;
   max-height: min(60vh, 26rem);
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0.35rem;
+  margin: 0;
+  list-style: none;
   background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-md);
   scrollbar-width: thin;
+  pointer-events: auto;
 }
 
-.crumb:hover > .crumb-menu,
-.crumb:focus-within > .crumb-menu {
+.crumb-panel.open {
   display: block;
 }
 
-.crumb-menu:has(.has-sub:hover),
-.crumb-menu:has(.has-sub:focus-within),
-.crumb-sub:has(.has-sub:hover),
-.crumb-sub:has(.has-sub:focus-within) {
-  max-height: none;
-  overflow: visible;
-}
-
-.crumb:hover::after {
-  content: "";
-  position: absolute;
-  top: 100%;
-  right: 0;
-  left: 0;
-  height: 0.4rem;
-}
-
-.has-sub:hover::after,
-.has-sub:focus-within::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 100%;
-  width: 0.5rem;
-}
-
-.crumb-menu-list,
-.crumb-sub {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.crumb-menu-list > li,
-.crumb-sub > li {
+.crumb-item {
   position: relative;
+  margin: 0;
 }
 
-.crumb-menu-list a,
-.crumb-menu-list .menu-label,
-.crumb-sub a,
-.crumb-sub .menu-label {
+.crumb-item-link {
   display: block;
   padding: 0.32rem 0.5rem;
   overflow: hidden;
@@ -1010,47 +993,11 @@ body::before {
   border-radius: var(--radius-xs);
 }
 
-.crumb-menu-list a:hover,
-.crumb-sub a:hover {
-  color: var(--fg);
-  background: var(--bg-menu-hover);
-}
-
-.crumb-menu-list .menu-label,
-.crumb-sub .menu-label {
-  color: var(--fg);
-  font-weight: 550;
-}
-
-.crumb-menu-list .is-current,
-.crumb-sub .is-current {
-  color: var(--accent);
-  background: var(--accent-soft);
-  font-weight: 600;
-}
-
-.crumb-menu-list .is-crumb,
-.crumb-sub .is-crumb {
-  color: var(--fg);
-  background: var(--bg-subtle);
-  font-weight: 600;
-}
-
-.has-sub:hover > a,
-.has-sub:hover > .menu-label,
-.has-sub:focus-within > a,
-.has-sub:focus-within > .menu-label {
-  color: var(--fg);
-  background: var(--bg-menu-hover);
-}
-
-.has-sub > a,
-.has-sub > .menu-label {
+.crumb-item.has-sub > .crumb-item-link {
   padding-right: 1.5rem;
 }
 
-.has-sub > a::after,
-.has-sub > .menu-label::after {
+.crumb-item.has-sub > .crumb-item-link::after {
   content: "";
   position: absolute;
   top: 50%;
@@ -1063,50 +1010,24 @@ body::before {
   translate: 0 -50%;
 }
 
-.has-sub:hover > a::after,
-.has-sub:hover > .menu-label::after,
-.has-sub:focus-within > a::after,
-.has-sub:focus-within > .menu-label::after {
+.crumb-item.has-sub.is-open > .crumb-item-link::after {
   border-color: var(--fg);
 }
 
-.crumb-sub {
-  position: absolute;
-  top: -0.35rem;
-  left: calc(100% + 0.25rem);
-  z-index: 1;
-  display: none;
-  min-width: 12rem;
-  max-width: 20rem;
-  max-height: min(60vh, 26rem);
-  overflow-y: auto;
-  padding: 0.35rem;
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-md);
-  scrollbar-width: thin;
+a.crumb-item-link:hover,
+.crumb-item.is-open > .crumb-item-link {
+  color: var(--fg);
+  background: var(--bg-menu-hover);
 }
 
-.has-sub:hover > .crumb-sub,
-.has-sub:focus-within > .crumb-sub {
-  display: block;
+.crumb-item-link.is-current {
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
 }
 
-.crumb-sub.flip {
-  right: calc(100% + 0.25rem);
-  left: auto;
+.crumb-item-link.is-crumb {
+  color: var(--fg);
+  background: var(--bg-subtle);
+  font-weight: 600;
 }
-
-.has-sub:has(> .crumb-sub.flip):hover::after,
-.has-sub:has(> .crumb-sub.flip):focus-within::after {
-  left: auto;
-  right: 100%;
-}
-
-@media (hover: none) {
-  .crumb-menu {
-    display: none !important;
-  }
-}
-

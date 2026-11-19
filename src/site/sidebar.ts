@@ -84,36 +84,50 @@ export interface Crumb {
   current?: boolean;
 }
 
-function menuItemHtml(item: SidebarItem, currentHref: string | null, crumbHref: string | null): string {
+/** Menu panels live in one flat layer beside the breadcrumb, not nested inside
+ *  its <ul>s: the client (js/crumb-menu.ts) positions each panel at its trigger
+ *  and keeps exactly one open chain. A trigger and its panel share a key. */
+function crumbItem(item: SidebarItem, id: number[], currentHref: string | null, crumbHref: string | null, panels: PanelHtml[]): string {
+  const key = id.join('.');
   const isCurrent = !!item.href && item.href === currentHref;
   const isCrumb = !isCurrent && !!item.href && item.href === crumbHref;
-  const cls = isCurrent ? ' class="is-current"' : isCrumb ? ' class="is-crumb"' : '';
+  const cls = isCurrent ? ' is-current' : isCrumb ? ' is-crumb' : '';
   const mark = isCurrent ? ' aria-current="page"' : '';
-  const inner = item.href
-    ? `<a href="${esc(item.href)}"${mark}${cls}>${esc(item.title)}</a>`
-    : `<span class="menu-label"${cls}>${esc(item.title)}</span>`;
-  if (!item.children.length) return `<li>${inner}</li>`;
-  const sub = `\n<ul class="crumb-sub">\n${item.children.map((c) => menuItemHtml(c, currentHref, null)).join('\n')}\n</ul>`;
-  return `<li class="has-sub">${inner}${sub}</li>`;
+  const label = item.href
+    ? `<a class="crumb-item-link${cls}" href="${esc(item.href)}"${mark}>${esc(item.title)}</a>`
+    : `<span class="crumb-item-link${cls}">${esc(item.title)}</span>`;
+  if (!item.children.length) return `<li class="crumb-item">${label}</li>`;
+  panels.push({ depth: id.length, html: crumbPanel(item.children, id, currentHref, panels) });
+  return `<li class="crumb-item has-sub" data-crumb-key="${key}" aria-haspopup="true" aria-expanded="false">${label}</li>`;
 }
 
-function crumbMenuHtml(items: SidebarItem[] | undefined, currentHref: string | null, crumbHref: string | null): string {
-  if (!items?.length) return '';
-  return (
-    '<div class="crumb-menu">\n<ul class="crumb-menu-list">\n' +
-    items.map((it) => menuItemHtml(it, currentHref, crumbHref)).join('\n') +
-    '\n</ul>\n</div>'
-  );
+interface PanelHtml {
+  depth: number;
+  html: string;
+}
+
+function crumbPanel(items: SidebarItem[], id: number[], currentHref: string | null, panels: PanelHtml[], crumbHref: string | null = null): string {
+  const lis = items.map((it, i) => crumbItem(it, [...id, i], currentHref, crumbHref, panels));
+  return `<ul class="crumb-panel" data-crumb-panel="${id.join('.')}" hidden>${lis.join('')}</ul>`;
 }
 
 export function breadcrumbs(ctx: SiteCtx, items: Crumb[], currentHref: string | null): string {
   const all: Crumb[] = [{ title: 'Home', href: siteUrl(ctx.site, '/'), level: ctx.sidebar }, ...items];
-  const lis = all.map((c) => {
-    if (c.current) {
-      return `<li class="crumb current" aria-current="page">\n<span tabindex="0" role="button" aria-haspopup="true">${esc(c.title)}</span>\n${crumbMenuHtml(c.level, currentHref, null)}</li>`;
-    }
-    const label = c.href ? `<a href="${esc(c.href)}">${esc(c.title)}</a>` : `<span>${esc(c.title)}</span>`;
-    return `<li class="crumb">\n${label}\n${crumbMenuHtml(c.level, currentHref, c.href ?? null)}</li>`;
+  const panels: PanelHtml[] = [];
+  const lis = all.map((c, i) => {
+    const hasPanel = !!c.level?.length;
+    if (hasPanel) panels.push({ depth: 1, html: crumbPanel(c.level!, [i], currentHref, panels, c.current ? null : (c.href ?? null)) });
+    const key = hasPanel ? ` data-crumb-key="${i}" aria-haspopup="true" aria-expanded="false"` : '';
+    const label = c.href
+      ? `<a class="crumb-label" href="${esc(c.href)}">${esc(c.title)}</a>`
+      : `<span class="crumb-label"${hasPanel ? ' tabindex="0"' : ''}>${esc(c.title)}</span>`;
+    return `<li class="crumb${c.current ? ' current' : ''}"${c.current ? ' aria-current="page"' : ''}${key}>${label}</li>`;
   });
-  return '<nav class="crumbs" aria-label="Breadcrumb">\n<ol>\n' + lis.join('\n') + '\n</ol>\n</nav>';
+  // Depth-first collection emits children before parents; sort so a deeper
+  // panel always paints above the one that spawned it where they touch.
+  const ordered = [...panels].sort((a, b) => a.depth - b.depth).map((p) => p.html);
+  return (
+    '<nav class="crumbs" aria-label="Breadcrumb">\n<ol>\n' + lis.join('\n') + '\n</ol>\n</nav>\n' +
+    `<div class="crumb-layer" data-crumb-layer hidden>${ordered.join('')}</div>`
+  );
 }

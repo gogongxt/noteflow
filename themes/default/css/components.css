@@ -250,9 +250,6 @@
     overflow: hidden;
   }
 
-  .crumb-menu {
-    display: none !important;
-  }
 
   .header-crumbs .crumb.current > span {
     max-width: none;

@@ -1,5 +1,5 @@
-// Article-body enhancements: code copy, table scrolling wrappers, breadcrumb
-// flyout flipping, heading permalink buttons, and smooth in-page anchors.
+// Article-body enhancements: code copy, table scrolling wrappers, heading
+// permalink buttons, and smooth in-page anchors.
 import { glideToAnchor } from "./anchor.js";
 import { revealAnchor } from "./tabs.js";
 import { copyText } from "./clipboard.js";
@@ -45,23 +45,6 @@ export function setupTables(): void {
     wrap.setAttribute("aria-label", table.caption?.textContent?.trim() || "Table");
     table.replaceWith(wrap);
     wrap.appendChild(table);
-  }
-}
-
-export function initCrumbFlyouts(): void {
-  // CSS keeps the flyout usable; flipping only avoids clipping at the edge.
-  const flip = (sub: HTMLElement): void => {
-    sub.classList.remove("flip");
-    if (sub.getBoundingClientRect().right > window.innerWidth - 8) sub.classList.add("flip");
-  };
-  const onEnter = (e: Event): void => {
-    const li = e.currentTarget as HTMLElement;
-    const sub = li.querySelector<HTMLElement>(":scope > .crumb-sub");
-    if (sub) flip(sub);
-  };
-  for (const li of document.querySelectorAll<HTMLElement>(".crumb-menu .has-sub")) {
-    li.addEventListener("mouseenter", onEnter);
-    li.addEventListener("focusin", onEnter);
   }
 }
 
