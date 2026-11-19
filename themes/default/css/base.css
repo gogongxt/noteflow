@@ -51,16 +51,17 @@ button {
   color: inherit;
 }
 
+/* Tint only, never `color`: forcing a foreground here repaints syntax
+   highlighting and inline-code red into body text the moment a drag selects
+   them. Leaving the color unset keeps each run of text its own. */
 ::selection {
   background: var(--accent-soft);
-  color: var(--fg);
 }
 
 /* The viewer's card can sit on either theme's surface, so its selection tint
    comes from the viewer accent rather than the page's soft background. */
 .mv ::selection {
   background: color-mix(in srgb, var(--mv-accent) 38%, transparent);
-  color: var(--fg);
 }
 
 :focus-visible {
