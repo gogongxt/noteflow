@@ -8,6 +8,9 @@ const CHILD_GAP = 4;
 const EDGE = 8;
 const OPEN_DELAY = 110;
 const CLOSE_DELAY = 240;
+// Mirrors the `@media (hover: none)` rule that drops the layer: with no hover
+// there is no pointer path into it, so the keyboard bridge stays out too.
+const MQ_NO_HOVER = window.matchMedia("(hover: none)");
 
 interface Panel {
   el: HTMLElement;
@@ -18,9 +21,9 @@ interface Panel {
 }
 
 let layer: HTMLElement | null = null;
-let holder: HTMLElement | null = null;
 let panels = new Map<string, Panel>();
 let openChain: Panel[] = [];
+let openSide: "right" | "left" = "right";
 let openTimer = 0;
 let closeTimer = 0;
 let focusInside = false;
@@ -29,9 +32,9 @@ let lastY = 0;
 
 /** Fixed-position coordinates are relative to the nearest ancestor with a
  *  transform/filter/backdrop-filter. Panels live under the glass header, so all
- *  geometry here is viewport coordinates minus the holder's own origin. */
+ *  geometry here is viewport coordinates minus the layer's own origin. */
 function origin(): { x: number; y: number } {
-  const r = holder?.getBoundingClientRect() ?? { left: 0, top: 0 };
+  const r = layer?.getBoundingClientRect() ?? { left: 0, top: 0 };
   return { x: r.left, y: r.top };
 }
 
@@ -39,7 +42,6 @@ function collect(): void {
   openChain = [];
   panels = new Map();
   layer = document.querySelector<HTMLElement>("[data-crumb-layer]");
-  holder = layer;
   if (!layer) return;
   layer.hidden = true;
   const found: Panel[] = [];
@@ -56,20 +58,37 @@ function collect(): void {
     });
     panels.set(id, found[found.length - 1]);
   }
-  // Parents are emitted before their children, but the chain is built by key.
+  // The chain is built by key, so parent links resolve in a second pass.
   for (const p of found) {
     const id = p.el.dataset.crumbPanel!;
     p.parent = panels.get(id.slice(0, id.lastIndexOf("."))) ?? null;
   }
 }
 
-/** Lay out the open chain as one unit: panels run right of their parent, or —
- *  when the chain would not fit — leftward from the root. Placement happens
- *  once here, so nothing moves while the pointer is inside the chain. */
-function layout(chain: Panel[]): void {
-  if (!chain.length || !layer) return;
+/** X positions for the chain in the given direction, from the natural widths. */
+function chainXs(chain: Panel[], dir: "right" | "left", nat: Map<Panel, DOMRect>): number[] {
+  const xs = [chain[0].anchor.getBoundingClientRect().left];
+  for (let i = 1; i < chain.length; i++) {
+    const step = nat.get(chain[i - 1])!.width + CHILD_GAP;
+    xs.push(dir === "right" ? xs[i - 1] + step : xs[i - 1] - CHILD_GAP - nat.get(chain[i])!.width);
+  }
+  return xs;
+}
+
+function fits(chain: Panel[], dir: "right" | "left", nat: Map<Panel, DOMRect>): boolean {
+  const xs = chainXs(chain, dir, nat);
   const vw = window.innerWidth;
+  return dir === "right"
+    ? xs[xs.length - 1] + nat.get(chain[chain.length - 1])!.width <= vw - EDGE
+    : xs[xs.length - 1] >= EDGE;
+}
+
+/** Place every panel of the chain. Returns false (leaving nothing painted) when
+ *  the chain cannot fit on the chosen side; the caller then closes it. */
+function place(chain: Panel[]): boolean {
+  if (!chain.length || !layer) return false;
   const vh = window.innerHeight;
+  const vw = window.innerWidth;
   layer.hidden = false;
   for (const p of chain) {
     p.el.hidden = false;
@@ -81,41 +100,25 @@ function layout(chain: Panel[]): void {
   }
   const nat = new Map<Panel, DOMRect>();
   for (const p of chain) nat.set(p, p.el.getBoundingClientRect());
-  const n = (p: Panel): DOMRect => nat.get(p)!;
 
-  // Chain x positions come from the natural sizes, so they are viewport-space.
+  // Keep the side chosen when the chain first opened; only switch it when the
+  // current side no longer fits, so a panel under the pointer never jumps.
+  if (!fits(chain, openSide, nat)) {
+    const other = openSide === "right" ? "left" : "right";
+    if (!fits(chain, other, nat)) return false;
+    openSide = other;
+  }
+  const xs = chainXs(chain, openSide, nat);
   const row = chain[0].anchor.getBoundingClientRect();
-  let x = row.left;
-  const xs: number[] = [x];
-  for (let i = 1; i < chain.length; i++) {
-    x += n(chain[i - 1]).width + CHILD_GAP;
-    xs.push(x);
-  }
-  if (xs[xs.length - 1] + n(chain[chain.length - 1]).width > vw - EDGE) {
-    // No room rightward; lay out leftward instead.
-    x = row.left;
-    xs[0] = x;
-    for (let i = 1; i < chain.length; i++) {
-      x -= CHILD_GAP + n(chain[i]).width;
-      xs[i] = x;
-    }
-    if (xs[xs.length - 1] < EDGE) {
-      // The chain cannot fit on either side. Close rather than stack panels.
-      clearTimers();
-      setOpen(null);
-      return;
-    }
-  }
-
   let top = row.bottom + GAP;
-  if (top + Math.min(n(chain[0]).height, vh) > vh - EDGE && row.top - GAP > vh - row.bottom) {
-    top = Math.max(EDGE, row.top - GAP - n(chain[0]).height);
+  if (top + Math.min(nat.get(chain[0])!.height, vh) > vh - EDGE && row.top - GAP > vh - row.bottom) {
+    top = Math.max(EDGE, row.top - GAP - nat.get(chain[0])!.height);
   }
 
   const o = origin();
   for (let i = 0; i < chain.length; i++) {
     const p = chain[i];
-    const box = n(p);
+    const box = nat.get(p)!;
     const pTop = i === 0 ? top : Math.max(EDGE, Math.min(p.anchor.getBoundingClientRect().top, vh - EDGE - box.height));
     const left = Math.max(EDGE, Math.min(xs[i], vw - EDGE - box.width));
     const cap = parseFloat(getComputedStyle(p.el).maxHeight);
@@ -123,14 +126,17 @@ function layout(chain: Panel[]): void {
     p.el.style.top = `${pTop - o.y}px`;
     p.el.style.maxHeight = `${Math.max(96, Math.min(Number.isFinite(cap) ? cap : Infinity, vh - pTop - EDGE))}px`;
     p.el.style.visibility = "";
+    p.el.dataset.side = openSide;
     p.trigger.classList.add("is-open");
     p.trigger.setAttribute("aria-expanded", "true");
   }
+  return true;
 }
 
 function hide(p: Panel): void {
   p.el.hidden = true;
   p.el.classList.remove("open");
+  p.el.style.visibility = "";
   p.trigger.classList.remove("is-open");
   p.trigger.setAttribute("aria-expanded", "false");
 }
@@ -144,10 +150,18 @@ function chainOf(p: Panel | null): Panel[] {
 function setOpen(target: Panel | null): void {
   if (!layer) return;
   const chain = chainOf(target);
+  if (chain.length && MQ_NO_HOVER.matches) return;
+  if (!chain.length) openSide = "right";
   const keep = new Set(chain);
   for (const p of openChain) if (!keep.has(p)) hide(p);
   layer.hidden = chain.length === 0;
-  layout(chain);
+  if (chain.length && !place(chain)) {
+    // Fits on neither side: nothing may stay painted.
+    for (const p of chain) hide(p);
+    layer.hidden = true;
+    openChain = [];
+    return;
+  }
   openChain = chain;
 }
 
@@ -172,14 +186,23 @@ function triggerIn(el: Element | null): HTMLElement | null {
   return el?.closest<HTMLElement>(TRIGGER) ?? null;
 }
 
+function firstRow(panel: Panel): HTMLElement | null {
+  return panel.el.querySelector<HTMLElement>(":scope > .crumb-item > .crumb-item-link");
+}
+
+function focusTrigger(trigger: HTMLElement): void {
+  (trigger.querySelector<HTMLElement>(".crumb-item-link, .crumb-label") ?? trigger).focus();
+}
+
 function scheduleOpen(p: Panel): void {
+  if (MQ_NO_HOVER.matches) return;
   clearTimers();
   if (chainOf(p).every((c) => openChain.includes(c))) return;
   openTimer = window.setTimeout(() => setOpen(p), OPEN_DELAY);
 }
 
-/** The open chain's bounding span, padded: a pointer crossing the few pixels
- *  between a panel and its child is still "inside" and must not start closing. */
+/** A pointer crossing the few pixels between a panel and its child is still
+ *  "inside" the open chain and must not start closing it. */
 function inSafeZone(t: Element | null): boolean {
   if (!t) return false;
   for (const p of openChain) {
@@ -203,10 +226,10 @@ function initEvents(): void {
     (e) => {
       lastX = e.clientX;
       lastY = e.clientY;
+      if (MQ_NO_HOVER.matches) return;
       const t = e.target;
       if (!(t instanceof Element)) return;
-      const trigger = triggerIn(t);
-      const p = panelOf(trigger);
+      const p = panelOf(triggerIn(t));
       if (p) {
         if (openChain.includes(p)) clearTimers();
         else scheduleOpen(p);
@@ -227,16 +250,38 @@ function initEvents(): void {
 
   document.addEventListener("pointerdown", (e) => {
     const t = e.target as Element | null;
-    if (!triggerIn(t) && !layer?.contains(t as Node)) closeNow();
+    // A press on a nested trigger row is a menu action, not an outside click.
+    if (layer?.contains(t as Node)) return;
+    closeNow();
   });
+
+  // A nested trigger row inside a panel toggles its submenu. The breadcrumb row
+  // itself is left alone: Home, ai, … must keep navigating. Capture phase: the
+  // soft-navigation router also listens for clicks and would start its fetch
+  // before a bubble-phase handler could cancel the event.
+  document.addEventListener(
+    "click",
+    (e) => {
+      if (MQ_NO_HOVER.matches) return;
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const label = e.target instanceof Element ? e.target.closest<HTMLElement>(".crumb-panel .crumb-item-link") : null;
+      const p = panelOf(triggerIn(label));
+      if (!p) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(openChain.includes(p) ? p.parent : p);
+    },
+    true,
+  );
 
   document.addEventListener("focusin", (e) => {
     const t = e.target as Element;
     if (layer?.contains(t) || t.closest(".crumbs")) {
       focusInside = true;
       clearTimers();
-      // Items nested directly in the layer (panel rows) are not inside any
-      // panel box, so the owning panel is resolved from its data attribute.
+      if (MQ_NO_HOVER.matches) return;
+      // Rows nested directly in the layer are not inside any panel box, so the
+      // owning panel is resolved from its data attribute.
       const host = t.closest<HTMLElement>(".crumb-panel");
       const p = host ? (panels.get(host.dataset.crumbPanel!) ?? null) : panelOf(triggerIn(t));
       if (p) setOpen(p);
@@ -254,7 +299,7 @@ function initEvents(): void {
     const next = e.relatedTarget as Node | null;
     if (next && (layer?.contains(next) || (next instanceof Element && next.closest(".crumbs")))) return;
     focusInside = false;
-    scheduleClose();
+    if (!MQ_NO_HOVER.matches) scheduleClose();
   });
 
   document.addEventListener("keydown", (e) => {
@@ -262,53 +307,64 @@ function initEvents(): void {
       e.preventDefault();
       const trigger = openChain[openChain.length - 1].trigger;
       closeNow();
-      (trigger.querySelector<HTMLElement>(".crumb-item-link") ?? trigger).focus();
+      focusTrigger(trigger);
       return;
     }
-    // Row triggers sit before the layer in DOM order, so Tab would run past a
-    // whole row before reaching the open panel. Bridge in both directions.
-    if (e.key === "Tab" && !e.altKey && !e.ctrlKey && !e.metaKey) {
-      const t = document.activeElement;
-      const row = t instanceof HTMLElement ? t.closest<HTMLElement>(".crumbs [data-crumb-key]") : null;
-      const p = panelOf(row);
-      if (p && openChain.includes(p) && !e.shiftKey) {
-        const first = p.el.querySelector<HTMLElement>(":scope > .crumb-item > .crumb-item-link");
-        if (first) {
-          e.preventDefault();
-          first.focus();
-          return;
-        }
-      }
-      // Reverse: the first row of a panel, or a nested trigger row, goes back
-      // to the entry that opened this panel.
-      const host = t instanceof HTMLElement ? t.closest<HTMLElement>(".crumb-panel") : null;
-      if (host && e.shiftKey) {
-        const first = host.querySelector<HTMLElement>(":scope > .crumb-item > .crumb-item-link");
-        const doorway = (first && t === first) || (t instanceof HTMLElement && t.closest(".crumb-item.has-sub"));
-        const trigger = doorway ? panels.get(host.dataset.crumbPanel!)?.trigger : null;
-        if (trigger) {
-          e.preventDefault();
-          (trigger.querySelector<HTMLElement>(".crumb-item-link") ?? trigger).focus();
-        }
-      }
-      // Landing on a nested trigger row opens it and steps to its first child;
-      // the row itself stays reachable going backwards.
-      const item = t instanceof HTMLElement ? t.closest<HTMLElement>(".crumb-panel .crumb-item.has-sub") : null;
-      const nested = panelOf(item);
-      if (nested) {
-        setOpen(nested);
-        const firstChild = nested.el.querySelector<HTMLElement>(":scope > .crumb-item > .crumb-item-link");
-        if (firstChild) {
-          e.preventDefault();
-          firstChild.focus();
-        }
+    if (MQ_NO_HOVER.matches) return;
+    if (e.key === "Enter") {
+      // Only nested trigger rows: a breadcrumb row link keeps Enter = navigate.
+      const label = document.activeElement instanceof Element ? document.activeElement.closest<HTMLElement>(".crumb-panel .crumb-item-link") : null;
+      const p = panelOf(triggerIn(label));
+      if (p) {
+        e.preventDefault();
+        setOpen(openChain.includes(p) ? p.parent : p);
         return;
+      }
+    }
+    // Row triggers sit before the layer in DOM order; bridge Tab in both
+    // directions between a breadcrumb row and the panel it opens.
+    if (e.key !== "Tab" || e.altKey || e.ctrlKey || e.metaKey) return;
+    const t = document.activeElement;
+    if (!(t instanceof HTMLElement)) return;
+    const rowPanel = panelOf(t.closest<HTMLElement>(".crumbs [data-crumb-key]"));
+    if (rowPanel && openChain.includes(rowPanel) && !e.shiftKey) {
+      const first = firstRow(rowPanel);
+      if (first) {
+        e.preventDefault();
+        first.focus();
+        return;
+      }
+    }
+    const host = t.closest<HTMLElement>(".crumb-panel");
+    if (!host) return;
+    const hostPanel = panels.get(host.dataset.crumbPanel!);
+    // Backwards out of the first row, or a nested trigger row, to its opener —
+    // and nothing further, so the direction cannot invert.
+    if (e.shiftKey) {
+      const isDoorway = t === firstRow(hostPanel!) || !!t.closest(".crumb-item.has-sub");
+      if (isDoorway && hostPanel?.trigger) {
+        e.preventDefault();
+        focusTrigger(hostPanel.trigger);
+        return;
+      }
+    }
+    // Forward onto a nested trigger row: open it and step into its children.
+    const nested = panelOf(t.closest<HTMLElement>(".crumb-panel .crumb-item.has-sub"));
+    if (nested) {
+      setOpen(nested);
+      const firstChild = firstRow(nested);
+      if (firstChild) {
+        e.preventDefault();
+        firstChild.focus();
       }
     }
   });
 
   window.addEventListener("resize", () => {
-    if (openChain.length) layout(openChain);
+    if (!openChain.length) return;
+    const current = place(openChain);
+    // A resize can leave the chain fitting on neither side; close it then.
+    if (!current) closeNow();
   });
   window.addEventListener(
     "scroll",

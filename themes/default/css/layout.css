@@ -1014,6 +1014,18 @@ body::before {
   border-color: var(--fg);
 }
 
+/* A chain laid out leftward: submenus open to the left, so mirror the arrow. */
+.crumb-panel[data-side="left"] .crumb-item.has-sub > .crumb-item-link {
+  padding-right: 0.5rem;
+  padding-left: 1.5rem;
+}
+
+.crumb-panel[data-side="left"] .crumb-item.has-sub > .crumb-item-link::after {
+  right: auto;
+  left: 0.55rem;
+  rotate: -135deg;
+}
+
 a.crumb-item-link:hover,
 .crumb-item.is-open > .crumb-item-link {
   color: var(--fg);
