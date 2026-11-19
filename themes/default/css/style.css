@@ -1451,7 +1451,9 @@ article.page-index {
 
 .post-title {
   margin: 0 0 0.9rem;
-  font-size: clamp(1.875rem, 1.4rem + 1.6vw, 2.5rem);
+  /* Above the body's H1 (1.5rem) at every width: the title labels the page,
+     an H1 is the first level of what the page contains. */
+  font-size: clamp(2rem, 1.4rem + 1.6vw, 2.5rem);
   font-weight: 700;
   line-height: 1.24;
   letter-spacing: -0.028em;
@@ -1615,7 +1617,7 @@ article.page-index .post-body {
   text-wrap: balance;
 }
 
-.post-body h2:first-child {
+.post-body :is(h1, h2):first-child {
   margin-top: 0;
 }
 
@@ -4016,7 +4018,7 @@ code.sourceCode span.wa {
   }
 
   .post-title {
-    font-size: 1.75rem;
+    font-size: 2rem;
   }
 
   .pager {
