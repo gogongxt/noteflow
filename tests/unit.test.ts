@@ -1488,3 +1488,22 @@ test('realInside/isInside: the filesystem root has no trailing-separator blind s
   assert.ok(!isInside('/a', '/ab'), 'a sibling sharing the root as a string prefix is outside');
   assert.ok(isInside('/a', '/a/b'));
 });
+
+test('dependencyVersions resolves the versions the builder actually loads', async () => {
+  const { dependencyVersions } = await import('../src/build/pipeline.ts');
+  const v = dependencyVersions();
+  // Installed for the suite; resolution must not depend on a guessed
+  // node_modules path (parse5's exports map hides its package.json).
+  assert.match(v.sanitizeHtml, /^\d+\.\d+/, 'sanitize-html version must resolve');
+  assert.match(v.parse5, /^\d+\.\d+/, 'parse5 version must resolve');
+});
+
+test('scan: two names that differ only by normalization fail loudly instead of merging', () => {
+  const root = tmpDir('nf-nfccollide-');
+  const nfc: string = '\u00e9';          // precomposed
+  const nfd: string = 'e\u0301';         // e + combining acute
+  if (nfc.normalize('NFC') !== nfd.normalize('NFC') || (nfc as string) === nfd) return; // platform folded them
+  writeFile(root, nfc + '.md', '---\ntitle: A\n---\n');
+  writeFile(root, nfd + '.md', '---\ntitle: B\n---\n');
+  assert.throws(() => scanTree(root), /differing only by Unicode normalization/);
+});

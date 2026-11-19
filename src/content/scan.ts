@@ -46,6 +46,8 @@ export function collectNodes(dir: string, relDir = ''): Map<string, NodeShape> {
     }
     if (e.isDirectory()) {
       const cur = nodes.get(name) ?? { dir: false, md: false };
+      // Two on-disk names that normalize to one key would silently drop one.
+      if (cur.dir && cur.dirName !== e.name) normalizeCollision(relDir, cur.dirName!, e.name);
       cur.dir = true;
       cur.dirName = e.name;
       nodes.set(name, cur);
@@ -54,6 +56,7 @@ export function collectNodes(dir: string, relDir = ''): Map<string, NodeShape> {
       const base = name.slice(0, -3);
       if (!base) continue; // a file literally named ".md"
       const cur = nodes.get(base) ?? { dir: false, md: false };
+      if (cur.md && cur.mdName !== e.name) normalizeCollision(relDir, cur.mdName!, e.name);
       cur.md = true;
       cur.mdName = e.name;
       nodes.set(base, cur);
@@ -62,6 +65,12 @@ export function collectNodes(dir: string, relDir = ''): Map<string, NodeShape> {
     }
   }
   return nodes;
+}
+
+function normalizeCollision(relDir: string, a: string, b: string): never {
+  throw new BuildError(
+    `nodes differing only by Unicode normalization in the same directory: ${toPosix(path.join(relDir, a))} and ${toPosix(path.join(relDir, b))}`,
+  );
 }
 
 export function assertNoCaseCollision(nodes: Map<string, NodeShape>, relDir: string): void {

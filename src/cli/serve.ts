@@ -18,6 +18,10 @@ const cfg = await loadConfig(
 // URL space carries the base path, dist/ does not — like on the real host.
 const BASE = basePathOf(cfg.url);
 const ROOT = path.resolve(String(args.root || cfg.outDir));
+// The preview routinely serves through a symlink (deploy's current →
+// releases/<id>). `rel` and the escape check must be computed against where
+// the bytes really live, or /static/ stops looking immutable.
+const REAL_ROOT = fs.realpathSync(ROOT);
 const PORT = Number(args.port || process.env.PORT || 7060);
 if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
   console.error(`✗ invalid port: ${String(args.port)}`);
@@ -84,12 +88,10 @@ async function resolveFile(urlPath: string): Promise<string | null> {
   if (decoded.includes('\0')) return null;
   const abs = path.normalize(path.join(ROOT, decoded));
   if (abs !== ROOT && !abs.startsWith(ROOT + path.sep)) return null;
-  // The preview routinely serves through a symlink (deploy's current →
-  // releases/<id>); the lexical check above cannot see where it lands.
+  // The lexical check above cannot see where a symlink lands.
   const real = await fsp.realpath(abs).catch(() => null);
   if (!real) return null;
-  const realRoot = await fsp.realpath(ROOT).catch(() => ROOT);
-  if (!realInside(realRoot, real)) return null;
+  if (!realInside(REAL_ROOT, real)) return null;
   const st = await fsp.stat(real).catch(() => null);
   if (!st) return null;
   if (st.isDirectory()) {
@@ -162,7 +164,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     return;
   }
 
-  const rel = path.relative(ROOT, file).split(path.sep).join('/');
+  const rel = path.relative(REAL_ROOT, file).split(path.sep).join('/');
   const { size, mtimeMs } = await fsp.stat(file);
   const cache = cacheControl(rel);
   const immutable = cache === 'public, max-age=31536000, immutable';

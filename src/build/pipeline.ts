@@ -3,8 +3,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { createRequire } from 'node:module';
 import { loadConfig, siteHostOf, basePathOf, ROOT, type AppConfig, type SiteConfig } from '../core/config.ts';
-import { BuildError, boolArg, esc, log, nfc, toPosix, type CliArgs } from '../core/util.ts';
+import { BuildError, boolArg, esc, log, nfc, realPath, toPosix, underPath, type CliArgs } from '../core/util.ts';
 import { assertReserved, scanTree } from '../content/scan.ts';
 import { buildCsp, CSP_META_TAG } from '../core/csp.ts';
 import { buildSidebar, collectChildPages, resolveTree } from '../content/visibility.ts';
@@ -111,7 +112,7 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
       dir: path.resolve(root, cfg.cacheDir, 'render'),
       root: renderCacheRoot({
         pandocVersion: pandoc.info?.version ?? '',
-        versions: dependencyVersions(root),
+        versions: dependencyVersions(),
         urlMap,
         privateRels: privateRel,
         basePath,
@@ -267,17 +268,31 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
 }
 
 /** Sanitize + parse5 versions: a library upgrade can change the cached bytes
- *  without a byte of `src/` changing. Unreadable → '' (one extra rebuild). */
-function dependencyVersions(root: string): { sanitizeHtml: string; parse5: string } {
+ *  without a byte of `src/` changing. Found by resolving the package the way
+ *  this file imports it — a hoisted or nested node_modules keys the version
+ *  actually in use. Unreadable → '' (one extra rebuild). */
+export function dependencyVersions(): { sanitizeHtml: string; parse5: string } {
+  const req = createRequire(import.meta.url);
   const versionOf = (name: string): string => {
-    for (const dir of [root, ROOT]) {
-      try {
-        return String(JSON.parse(fs.readFileSync(path.join(dir, 'node_modules', name, 'package.json'), 'utf8')).version ?? '');
-      } catch {
-        /* try the next root */
-      }
+    let dir: string;
+    try {
+      dir = path.dirname(req.resolve(name));
+    } catch {
+      return '';
     }
-    return '';
+    // Walk up to the owning package.json: an exports map may hide
+    // `<pkg>/package.json`, and the entry may sit in a subdirectory.
+    for (;;) {
+      try {
+        const json = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')) as { name?: string; version?: string };
+        if (json.name === name) return String(json.version ?? '');
+      } catch {
+        /* no package.json here; keep walking */
+      }
+      const up = path.dirname(dir);
+      if (up === dir) return '';
+      dir = up;
+    }
   };
   return { sanitizeHtml: versionOf('sanitize-html'), parse5: versionOf('parse5') };
 }
@@ -290,23 +305,23 @@ function buildTimeOf(args: CliArgs): Date {
 }
 
 /** writeDiff deletes everything in dist/ it did not just emit, so a mistyped
- *  outDir ('.', the content tree, 'src') would erase the files the build reads. */
+ *  outDir ('.', '/', the content tree, 'src') would erase the files the build
+ *  reads. realPath resolves a not-yet-existing dist through its deepest
+ *  existing ancestor, so a symlinked content dir cannot hide an overlap. */
 function assertSafeOutput({ root, content, dist, themeDir }: { root: string; content: string; dist: string; themeDir: string }): void {
-  const real = (x: string): string => (fs.existsSync(x) ? fs.realpathSync(x) : path.resolve(x));
-  const out = real(dist);
+  const out = realPath(dist);
   const label = path.relative(process.cwd(), dist) || dist;
   // dist/ is normally inside the project, so only "outDir is the root or
   // contains it" is fatal there; for the others either direction is unsafe.
-  const project = real(root);
-  if (out === project || project.startsWith(out + path.sep)) {
+  const surrounds = (a: string, b: string): boolean => underPath(a, b) || underPath(b, a);
+  if (underPath(out, realPath(root))) {
     throw new BuildError(`outDir contains the project root: ${label} (a build would delete this repository)`);
   }
-  const surrounds = (a: string, b: string): boolean => a === b || a.startsWith(b + path.sep) || b.startsWith(a + path.sep);
   for (const [what, x] of [
     ['the builder source', path.join(ROOT, 'src')],
     ['the content directory', content],
     ['the theme', themeDir],
   ] as const) {
-    if (surrounds(out, real(x))) throw new BuildError(`outDir overlaps ${what}: ${label} (a build would delete its input files)`);
+    if (surrounds(out, realPath(x))) throw new BuildError(`outDir overlaps ${what}: ${label} (a build would delete its input files)`);
   }
 }

@@ -199,24 +199,16 @@ const titleOf = (root: Document): string => root.querySelector("title")?.textCon
 
 /** Per-page head tags: the canonical URL, the description (giscus sends it to
  *  its widget) and the social-preview tags. CSP, the inline scripts and the
- *  stylesheet are build output and stay. Each tag is identified by the
- *  attribute that names it (rel / name / property). */
+ *  stylesheet are build output and stay. */
 const NAV_TECH_HEAD = "link[rel='canonical'], meta[name='description'], meta[property^='og:'], meta[name^='twitter:']";
 
-function headKey(el: Element): string {
-  return el.tagName + "\0" + (el.getAttribute("rel") || el.getAttribute("property") || el.getAttribute("name") || "");
-}
-
+/** Replace the whole selected set at once: a key can repeat (several
+ *  og:image), so nothing is looked up by key and kept or removed individually. */
 function setHeadMeta(root: Document): void {
-  const current = new Map<string, Element>();
-  for (const el of document.head.querySelectorAll(NAV_TECH_HEAD)) current.set(headKey(el), el);
-  const seen = new Set<string>();
-  for (const el of root.head.querySelectorAll(NAV_TECH_HEAD)) {
-    const key = headKey(el);
-    seen.add(key);
-    current.get(key)?.replaceWith(document.importNode(el, true));
-  }
-  for (const [key, el] of current) if (!seen.has(key)) el.remove();
+  const frag = document.createDocumentFragment();
+  for (const el of root.head.querySelectorAll(NAV_TECH_HEAD)) frag.appendChild(document.importNode(el, true));
+  document.head.querySelectorAll(NAV_TECH_HEAD).forEach((el) => el.remove());
+  document.head.appendChild(frag);
 }
 
 async function navigate(url: URL, opts: { replace?: boolean; pop?: boolean } = {}): Promise<void> {

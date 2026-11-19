@@ -87,32 +87,36 @@ export function isInside(root: string, p: string): boolean {
   return underPath(path.resolve(root), path.resolve(p));
 }
 
-/** A path-segment-aware descendant check; `/` needs no trailing separator. */
-function underPath(root: string, p: string): boolean {
+/** A path-segment-aware descendant check; `/` needs no trailing separator.
+ *  Exported so build-time path guards do not re-implement (and mis-implement) it. */
+export function underPath(root: string, p: string): boolean {
   if (p === root) return true;
   const prefix = root.endsWith(path.sep) ? root : root + path.sep;
   return p.startsWith(prefix);
 }
 
-/** Symlinks resolved on both sides; for paths that `isInside` must not mistake
- *  for an escape (/srv/current → /srv/releases/x). A path that does not exist
- *  yet resolves through its deepest existing ancestor. */
-export function realInside(root: string, p: string): boolean {
-  const real = (x: string): string => {
-    const rest: string[] = [];
-    let cur = path.resolve(x);
-    for (;;) {
-      try {
-        return path.join(fs.realpathSync(cur), ...rest);
-      } catch {
-        const parent = path.dirname(cur);
-        if (parent === cur) return path.resolve(x);
-        rest.unshift(path.basename(cur));
-        cur = parent;
-      }
+/** Symlinks resolved, with a path that does not exist yet resolved through its
+ *  deepest existing ancestor. */
+export function realPath(p: string): string {
+  const resolved = path.resolve(p);
+  const rest: string[] = [];
+  let cur = resolved;
+  for (;;) {
+    try {
+      return path.join(fs.realpathSync(cur), ...rest);
+    } catch {
+      const parent = path.dirname(cur);
+      if (parent === cur) return resolved;
+      rest.unshift(path.basename(cur));
+      cur = parent;
     }
-  };
-  return underPath(real(root), real(p));
+  }
+}
+
+/** Symlinks resolved on both sides; for paths that `isInside` must not mistake
+ *  for an escape (/srv/current → /srv/releases/x). */
+export function realInside(root: string, p: string): boolean {
+  return underPath(realPath(root), realPath(p));
 }
 
 /** 'YYYY-MM-DD' prefix of a date value, or null. */

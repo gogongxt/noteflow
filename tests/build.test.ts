@@ -383,6 +383,22 @@ test('outDir overlapping the content, the source, or the theme is refused before
     assert.match(r.stderr, /outDir overlaps/, `expected an overlap error for ${label}: ${r.stderr}`);
     assert.equal(fs.readFileSync(marker, 'utf8'), before, `${label} must be left untouched`);
   }
+
+  // The filesystem root contains everything; `out + sep` is "//" and a naive
+  // check misses it.
+  const rootOut = await runBuild(['--out', '/', '--content', copy]);
+  assert.notEqual(rootOut.status, 0, 'outDir "/" must be refused');
+  assert.match(rootOut.stderr, /outDir contains the project root|outDir overlaps/);
+
+  // A symlinked content dir with a not-yet-existing dist must not hide the
+  // overlap: realPath resolves the dist through the symlink.
+  const realContent = makeContentCopy();
+  const linkRoot = tmpDir('blog-linkroot-');
+  const link = path.join(linkRoot, 'notes');
+  fs.symlinkSync(realContent, link, 'dir');
+  const viaLink = await runBuild(['--out', path.join(link, 'out'), '--content', link]);
+  assert.notEqual(viaLink.status, 0, 'an outDir reaching into the real content tree through a symlink must be refused');
+  assert.match(viaLink.stderr, /outDir overlaps the content directory/);
 });
 
 test('--skip-audit waives only the style-hash claim, never a link or private-content finding', async () => {
