@@ -1,6 +1,6 @@
-// Site configuration: every value and path resolves through here. A gitignored
-// site.config.local.mjs overrides individual keys for personal values.
-// Both files are plain .mjs — see LOCAL_CONFIG_FILE for why.
+// Site configuration: every value and path resolves through here. Plain-JS
+// profiles (site.config.mjs, site.config.local.mjs) are merged over DEFAULTS.
+// Each file is validated as it is read, so an error names the file to edit.
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -25,7 +25,7 @@ export interface EditConfig {
 }
 
 /** Official giscus widget configuration; the only third-party frame the CSP allows. */
-interface GiscusConfig {
+export interface GiscusConfig {
   repo: string;
   repoId: string;
   category?: string;
@@ -95,34 +95,39 @@ export interface AppConfig extends SiteConfig {
   manifestFile: string;
 }
 
-const DEFAULTS: Partial<AppConfig> = {
+/** Everything a config file may omit. `url` and `siteName` have no default. */
+type ConfigDefaults = Omit<AppConfig, 'url' | 'siteName'>;
+
+const DEFAULTS: ConfigDefaults = {
+  lang: 'en',
+  postPattern: '/posts/{abbrlink}',
+  pageSize: { home: 20, feed: 20 },
   contentDir: 'notes',
   outDir: 'dist',
   themeDir: 'themes/default',
   cacheDir: '.cache',
   manifestFile: '.build-manifest.json',
-  postPattern: '/posts/{abbrlink}',
-  pageSize: { home: 20, feed: 20 },
 };
 
 /** The neutral site profile, and the personal override that merges on top. */
 export const SITE_CONFIG_FILE = 'site.config.mjs';
 
 /** `.mjs` rather than `.ts`: it must load from a bare notes repo with no
- *  package.json declaring a module type. The file lives at the project root or
- *  the content root; a project-root copy wins. */
+ *  package.json declaring a module type. Found at the project root or the
+ *  content root; a project-root copy wins. */
 export const LOCAL_CONFIG_FILE = 'site.config.local.mjs';
 export const CONFIG_FILES = [SITE_CONFIG_FILE, LOCAL_CONFIG_FILE];
 
-/** Every key a config file may set; anything else is a typo, not a new setting.
- *  A Record over AppConfig's keys so a new field cannot be forgotten here. */
-const CONFIG_KEY_LIST: Record<keyof AppConfig, true> = {
-  url: true, siteName: true, lang: true, description: true,
-  postPattern: true, pageSize: true, giscus: true, repoUrl: true, edit: true,
-  cspMeta: true, footer: true, contentDir: true, outDir: true, themeDir: true,
-  cacheDir: true, manifestFile: true,
-};
-const CONFIG_KEYS = new Set<string>(Object.keys(CONFIG_KEY_LIST));
+/** Every key a config file may set; anything else is a typo. A Record over
+ *  AppConfig's keys, so adding a field without listing it here is a compile error. */
+const CONFIG_KEYS = new Set<string>(
+  Object.keys({
+    url: true, siteName: true, lang: true, description: true, postPattern: true,
+    pageSize: true, giscus: true, repoUrl: true, edit: true, cspMeta: true,
+    footer: true, contentDir: true, outDir: true, themeDir: true, cacheDir: true,
+    manifestFile: true,
+  } satisfies Record<keyof AppConfig, true>),
+);
 
 export interface LocalConfig {
   file: string;
@@ -137,140 +142,172 @@ export function localConfigOf(root: string, contentDir: string): LocalConfig | n
   return fs.existsSync(inContent) ? { file: inContent, atContentRoot: true } : null;
 }
 
-async function readModule(file: string, label: string): Promise<Record<string, unknown>> {
-  if (!fs.existsSync(file)) throw new BuildError(`config file not found: ${label}`);
-  const mod = (await import(pathToFileURL(file).href)) as { default?: unknown };
-  const cfg = (mod.default ?? mod) as Record<string, unknown>;
-  // A typo in a key is silently ignored otherwise — the build would succeed
-  // with a setting that never took effect.
+function isObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function nonEmpty(v: unknown): v is string {
+  return typeof v === 'string' && v.trim() !== '';
+}
+
+/** An absolute http(s) URL. The header renders it as an href, so a `javascript:`
+ *  or relative value would be a broken or dangerous link. */
+function isHttpUrl(v: unknown): boolean {
+  if (!nonEmpty(v)) return false;
+  try {
+    return /^https?:$/.test(new URL(v).protocol);
+  } catch {
+    return false;
+  }
+}
+
+/** Import a config module, reject unknown keys, and validate every value it
+ *  sets. `label` names the file in every error. */
+async function readConfig(file: string, label: string): Promise<Record<string, unknown>> {
+  let mtime: number;
+  try {
+    mtime = fs.statSync(file).mtimeMs;
+  } catch {
+    throw new BuildError(`config file not found: ${label}`);
+  }
+  // The mtime query defeats ESM's per-URL module cache, so a file edited in
+  // place (watch mode, tests) is re-read — and an unchanged file is not.
+  const mod = (await import(`${pathToFileURL(file).href}?v=${mtime}`)) as { default?: unknown };
+  if (!isObject(mod.default)) throw new BuildError(`${label}: must \`export default { … }\``);
+  const cfg = mod.default;
   const unknown = Object.keys(cfg).filter((k) => !CONFIG_KEYS.has(k));
   if (unknown.length) throw new BuildError(`${label}: unknown key ${unknown.map((k) => `'${k}'`).join(', ')}`);
+  checkFields(cfg, label);
   return cfg;
 }
 
-function requireString(cfg: Record<string, unknown>, key: string): void {
-  if (typeof cfg[key] !== 'string' || !(cfg[key] as string).trim()) {
-    throw new BuildError(`${SITE_CONFIG_FILE}: ${key} must be a non-empty string`);
+/** A config error naming the file it came from. A declaration (not an arrow
+ *  const) so TypeScript narrows the preceding type guards after the call. */
+function bad(origin: string, msg: string): never {
+  throw new BuildError(`${origin}: ${msg}`);
+}
+
+/** Validate the values a single file sets; omitted keys are defaults. */
+function checkFields(cfg: Record<string, unknown>, origin: string): void {
+  if (cfg.url !== undefined && !isHttpUrl(cfg.url)) {
+    bad(origin, 'url must be an absolute http(s) URL, e.g. https://example.com');
+  }
+  for (const k of ['siteName', 'lang', 'contentDir', 'outDir', 'themeDir', 'cacheDir', 'manifestFile'] as const) {
+    if (cfg[k] !== undefined && !nonEmpty(cfg[k])) bad(origin, `${k} must be a non-empty string`);
+  }
+  if (cfg.description !== undefined && typeof cfg.description !== 'string') bad(origin, 'description must be a string');
+  if (cfg.postPattern !== undefined && (typeof cfg.postPattern !== 'string' || !cfg.postPattern.includes('{abbrlink}'))) {
+    bad(origin, 'postPattern must contain {abbrlink}');
+  }
+  if (cfg.repoUrl !== undefined && !isHttpUrl(cfg.repoUrl)) bad(origin, 'repoUrl must be an absolute http(s) URL');
+  if (cfg.cspMeta !== undefined && typeof cfg.cspMeta !== 'boolean') bad(origin, 'cspMeta must be a boolean');
+
+  if (cfg.pageSize !== undefined) {
+    const size = cfg.pageSize;
+    if (!isObject(size)) bad(origin, 'pageSize must be an object { home, feed }');
+    for (const k of ['home', 'feed'] as const) {
+      if (!Number.isInteger(size[k]) || (size[k] as number) <= 0) bad(origin, `pageSize.${k} must be a positive integer`);
+    }
+  }
+  checkGiscus(cfg.giscus, origin);
+  checkEdit(cfg.edit, origin);
+  checkFooter(cfg.footer, origin);
+}
+
+function checkGiscus(g: unknown, origin: string): void {
+  if (g === undefined) return;
+  if (!isObject(g)) bad(origin, 'giscus must be an object');
+  if (!nonEmpty(g.repo) || !nonEmpty(g.repoId)) bad(origin, 'giscus needs at least { repo, repoId } string fields');
+  for (const k of ['category', 'categoryId', 'lang'] as const) {
+    if (g[k] !== undefined && !nonEmpty(g[k])) bad(origin, `giscus.${k} must be a non-empty string`);
+  }
+  if (g.reactionsEnabled !== undefined && typeof g.reactionsEnabled !== 'boolean') {
+    bad(origin, 'giscus.reactionsEnabled must be a boolean');
+  }
+  if (g.inputPosition !== undefined && g.inputPosition !== 'top' && g.inputPosition !== 'bottom') {
+    bad(origin, "giscus.inputPosition must be 'top' or 'bottom'");
+  }
+}
+
+function checkEdit(e: unknown, origin: string): void {
+  if (e === undefined) return;
+  if (!isObject(e)) bad(origin, 'edit must be an object');
+  if (!isHttpUrl(e.repoUrl)) bad(origin, 'edit.repoUrl must be an absolute http(s) URL');
+  const repo = new URL(String(e.repoUrl));
+  // editUrlOf concatenates onto repoUrl; a ?query or #hash would land after the
+  // file path and silently point at the wrong page.
+  if (repo.search || repo.hash) bad(origin, 'edit.repoUrl must not carry a query string or fragment');
+  if (e.branch !== undefined && !nonEmpty(e.branch)) bad(origin, 'edit.branch must be a non-empty string');
+  if (e.provider !== undefined && !EDIT_PROVIDERS.includes(e.provider as EditProvider)) {
+    bad(origin, `edit.provider must be one of ${EDIT_PROVIDERS.join(', ')}`);
+  }
+  const root = e.root;
+  if (
+    root !== undefined &&
+    (typeof root !== 'string' ||
+      (root !== '' &&
+        (root.startsWith('/') || root.endsWith('/') || root.includes('\\') ||
+          root.split('/').some((s) => !s || s === '.' || s === '..'))))
+  ) {
+    bad(origin, "edit.root must be a repo-relative path like 'docs' ('' when the content dir is the repo root)");
   }
 }
 
 /** A footer href: a site path or an absolute http(s)/mailto/tel URL. `//host`
  *  is protocol-relative, so the leading-slash check cannot be naive. */
-function checkFooterHref(href: string, key: string): void {
-  const bad =
-    typeof href !== 'string' ||
-    !href.trim() ||
-    /^\/(?:\/|\\|\/\\|\\)/.test(href) ||
-    (!href.startsWith('/') && !/^(https?:\/\/|mailto:|tel:)/i.test(href));
-  if (bad) throw new BuildError(`${SITE_CONFIG_FILE}: ${key} must start with / , http(s)://, mailto: or tel:`);
+function checkFooterHref(href: unknown, key: string, origin: string): void {
+  const ok = nonEmpty(href) && !/^\/(?:\/|\\|\/\\|\\)/.test(href) && (href.startsWith('/') || /^(https?:\/\/|mailto:|tel:)/i.test(href));
+  if (!ok) bad(origin, `${key} must start with / , http(s)://, mailto: or tel:`);
 }
 
-function validate(cfg: AppConfig): AppConfig {
-  requireString(cfg as unknown as Record<string, unknown>, 'url');
-  requireString(cfg as unknown as Record<string, unknown>, 'siteName');
-  if (!/^https?:\/\//i.test(cfg.url)) throw new BuildError(`${SITE_CONFIG_FILE}: url must start with http:// or https://`);
-  siteHostOf(cfg.url); // rejects a scheme-only or otherwise unparsable url here, not mid-build
-
-  const size = cfg.pageSize as { home?: unknown; feed?: unknown } | undefined;
-  if (!size || typeof size !== 'object') throw new BuildError(`${SITE_CONFIG_FILE}: pageSize must be an object`);
-  for (const k of ['home', 'feed'] as const) {
-    const v = size[k];
-    if (!Number.isInteger(v) || (v as number) <= 0) throw new BuildError(`${SITE_CONFIG_FILE}: pageSize.${k} must be a positive integer`);
+function checkFooter(f: unknown, origin: string): void {
+  if (f === undefined) return;
+  if (!isObject(f)) bad(origin, 'footer must be an object');
+  for (const k of ['copyright', 'author', 'icp'] as const) {
+    if (f[k] !== undefined && !nonEmpty(f[k])) bad(origin, `footer.${k} must be a non-empty string`);
   }
-  if (!cfg.postPattern.includes('{abbrlink}')) throw new BuildError(`${SITE_CONFIG_FILE}: postPattern must contain {abbrlink}`);
-
-  const g = cfg.giscus;
-  if (g !== undefined) {
-    if (typeof g !== 'object' || !g || typeof g.repo !== 'string' || typeof g.repoId !== 'string') {
-      throw new BuildError(`${SITE_CONFIG_FILE}: giscus needs at least { repo, repoId } string fields`);
-    }
+  if (f.since !== undefined && (!Number.isInteger(f.since) || (f.since as number) < 1900)) {
+    bad(origin, 'footer.since must be a four-digit year');
   }
-
-  const e = cfg.edit;
-  if (e !== undefined) {
-    if (typeof e !== 'object' || !e || Array.isArray(e)) throw new BuildError(`${SITE_CONFIG_FILE}: edit must be an object`);
-    let repo: URL | null = null;
-    try {
-      repo = new URL(String(e.repoUrl));
-    } catch {}
-    if (!repo || !/^https?:$/.test(repo.protocol)) {
-      throw new BuildError(`${SITE_CONFIG_FILE}: edit.repoUrl must be an absolute http(s) URL`);
-    }
-    // editUrlOf concatenates onto repoUrl; a ?query or #hash would land after
-    // the file path and silently point at the wrong page.
-    if (repo.search || repo.hash) {
-      throw new BuildError(`${SITE_CONFIG_FILE}: edit.repoUrl must not carry a query string or fragment`);
-    }
-    if (e.branch !== undefined && (typeof e.branch !== 'string' || !e.branch.trim())) {
-      throw new BuildError(`${SITE_CONFIG_FILE}: edit.branch must be a non-empty string`);
-    }
-    if (e.provider !== undefined && !EDIT_PROVIDERS.includes(e.provider)) {
-      throw new BuildError(`${SITE_CONFIG_FILE}: edit.provider must be one of ${EDIT_PROVIDERS.join(', ')}`);
-    }
-    const root = e.root;
-    if (
-      root !== undefined &&
-      (typeof root !== 'string' ||
-        (root !== '' &&
-          (root.startsWith('/') || root.endsWith('/') || root.includes('\\') ||
-            root.split('/').some((s) => !s || s === '.' || s === '..'))))
-    ) {
-      throw new BuildError(`${SITE_CONFIG_FILE}: edit.root must be a repo-relative path like 'docs' ('' or omitted when the content dir is the repo root), without leading/trailing slashes or '..'`);
-    }
+  for (const k of ['copyrightUrl', 'authorUrl', 'icpUrl'] as const) {
+    if (f[k] !== undefined) checkFooterHref(f[k], `footer.${k}`, origin);
   }
-
-  const f = cfg.footer;
-  if (f !== undefined) {
-    if (typeof f !== 'object' || !f || Array.isArray(f)) throw new BuildError(`${SITE_CONFIG_FILE}: footer must be an object`);
-    for (const k of ['copyright', 'author', 'icp'] as const) {
-      if (f[k] !== undefined && (typeof f[k] !== 'string' || !f[k]!.trim())) {
-        throw new BuildError(`${SITE_CONFIG_FILE}: footer.${k} must be a non-empty string`);
-      }
-    }
-    if (f.since !== undefined && (!Number.isInteger(f.since) || f.since < 1900)) {
-      throw new BuildError(`${SITE_CONFIG_FILE}: footer.since must be a four-digit year`);
-    }
-    for (const k of ['copyrightUrl', 'authorUrl'] as const) {
-      if (f[k] !== undefined) checkFooterHref(f[k]!, `footer.${k}`);
-    }
-    if (f.credit !== undefined && typeof f.credit !== 'boolean') {
-      throw new BuildError(`${SITE_CONFIG_FILE}: footer.credit must be a boolean`);
-    }
-    if (f.icpUrl !== undefined) checkFooterHref(f.icpUrl, 'footer.icpUrl');
-  }
-  return cfg;
+  if (f.credit !== undefined && typeof f.credit !== 'boolean') bad(origin, 'footer.credit must be a boolean');
 }
 
 /** Load site.config.mjs plus the first local override (see localConfigOf).
  *  With `file` (--config) the profile replaces the whole stack: CI and docs
  *  never see a developer's personal values. */
 export async function loadConfig(file?: string, contentDir?: string, root: string = ROOT): Promise<AppConfig> {
-  const baseFile = file ?? path.join(root, SITE_CONFIG_FILE);
-  const base = { ...DEFAULTS, ...(await readModule(baseFile, path.relative(root, baseFile) || baseFile)) } as Record<string, unknown>;
-  let merged = base;
+  const baseLabel = file ? path.relative(process.cwd(), file) || file : SITE_CONFIG_FILE;
+  const base = await readConfig(file ?? path.join(root, SITE_CONFIG_FILE), baseLabel);
+  let merged: Record<string, unknown> = { ...DEFAULTS, ...base };
   if (!file) {
-    const local = localConfigOf(root, contentDir ?? String(base.contentDir));
+    const local = localConfigOf(root, contentDir ?? String(base.contentDir ?? DEFAULTS.contentDir));
     if (local) {
-      const over = await readModule(local.file, LOCAL_CONFIG_FILE);
+      const over = await readConfig(local.file, LOCAL_CONFIG_FILE);
       // The file was found *by* this contentDir; re-pointing it would move the
       // build while the file keeps being read from the old tree.
       if (local.atContentRoot && over.contentDir !== undefined) {
-        throw new BuildError(
-          `${LOCAL_CONFIG_FILE} at the content root cannot set contentDir; put that override at the project root`,
-        );
+        throw new BuildError(`${LOCAL_CONFIG_FILE} at the content root cannot set contentDir; put that override at the project root`);
       }
-      merged = { ...base, ...over };
+      merged = { ...merged, ...over };
     }
   }
-  return validate(merged as unknown as AppConfig);
+  for (const k of ['url', 'siteName'] as const) {
+    if (merged[k] === undefined) throw new BuildError(`${baseLabel}: ${k} is required`);
+  }
+  return merged as unknown as AppConfig;
 }
 
-/** The site's own host:port, as the link policy compares against. */
+/** The site's own host:port, as the link policy compares against. `url` was
+ *  validated in loadConfig, so a bad value can only arrive from a hand-built
+ *  config in tests. */
 export function siteHostOf(siteUrl: string): string {
   try {
     return new URL(siteUrl).host;
   } catch {
-    throw new BuildError(`${SITE_CONFIG_FILE}: url is not a valid absolute URL: ${siteUrl}`);
+    throw new BuildError(`url is not a valid absolute URL: ${siteUrl}`);
   }
 }
 

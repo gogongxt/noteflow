@@ -4,11 +4,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { basePathOf, loadConfig } from '../core/config.ts';
-import { parseArgs } from '../core/util.ts';
+import { fatal, parseArgs } from '../core/util.ts';
 import { buildCsp, hashesOf, type CspHashes } from '../core/csp.ts';
 
 const args = parseArgs(process.argv.slice(2));
-const cfg = await loadConfig(typeof args.config === 'string' ? path.resolve(process.cwd(), String(args.config)) : undefined);
+const cfg = await loadConfig(typeof args.config === 'string' ? path.resolve(process.cwd(), String(args.config)) : undefined).catch(fatal);
 const manifestArg = args._[0];
 const manifestFile = typeof manifestArg === 'string' ? manifestArg : cfg.manifestFile;
 const outFile = typeof args.out === 'string' ? path.resolve(args.out) : null;

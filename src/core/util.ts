@@ -9,6 +9,19 @@ export class BuildError extends Error {
   }
 }
 
+/** A CLI death: a BuildError prints as one line, anything else is a bug and
+ *  keeps its stack. */
+export function fatal(err: unknown): never {
+  if (err instanceof BuildError) console.error(`✗ ${err.message}`);
+  else console.error(err);
+  process.exit(1);
+}
+
+/** Run a CLI body through `fatal`. */
+export function runCli(main: () => Promise<void>): void {
+  main().catch(fatal);
+}
+
 interface Log {
   info: (...a: unknown[]) => void;
   warn: (...a: unknown[]) => void;

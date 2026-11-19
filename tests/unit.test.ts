@@ -1218,6 +1218,40 @@ test('config file missing: one readable line, not a module-resolution stack trac
   );
 });
 
+test('config: a bad value names the file that set it, and a partial override merges', async () => {
+  const { loadConfig } = await import('../src/core/config.ts');
+  const root = tmpDir('nf-cfg-origin-');
+  fs.mkdirSync(path.join(root, 'notes'));
+  fs.writeFileSync(
+    path.join(root, 'site.config.mjs'),
+    "export default { url: 'https://example.com', siteName: 'base', pageSize: { home: 3, feed: 4 } };\n",
+  );
+  // Only the keys it changes: the rest stays from the profile and DEFAULTS.
+  fs.writeFileSync(
+    path.join(root, 'site.config.local.mjs'),
+    "export default { siteName: 'mine', footer: { author: 'me' } };\n",
+  );
+  const cfg = await loadConfig(undefined, undefined, root);
+  assert.deepEqual(
+    { siteName: cfg.siteName, url: cfg.url, pageSize: cfg.pageSize, footer: cfg.footer, contentDir: cfg.contentDir },
+    { siteName: 'mine', url: 'https://example.com', pageSize: { home: 3, feed: 4 }, footer: { author: 'me' }, contentDir: 'notes' },
+  );
+
+  // A bad value in the override points at the override, not the neutral file.
+  fs.writeFileSync(path.join(root, 'site.config.local.mjs'), "export default { pageSize: { home: 0, feed: 1 } };\n");
+  await assert.rejects(loadConfig(undefined, undefined, root), /^BuildError: site\.config\.local\.mjs: pageSize\.home must be a positive integer$/);
+
+  // A --config profile outside the root names itself, not site.config.mjs.
+  const profile = path.join(tmpDir('nf-cfg-prof-'), 'my-site.mjs');
+  fs.writeFileSync(profile, "export default { siteName: 'x' };\n");
+  await assert.rejects(loadConfig(profile), /my-site\.mjs: url is required/);
+
+  // No url anywhere: the required key is reported against the base profile.
+  fs.writeFileSync(path.join(root, 'site.config.mjs'), "export default { lang: 'en' };\n");
+  fs.rmSync(path.join(root, 'site.config.local.mjs'));
+  await assert.rejects(loadConfig(undefined, undefined, root), /site\.config\.mjs: url is required/);
+});
+
 test('config validation: an unknown key fails the build instead of silently doing nothing', async () => {
   const { loadConfig } = await import('../src/core/config.ts');
   const dir = tmpDir('nf-cfg-keys-');
@@ -1230,6 +1264,8 @@ test('config validation: an unknown key fails the build instead of silently doin
   assert.equal(ok.lang, 'en');
   // A typo — in the profile or the personal override — names the file and the key.
   await assert.rejects(loadConfig(write('bad.mjs', 'siteNmae: "x",')), /bad\.mjs: unknown key 'siteNmae'/);
+  // repoUrl becomes an href: a non-http(s) value would be a broken or unsafe link.
+  await assert.rejects(loadConfig(write('bad-url.mjs', "repoUrl: 'javascript:alert(1)',")), /bad-url\.mjs: repoUrl must be an absolute http\(s\) URL/);
   const root = tmpDir('nf-cfg-keys-');
   fs.writeFileSync(path.join(root, 'site.config.mjs'), "export default { url: 'https://example.com', siteName: 't', lang: 'en', pageSize: { home: 1, feed: 1 } };\n");
   fs.writeFileSync(path.join(root, 'site.config.local.mjs'), 'export default { footr: {} };\n');

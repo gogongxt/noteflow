@@ -5,7 +5,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadConfig, CONFIG_FILES, repoPath, type AppConfig } from '../core/config.ts';
-import { parseArgs } from '../core/util.ts';
+import { fatal, parseArgs } from '../core/util.ts';
 
 const ROOT = process.cwd();
 const args = parseArgs(process.argv.slice(2));
@@ -106,7 +106,7 @@ function watchAll(cfg: AppConfig): void {
 
 const configArg = typeof args.config === 'string' ? path.resolve(ROOT, String(args.config)) : undefined;
 const contentArg = typeof args.content === 'string' ? path.resolve(ROOT, args.content) : undefined;
-const cfg = await loadConfig(configArg, contentArg);
+const cfg = await loadConfig(configArg, contentArg).catch(fatal);
 const contentDir = typeof args.content === 'string' ? args.content : cfg.contentDir;
 if (!fs.existsSync(path.resolve(ROOT, contentDir))) {
   console.error(`Content directory not found: ${path.resolve(ROOT, contentDir)}`);

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { decodeURIComponentSafe, parseArgs } from '../core/util.ts';
+import { decodeURIComponentSafe, fatal, parseArgs } from '../core/util.ts';
 import { basePathOf, loadConfig, repoPath } from '../core/config.ts';
 import { buildCsp, hashesOf, type CspHashes } from '../core/csp.ts';
 import { ATTACHMENT_TYPES } from '../render/attachments.ts';
@@ -14,7 +14,7 @@ const args = parseArgs(process.argv.slice(2));
 const cfg = await loadConfig(
   args.config ? path.resolve(process.cwd(), String(args.config)) : undefined,
   typeof args.content === 'string' ? path.resolve(process.cwd(), args.content) : undefined,
-);
+).catch(fatal);
 // URL space carries the base path, dist/ does not — like on the real host.
 const BASE = basePathOf(cfg.url);
 const ROOT = path.resolve(String(args.root || cfg.outDir));

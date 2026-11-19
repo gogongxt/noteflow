@@ -3,7 +3,8 @@
 import path from 'node:path';
 import { hashDist } from '../build/outputs.ts';
 import { loadConfig } from '../core/config.ts';
+import { fatal } from '../core/util.ts';
 
 const arg = process.argv[2];
-const dir = path.resolve(arg || (await loadConfig()).outDir);
+const dir = path.resolve(arg || (await loadConfig().catch(fatal)).outDir);
 process.stdout.write(hashDist(dir));

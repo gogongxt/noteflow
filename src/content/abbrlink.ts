@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { BuildError, crc32Hex, datePart, log, parseArgs, toPosix, walkFiles } from '../core/util.ts';
+import { BuildError, crc32Hex, datePart, log, parseArgs, runCli, toPosix, walkFiles } from '../core/util.ts';
 import { loadConfig, repoPath } from '../core/config.ts';
 import type { Page, TreeNode } from '../core/types.ts';
 import { injectAbbrlink, parseNote, readAbbrlink, splitSource } from './frontmatter.ts';
@@ -177,10 +177,5 @@ async function main(): Promise<void> {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  try {
-    await main();
-  } catch (err) {
-    console.error(err instanceof BuildError ? err.message : err);
-    process.exit(1);
-  }
+  runCli(main);
 }
