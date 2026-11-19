@@ -42,12 +42,18 @@ export interface AssetEntry {
   abs: string;
   /** Size/mtime when hashed, to detect an edit between hashing and copying. */
   stat: { size: number; mtimeMs: number };
+  /** The content hash embedded in outRel's name. */
+  hash: string;
 }
 
 /** An attachment a page rendered against, as recorded for a cached render. */
 export interface PinnedAsset {
   srcRel: string;
   outRel: string;
+  /** Content hash of the bytes outRel's name embeds. The cache re-hashes on a
+   *  hit: size+mtime alone would accept a same-size edit with a preserved
+   *  mtime (cp -p, rsync -a) and pin a URL whose hash lies. */
+  hash: string;
   size: number;
   mtimeMs: number;
 }
@@ -66,12 +72,12 @@ interface AssetNamer {
 export function makeAssetNamer(realRoot: string): AssetNamer {
   const byPage = new Map<string, Map<string, AssetEntry>>();
   const used = new Map<string, Set<string>>();
-  const claim = (pageAbbr: string, srcRel: string, outRel: string, abs: string, stat: { size: number; mtimeMs: number }): AssetEntry => {
+  const claim = (pageAbbr: string, srcRel: string, outRel: string, abs: string, stat: { size: number; mtimeMs: number }, hash: string): AssetEntry => {
     let m = byPage.get(pageAbbr);
     if (!m) byPage.set(pageAbbr, (m = new Map()));
     if (!used.has(pageAbbr)) used.set(pageAbbr, new Set());
     used.get(pageAbbr)!.add(path.posix.basename(outRel));
-    const entry = { pageAbbr, srcRel, outRel, abs, stat };
+    const entry = { pageAbbr, srcRel, outRel, abs, stat, hash };
     m.set(srcRel, entry);
     return entry;
   };
@@ -86,15 +92,15 @@ export function makeAssetNamer(realRoot: string): AssetNamer {
       let name = hashedName(base, hash);
       let n = 2;
       while (used.get(pageAbbr)?.has(name)) name = hashedName(base, `${hash}-${n++}`);
-      return claim(pageAbbr, srcRel, `assets/${pageAbbr}/${name}`, abs, { size: st.size, mtimeMs: st.mtimeMs }).outRel;
+      return claim(pageAbbr, srcRel, `assets/${pageAbbr}/${name}`, abs, { size: st.size, mtimeMs: st.mtimeMs }, hash).outRel;
     },
     restore(pageAbbr, pinned) {
       if (byPage.get(pageAbbr)?.has(pinned.srcRel)) return;
-      claim(pageAbbr, pinned.srcRel, pinned.outRel, resolveAsset(realRoot, pinned.srcRel), { size: pinned.size, mtimeMs: pinned.mtimeMs });
+      claim(pageAbbr, pinned.srcRel, pinned.outRel, resolveAsset(realRoot, pinned.srcRel), { size: pinned.size, mtimeMs: pinned.mtimeMs }, pinned.hash);
     },
     pinOf(pageAbbr, srcRel) {
       const e = byPage.get(pageAbbr)?.get(srcRel);
-      return e ? { srcRel: e.srcRel, outRel: e.outRel, size: e.stat.size, mtimeMs: e.stat.mtimeMs } : undefined;
+      return e ? { srcRel: e.srcRel, outRel: e.outRel, hash: e.hash, size: e.stat.size, mtimeMs: e.stat.mtimeMs } : undefined;
     },
     entries() {
       return [...byPage.values()].flatMap((m) => [...m.values()]);

@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { toPosix, walkFiles } from '../core/util.ts';
+import { hashFile8, toPosix, walkFiles } from '../core/util.ts';
 import { resolveAsset, type PinnedAsset } from '../render/attachments.ts';
 import type { Page, TocItem } from '../core/types.ts';
 import type { BrokenLink } from '../render/postprocess-types.ts';
@@ -89,6 +89,10 @@ export class RenderCache {
   private readonly write: boolean;
   private readonly contentRoot: string;
   private readonly live = new Set<string>();
+  /** Entries carry the build digest in their name: the docs profile and the
+   *  personal build share `cacheDir`, and neither prune() may delete the
+   *  other's work. */
+  private readonly ns: string;
   private reused = 0;
   private converted = 0;
   private seq = 0;
@@ -98,6 +102,7 @@ export class RenderCache {
     this.root = root;
     this.write = write;
     this.contentRoot = contentRoot;
+    this.ns = root.slice(0, 16);
   }
 
   /** The worker's final outcome for one page, counted once per page. */
@@ -107,7 +112,10 @@ export class RenderCache {
   }
 
   /** The recorded attachment files still exist with the same bytes, else the
-   *  rendered URLs would point at a file `writeMissing` cannot reproduce. */
+   *  rendered URLs would point at a file `writeMissing` cannot reproduce. The
+   *  bytes are re-hashed, not trusted from size+mtime: an edit that preserves
+   *  both (cp -p, rsync -a, touch -r) would otherwise pin a URL whose embedded
+   *  hash no longer matches its content. */
   private intact(render: CachedRender): boolean {
     for (const a of render.assets) {
       let abs: string;
@@ -117,7 +125,8 @@ export class RenderCache {
         return false;
       }
       const st = fs.statSync(abs);
-      if (st.size !== a.size || st.mtimeMs !== a.mtimeMs) return false;
+      if (st.size !== a.size) return false;
+      if (hashFile8(abs) !== a.hash) return false;
     }
     return true;
   }
@@ -127,7 +136,7 @@ export class RenderCache {
   }
 
   private fileOf(page: Page): string {
-    return path.join(this.dir, `${page.abbrlink}.json`);
+    return path.join(this.dir, `${this.ns}-${page.abbrlink}.json`);
   }
 
   /** Returns the entry only when it was written for exactly this page state. */
@@ -176,8 +185,8 @@ export class RenderCache {
     for (const name of names) {
       // A temp file from a concurrent build: its own put() will rename or drop it.
       if (name.endsWith('.tmp')) continue;
-      if (!name.endsWith('.json')) continue;
-      if (this.live.has(name.slice(0, -5))) continue;
+      if (!name.startsWith(`${this.ns}-`) || !name.endsWith('.json')) continue;
+      if (this.live.has(name.slice(this.ns.length + 1, -5))) continue;
       fs.rmSync(path.join(this.dir, name), { force: true });
     }
   }

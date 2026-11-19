@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { injectAbbrlink, parseNote, splitSource } from '../src/content/frontmatter.ts';
+import { injectAbbrlink, parseNote, readAbbrlink, splitSource } from '../src/content/frontmatter.ts';
 import { computeAbbrlink, computeIndexAbbrlink, rawDateString } from '../src/content/abbrlink.ts';
 import { crc32Hex, datePart } from '../src/core/util.ts';
 import { sanitize } from '../src/render/sanitize.ts';
@@ -1237,4 +1237,15 @@ test('config validation: footer shape is checked up front, not mid-build', async
   for (const [src, re] of bad) {
     await assert.rejects(loadConfig(write(`bad-${Math.random()}.mjs`, src)), re, src);
   }
+});
+
+test('abbrlink is a URL path segment: traversal and separators are refused', () => {
+  // The value becomes both a URL segment and a cache-file name; anything that
+  // could escape either must fail at parse time, not at write time.
+  for (const bad of ['../../package', 'a/b', '.hidden', 'a b', 'a.b']) {
+    assert.throws(() => readAbbrlink({ abbrlink: bad }), /abbrlink must be letters/, bad);
+  }
+  assert.equal(readAbbrlink({ abbrlink: 'c182255e' }), 'c182255e');
+  assert.equal(readAbbrlink({ abbrlink: '' }), null);
+  assert.equal(readAbbrlink({}), null);
 });

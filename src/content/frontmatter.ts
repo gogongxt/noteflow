@@ -78,11 +78,20 @@ export function parseNote(raw: string): ParseNoteResult {
   }
 }
 
+/** The abbrlink is a URL path segment and a cache-file name, so anything that
+ *  could escape either (`../../x`, `a/b`, a dot-only name) is refused up front
+ *  rather than surfacing later as a path or a corrupted file. */
+const ABBRLINK_OK = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
+
 export function readAbbrlink(data: Frontmatter | null | undefined): string | null {
   const v = data?.abbrlink;
   if (v == null) return null;
   const s = String(v);
-  return s === '' ? null : s;
+  if (s === '') return null;
+  if (!ABBRLINK_OK.test(s)) {
+    throw new BuildError(`abbrlink must be letters, digits, '-' or '_' (it becomes a URL segment): ${JSON.stringify(s)}`);
+  }
+  return s;
 }
 
 /** label is for errors only — never pass a private title. */

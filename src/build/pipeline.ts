@@ -111,7 +111,7 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
         siteHost,
         allowPrivateAssets,
         contentRoot: realRoot,
-        srcDirs: [path.join(root, 'src'), path.join(root, 'themes', 'default', 'css')],
+        srcDirs: [path.join(root, 'src'), path.join(themeDir, 'css')],
       }),
       write: fix,
       contentRoot: realRoot,

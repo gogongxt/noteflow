@@ -630,7 +630,6 @@ suite('build variants', { concurrency: 6 }, () => {
     // --skip-mermaid: mermaid hashes Chromium's SVG output, so cached HTML
     // with figures is only reproducible on the same browser build.
     const build = (): Promise<BuildResult> => runBuild(['--config', profile, '--out', out], { content: copy, out });
-    console.log('DBGPROFILE', fs.readFileSync(profile, 'utf8'));
     const first = await build();
     assert.equal(first.status, 0, first.stderr);
     const cold = listFiles(out).filter((f) => f.endsWith('.html')).map((f) => [path.relative(out, f), fs.readFileSync(f, 'utf8')] as const);
@@ -650,11 +649,69 @@ suite('build variants', { concurrency: 6 }, () => {
     assert.equal(Number(m[1]), Number(m[2]) - 1, 'exactly the edited page must re-convert');
     assert.ok(fs.readFileSync(path.join(out, 'posts/d1b06489/index.html'), 'utf8').includes('An edited paragraph.'));
 
+    // Two builds sharing one cacheDir (the docs profile and the personal build
+    // share .cache/render): entries are namespaced by the build digest, so
+    // neither prune() nor a rewrite may evict the other's work. The base-path
+    // url gives the second profile a different digest over the same pages.
+    const otherOut = tmpDir('blog-cacheout2-');
+    const other = path.join(manifestDir, `cache2-${buildSeq++}.mjs`);
+    fs.writeFileSync(other, fs.readFileSync(profile, 'utf8').replace("'https://example.com'", "'https://example.com/noteflow'").replace(JSON.stringify(out), JSON.stringify(otherOut)));
+    const warmA = await build();
+    assert.equal(warmA.status, 0, warmA.stderr);
+    const reA = /render cache: (\d+) of (\d+) pages reused/.exec(warmA.stdout);
+    assert.ok(reA && reA[1] === reA[2], `profile A must still be warm: ${warmA.stdout}`);
+    const otherFirst = await runBuild(['--config', other, '--out', otherOut], { content: copy, out: otherOut });
+    assert.equal(otherFirst.status, 0, otherFirst.stderr);
+    const otherWarm = await runBuild(['--config', other, '--out', otherOut], { content: copy, out: otherOut });
+    assert.equal(otherWarm.status, 0, otherWarm.stderr);
+    const reB = /render cache: (\d+) of (\d+) pages reused/.exec(otherWarm.stdout);
+    assert.ok(reB && reB[1] === reB[2], `profile B must keep its own entries: ${otherWarm.stdout}`);
+    const againA = await build();
+    assert.equal(againA.status, 0, againA.stderr);
+    const reA2 = /render cache: (\d+) of (\d+) pages reused/.exec(againA.stdout);
+    assert.ok(reA2 && reA2[1] === reA2[2], `profile A must survive profile B building alongside: ${againA.stdout}`);
+
     // --check is read-only: it must not create or refresh the cache.
     fs.rmSync(cacheDir, { recursive: true, force: true });
     const checked = await runBuild(['--config', profile, '--out', out, '--check'], { content: copy, out });
     assert.equal(checked.status, 0, checked.stderr);
     assert.ok(!fs.existsSync(cacheDir), '--check must not write the render cache');
+  });
+
+  test('a crafted abbrlink fails the build before any cache file is written', async () => {
+    const copy = tmpDir('blog-badabbr-');
+    fs.writeFileSync(path.join(copy, 'a.md'), '---\ntitle: 越界\npublic: true\nabbrlink: "../../package"\n---\n\nbody\n');
+    const out = tmpDir('blog-badabbrout-');
+    const r = await runBuild(['--out', out, '--content', copy], { content: copy, out });
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr + r.stdout, /abbrlink must be letters/);
+    const pkg = path.join(REPO, 'package.json');
+    assert.ok(JSON.parse(fs.readFileSync(pkg, 'utf8')).name === 'noteflow', 'package.json must not be overwritten by a cache entry');
+  });
+
+  test('a custom themeDir is hashed by its own CSS, not themes/default', async () => {
+    const copy = makeContentCopy();
+    const alt = tmpDir('blog-alt-theme-');
+    fs.cpSync(path.join(REPO, 'themes/default'), alt, { recursive: true });
+    const profile = path.join(manifestDir, `alt-${buildSeq++}.mjs`);
+    const out = tmpDir('blog-altout-');
+    fs.writeFileSync(
+      profile,
+      `export default { url: 'https://example.com', siteName: 't', lang: 'en', contentDir: ${JSON.stringify(copy)},` +
+        ` outDir: ${JSON.stringify(out)}, themeDir: ${JSON.stringify(alt)}, cacheDir: ${JSON.stringify(tmpDir('blog-altcache-'))},` +
+        ` manifestFile: ${JSON.stringify(path.join(manifestDir, `altm-${buildSeq++}.json`))}, postPattern: '/posts/{abbrlink}', pageSize: { home: 5, feed: 5 } };\n`,
+    );
+    const r = await runBuild(['--config', profile, '--out', out], { content: copy, out });
+    assert.equal(r.status, 0, r.stderr);
+    // Editing that theme's CSS must invalidate the cache (the digest covers it).
+    const first = await runBuild(['--config', profile, '--out', out], { content: copy, out });
+    const reUsed = /render cache: (\d+) of (\d+) pages reused/.exec(first.stdout);
+    assert.ok(reUsed && reUsed[1] === reUsed[2], 'the custom theme must cache like the default one');
+    fs.appendFileSync(path.join(alt, 'css/utilities.css'), '\n.probe { color: red; }\n');
+    const after = await runBuild(['--config', profile, '--out', out], { content: copy, out });
+    assert.equal(after.status, 0, after.stderr);
+    const reAfter = /render cache: (\d+) of (\d+) pages reused/.exec(after.stdout);
+    assert.ok(reAfter && reAfter[1] === '0', 'a custom theme CSS edit must invalidate every page');
   });
 
   test('a non-boolean public fails the build (fail-open guard)', async () => {
