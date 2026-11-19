@@ -118,7 +118,9 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
         siteHost,
         allowPrivateAssets,
         contentRoot: realRoot,
-        srcDirs: [path.join(root, 'src'), path.join(themeDir, 'css')],
+        // The running builder's own source: ROOT is where this file lives, which
+        // is `root` in a normal checkout but not when the CLI runs from elsewhere.
+        srcDirs: [path.join(ROOT, 'src'), path.join(themeDir, 'css')],
       }),
       write: fix,
       contentRoot: realRoot,
@@ -293,18 +295,18 @@ function assertSafeOutput({ root, content, dist, themeDir }: { root: string; con
   const real = (p: string): string => (fs.existsSync(p) ? fs.realpathSync(p) : path.resolve(p));
   const out = real(dist);
   const label = path.relative(process.cwd(), dist) || dist;
-  const r = real(root);
-  if (out === r) throw new BuildError(`outDir is the project root: ${label} (a build would delete this repository)`);
-  // dist/ inside the project is normal; the project inside dist/ is not.
-  if (r.startsWith(out + path.sep)) {
+  const p = (x: string): string => real(x);
+  // dist/ is normally inside the project, so only "outDir is the root or
+  // contains it" is fatal there; for the others either direction is unsafe.
+  if (out === p(root) || p(root).startsWith(out + path.sep)) {
     throw new BuildError(`outDir contains the project root: ${label} (a build would delete this repository)`);
   }
   const surrounds = (a: string, b: string): boolean => a === b || a.startsWith(b + path.sep) || b.startsWith(a + path.sep);
-  for (const [what, p] of [
+  for (const [what, x] of [
+    ['the builder source', path.join(ROOT, 'src')],
     ['the content directory', content],
-    ['the builder source', path.join(root, 'src')],
     ['the theme', themeDir],
   ] as const) {
-    if (surrounds(out, real(p))) throw new BuildError(`outDir overlaps ${what}: ${label} (a build would delete its input files)`);
+    if (surrounds(out, p(x))) throw new BuildError(`outDir overlaps ${what}: ${label} (a build would delete its input files)`);
   }
 }
