@@ -9,6 +9,7 @@
 }
 
 @media print {
+  body::before,
   .site-header,
   .sidebar,
   .toc-rail,

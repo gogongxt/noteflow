@@ -342,6 +342,19 @@ a.brand-name:hover {
   grid-template-columns: 0 minmax(0, 1fr);
 }
 
+body::before {
+  content: "";
+  position: fixed;
+  inset: var(--header-h) 0 0 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    170% 130% at 50% 0%,
+    color-mix(in srgb, var(--wash) var(--wash-strength), transparent),
+    transparent 105%
+  );
+}
+
 #main {
   grid-column: 2;
   min-width: 0;
@@ -369,9 +382,22 @@ a.brand-name:hover {
   height: calc(100dvh - var(--header-h));
   padding: 0.75rem 0.6rem 0;
   overflow: hidden;
-  background: var(--sidebar-bg);
-  border-right: 1px solid var(--border);
   transition: opacity 140ms var(--ease), visibility 140ms;
+}
+
+.sidebar::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--border) 8%,
+    var(--border) 60%,
+    transparent 95%
+  );
 }
 
 :root[data-sidebar="collapsed"] .sidebar {

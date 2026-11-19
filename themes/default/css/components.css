@@ -16,12 +16,11 @@
   top: calc(var(--header-h) + 2.25rem);
   right: var(--gutter);
   translate: none;
+  display: flex;
+  flex-direction: column;
   width: var(--toc-w);
   max-height: calc(100dvh - var(--header-h) - 3.5rem);
-  overflow-y: auto;
-  overflow-x: hidden;
   padding: 0 0 0.4rem 1.1rem;
-  scrollbar-width: thin;
   border-left: 1px solid var(--border);
   transition: border-color var(--dur) var(--ease);
 }
@@ -31,19 +30,14 @@
   border-left-color: var(--border-strong);
 }
 
-/* The rail itself is the scroll container, so the head has to stay pinned at
-   its top edge — the collapse button must remain reachable however long the
-   list runs. Its opaque background keeps the entries sliding underneath. */
+/* Only the panel scrolls; the head holds its row with no background. */
 :root[data-column="true"] .toc-head {
-  position: sticky;
-  top: 0;
-  z-index: 2;
+  flex: none;
   display: flex;
   align-items: center;
   gap: 0.3rem;
   margin: 0;
   padding: 0.15rem 0 0.6rem;
-  background: var(--bg);
 }
 
 :root[data-column="true"] .toc-title {
@@ -90,9 +84,12 @@
 :root[data-column="true"] .toc-panel {
   position: static;
   width: auto;
-  max-height: none;
-  overflow: visible;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 0;
+  scrollbar-width: thin;
   background: none;
   border: 0;
   border-radius: 0;
@@ -144,7 +141,7 @@
     padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 0.75rem
       calc(1.25rem + env(safe-area-inset-bottom, 0px));
     visibility: hidden;
-    background: var(--sidebar-bg);
+    background: var(--sidebar-solid);
     border-right: 1px solid var(--border);
     box-shadow: var(--shadow-lg);
     translate: -102% 0;
@@ -312,10 +309,6 @@
 
   .hero {
     margin-bottom: 1.75rem;
-  }
-
-  .hero::before {
-    height: 16rem;
   }
 
   .hero-title {

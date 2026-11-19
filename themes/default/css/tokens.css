@@ -30,6 +30,10 @@
   --accent-soft: #e8f1fd;
   --accent-softer: #f3f8fe;
 
+  /* Page wash: set a hue and a strength; 0% washes nothing. */
+  --wash: var(--accent);
+  --wash-strength: 0%;
+
   --sem-green: #1f8a4c;
   --sem-orange: #b25e00;
   --sem-red: #c8342b;
@@ -75,7 +79,7 @@
   --shadow-lg: 0 24px 64px -20px rgb(0 0 0 / 0.24);
 
   --header-bg: rgb(255 255 255 / 0.76);
-  --sidebar-bg: #f7f7f8;
+  --sidebar-solid: #f7f7f8;
   --scrim: rgb(0 0 0 / 0.28);
 
   --mv-rail-w: 13rem;
@@ -128,6 +132,9 @@
   --accent-soft: #14243a;
   --accent-softer: #101a27;
 
+  --wash: var(--accent);
+  --wash-strength: 0%;
+
   --sem-green: #4fd08a;
   --sem-orange: #f0a44a;
   --sem-red: #ff6b61;
@@ -153,7 +160,7 @@
   --shadow-lg: 0 28px 72px -20px rgb(0 0 0 / 0.8);
 
   --header-bg: rgb(10 10 11 / 0.74);
-  --sidebar-bg: #0f0f11;
+  --sidebar-solid: #0f0f11;
   --scrim: rgb(0 0 0 / 0.6);
 
   --mv-scrim: rgb(8 8 11 / 55%);
