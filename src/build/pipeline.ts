@@ -292,13 +292,13 @@ function buildTimeOf(args: CliArgs): Date {
 /** writeDiff deletes everything in dist/ it did not just emit, so a mistyped
  *  outDir ('.', the content tree, 'src') would erase the files the build reads. */
 function assertSafeOutput({ root, content, dist, themeDir }: { root: string; content: string; dist: string; themeDir: string }): void {
-  const real = (p: string): string => (fs.existsSync(p) ? fs.realpathSync(p) : path.resolve(p));
+  const real = (x: string): string => (fs.existsSync(x) ? fs.realpathSync(x) : path.resolve(x));
   const out = real(dist);
   const label = path.relative(process.cwd(), dist) || dist;
-  const p = (x: string): string => real(x);
   // dist/ is normally inside the project, so only "outDir is the root or
   // contains it" is fatal there; for the others either direction is unsafe.
-  if (out === p(root) || p(root).startsWith(out + path.sep)) {
+  const project = real(root);
+  if (out === project || project.startsWith(out + path.sep)) {
     throw new BuildError(`outDir contains the project root: ${label} (a build would delete this repository)`);
   }
   const surrounds = (a: string, b: string): boolean => a === b || a.startsWith(b + path.sep) || b.startsWith(a + path.sep);
@@ -307,6 +307,6 @@ function assertSafeOutput({ root, content, dist, themeDir }: { root: string; con
     ['the content directory', content],
     ['the theme', themeDir],
   ] as const) {
-    if (surrounds(out, p(x))) throw new BuildError(`outDir overlaps ${what}: ${label} (a build would delete its input files)`);
+    if (surrounds(out, real(x))) throw new BuildError(`outDir overlaps ${what}: ${label} (a build would delete its input files)`);
   }
 }
