@@ -163,25 +163,31 @@ export function setupScrollspy(): void {
   if (!rail) return;
 
   const panel = rail.querySelector<HTMLElement>(".toc-panel");
+  const head = rail.querySelector<HTMLElement>(".toc-head");
 
-  const scroller = (): HTMLElement =>
-    rail.clientHeight > 0 && getComputedStyle(rail).overflowY !== "visible" ? rail : panel ?? rail;
+  // Column form scrolls the rail itself; the hover card scrolls its panel.
+  const inColumn = (): boolean =>
+    rail.clientHeight > 0 && getComputedStyle(rail).overflowY !== "visible";
+  const scroller = (): HTMLElement => (inColumn() ? rail : panel ?? rail);
   const overflowing = (): boolean => {
     const box = scroller();
     return box.scrollHeight > box.clientHeight + 1;
   };
   const keepInView = (smooth: boolean): void => {
     const box = scroller();
-    const current = box.querySelector<HTMLElement>("a.active");
     if (!overflowing()) return;
+    const current = box.querySelector<HTMLElement>("a.active");
     if (!current) {
       if (box.scrollTop > 0) box.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
       return;
     }
     const r = current.getBoundingClientRect();
     const b = box.getBoundingClientRect();
-    if (r.top < b.top + 8) box.scrollBy({ top: r.top - b.top - 8, behavior: smooth ? "smooth" : "auto" });
-    else if (r.bottom > b.bottom - 8) box.scrollBy({ top: r.bottom - b.bottom + 8, behavior: smooth ? "smooth" : "auto" });
+    // The column form's head is sticky, so the usable top edge starts under it.
+    const topEdge = inColumn() && head ? Math.max(b.top, head.getBoundingClientRect().bottom) + 8 : b.top + 8;
+    const behavior = smooth ? "smooth" : "auto";
+    if (r.top < topEdge) box.scrollBy({ top: r.top - topEdge, behavior });
+    else if (r.bottom > b.bottom - 8) box.scrollBy({ top: r.bottom - b.bottom + 8, behavior });
   };
   const railObserver = new MutationObserver(() => keepInView(!mqReduced.matches));
   railObserver.observe(rail, { subtree: true, attributes: true, attributeFilter: ["class"] });

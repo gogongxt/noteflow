@@ -20,7 +20,7 @@
   max-height: calc(100dvh - var(--header-h) - 3.5rem);
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 0.15rem 0 0.4rem 1.1rem;
+  padding: 0 0 0.4rem 1.1rem;
   scrollbar-width: thin;
   border-left: 1px solid var(--border);
   transition: border-color var(--dur) var(--ease);
@@ -31,11 +31,19 @@
   border-left-color: var(--border-strong);
 }
 
+/* The rail itself is the scroll container, so the head has to stay pinned at
+   its top edge — the collapse button must remain reachable however long the
+   list runs. Its opaque background keeps the entries sliding underneath. */
 :root[data-column="true"] .toc-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  margin-bottom: 0.6rem;
+  margin: 0;
+  padding: 0.15rem 0 0.6rem;
+  background: var(--bg);
 }
 
 :root[data-column="true"] .toc-title {
@@ -62,7 +70,7 @@
   width: 1.5rem;
   height: 1.5rem;
   padding: 0;
-  color: var(--fg-faint);
+  color: var(--toc-fg);
   border-radius: var(--radius-xs);
 }
 
@@ -93,6 +101,13 @@
   visibility: visible;
   pointer-events: auto;
   transition: none;
+}
+
+/* The pinned rail is fixed to the viewport's right edge; ending the footer's
+   band at the rail's own left edge keeps the hairline and its text out from
+   under the TOC when the page is scrolled to the bottom. */
+:root[data-column="true"] .shell:has(.toc-rail) > .site-footer {
+  margin-inline-end: calc(var(--toc-w) + var(--gutter));
 }
 
 @media (max-width: 1079.98px) {

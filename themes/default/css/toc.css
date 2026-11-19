@@ -22,7 +22,7 @@
   font-weight: 650;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--fg-faint);
+  color: var(--toc-fg);
 }
 
 .toc-toggle {
@@ -189,7 +189,7 @@
   display: block;
   position: relative;
   padding: 0.28rem 0.5rem 0.28rem 0.75rem;
-  color: color-mix(in srgb, var(--fg) 32%, var(--fg-muted));
+  color: var(--toc-fg);
   line-height: 1.45;
   text-decoration: none;
   border-radius: 0 var(--radius-xs) var(--radius-xs) 0;

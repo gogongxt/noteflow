@@ -61,6 +61,11 @@
     padding-inline-end: 0;
   }
 
+  /* The rail is hidden on paper; the inset it reserved on the footer goes too. */
+  .shell > .site-footer {
+    margin-inline-end: 0;
+  }
+
   body {
     background: #fff;
     color: #000;

@@ -58,6 +58,7 @@
   --sidebar-w: var(--sidebar-w-min);
   --toc-w: 15rem;
   --toc-gap: 3.25rem;
+  --toc-fg: color-mix(in srgb, var(--fg) 32%, var(--fg-muted));
   --content-w: calc(var(--measure) + var(--toc-w) + var(--toc-gap));
   --gutter: clamp(1.25rem, 3.2vw, 2.5rem);
   --edge-gap: 0.75rem;
