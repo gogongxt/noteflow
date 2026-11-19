@@ -28,6 +28,15 @@ const config: AppConfig = {
   // Optional: a header GitHub icon linking to your repository. Remove to hide.
   // repoUrl: 'https://github.com/you/your-notes',
 
+  // Optional: hovering a note's title shows a pencil that opens that file's
+  // edit page in your forge (Gitea by default; 'github' and 'gitlab' supported).
+  // edit: {
+  //   repoUrl: 'https://git.example.com/you/notes',
+  //   branch: 'main',        // default 'main'
+  //   provider: 'gitea',     // default 'gitea'
+  //   root: 'docs',          // where the content dir sits in the repo; '' when it is the repo root
+  // },
+
   // Footer: omit the block for the theme mark, "© <year> <siteName>" and the
   // author line. Every field is optional and renders only when set.
   // footer: {

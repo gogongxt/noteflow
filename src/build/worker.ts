@@ -7,7 +7,7 @@ import type { PinnedAsset, makeAssetNamer } from '../render/attachments.ts';
 import type { RenderCache, CachedRender } from './render-cache.ts';
 import { applyMermaid, type MermaidState } from '../render/mermaid.ts';
 import type { PandocServer } from '../render/pandoc.ts';
-import type { Page } from '../core/types.ts';
+import { sourceRelOf, type Page } from '../core/types.ts';
 
 export interface WorkerCtx {
   pandoc: PandocServer;
@@ -27,17 +27,13 @@ export interface WorkerCtx {
   cache: RenderCache;
 }
 
-function sourceRelOf(page: Page): string {
-  return page.kind === 'index' ? `${page.relPath}/_index.md` : `${page.relPath}.md`;
-}
-
 /** One worker loop; all workers share `cursor`, so each page converts once. */
 export async function convertWorker(pages: Page[], cursor: { next: number }, w: WorkerCtx): Promise<void> {
   let pandocDead: string | null = null;
   while (cursor.next < pages.length) {
     if (pandocDead) throw new BuildError(pandocDead);
     const page = pages[cursor.next++];
-    const sourceRel = sourceRelOf(page);
+    const sourceRel = sourceRelOf(page) ?? `${page.relPath}/_index.md`;
 
     const cached = w.cache.get(page);
     w.cache.note(!!cached);

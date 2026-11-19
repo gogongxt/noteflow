@@ -52,6 +52,39 @@ article.page-index {
   text-wrap: balance;
 }
 
+/* Hovering the title reveals the pencil; it opens the note's source file in
+   the forge's editor (site.config.ts `edit`). */
+.post-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.55rem;
+  padding: 0.24rem;
+  /* The chip's bottom edge rests on the baseline; lift it to the caps' center. */
+  translate: 0 -0.1em;
+  border-radius: var(--radius-xs);
+  color: var(--fg-faint);
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease),
+    background-color var(--dur) var(--ease);
+}
+
+.post-title:hover .post-edit,
+.post-edit:focus-visible {
+  opacity: 1;
+}
+
+.post-edit:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.post-edit svg {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
 .post-header-meta {
   display: flex;
   flex-wrap: wrap;
@@ -245,26 +278,40 @@ article.page-index .post-body h4 {
   color: var(--accent);
 }
 
+/* The section-anchor “#” trails the heading text and appears on hover; a
+   click copies the link to that section (the check confirms the copy). */
 .heading-anchor {
-  position: absolute;
-  top: 50%;
-  right: 100%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.6rem;
-  height: 1.6rem;
-  margin-right: 0.25rem;
+  /* A square box one heading-em wide. Both marks are stacked in it, so the
+     click swap cannot move or resize the button. Baseline-aligned and lifted,
+     the box straddles the caps instead of hanging below the text. */
+  display: inline-block;
+  position: relative;
+  width: 1em;
+  height: 1em;
+  margin-left: 0.3em;
   padding: 0;
-  transform: translateY(-50%);
+  font-size: 1em;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: baseline;
+  translate: 0 0.1em;
   color: var(--accent);
   background: transparent;
   border: 0;
   border-radius: var(--radius-xs);
   cursor: pointer;
+  user-select: none;
   opacity: 0;
   transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease),
     background-color var(--dur) var(--ease);
+}
+
+.heading-anchor > * {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .post-body :is(h1, h2, h3, h4):hover > .heading-anchor,
@@ -274,39 +321,37 @@ article.page-index .post-body h4 {
 }
 
 .heading-anchor:hover {
-  color: var(--accent);
   background: var(--accent-soft);
 }
 
 .heading-anchor svg {
-  width: 1rem;
-  height: 1rem;
+  width: 1em;
+  height: 1em;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.8;
+  stroke-width: 2.2;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-.heading-anchor[data-copied="true"] {
-  color: var(--accent);
-}
-
-.heading-anchor[data-copied="true"] .icon-done {
-  display: block;
-}
-
-.heading-anchor[data-copied="true"] > svg:first-child {
-  display: none;
 }
 
 .heading-anchor .icon-done {
   display: none;
 }
 
-@media (max-width: 1079.98px) {
+.heading-anchor[data-copied="true"] .anchor-hash {
+  display: none;
+}
+
+.heading-anchor[data-copied="true"] .icon-done {
+  display: flex;
+}
+
+/* No hover on touch: a hidden control would be an invisible tap target sitting
+   inside the heading, so keep both controls visible there. */
+@media (hover: none) {
+  .post-edit,
   .heading-anchor {
-    display: none;
+    opacity: 1;
   }
 }
 

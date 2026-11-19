@@ -1239,6 +1239,56 @@ test('config validation: footer shape is checked up front, not mid-build', async
   }
 });
 
+test('config validation: the edit block is checked up front, not mid-build', async () => {
+  const { loadConfig } = await import('../src/core/config.ts');
+  const dir = tmpDir('nf-cfg-edit-');
+  const base = "url: 'https://example.com',\nsiteName: 't',\nlang: 'en',\npostPattern: '/posts/{abbrlink}',\npageSize: { home: 5, feed: 5 }";
+  const write = (name: string, edit: string): string => {
+    const file = path.join(dir, name);
+    fs.writeFileSync(file, `export default {\n${base},\n${edit}\n};\n`);
+    return file;
+  };
+  const ok = await loadConfig(
+    write('ok.mjs', "edit: { repoUrl: 'https://git.example.com/you/notes/', branch: 'dev', provider: 'gitlab', root: 'notes' },"),
+  );
+  assert.equal(ok.edit!.branch, 'dev');
+  // '' is the documented spelling for "the content dir is the repo root".
+  const atRoot = await loadConfig(write('root.mjs', "edit: { repoUrl: 'https://git.example.com/you/notes', root: '' },"));
+  assert.equal(atRoot.edit!.root, '');
+
+  const bad: [string, RegExp][] = [
+    ["edit: 'nope',", /edit must be an object/],
+    ['edit: [],', /edit must be an object/],
+    ["edit: { branch: 'main' },", /edit\.repoUrl must be an absolute http\(s\) URL/],
+    ["edit: { repoUrl: 'git@example.com:notes' },", /edit\.repoUrl must be an absolute http\(s\) URL/],
+    ["edit: { repoUrl: 'https://x.example/n?tab=readme' },", /edit\.repoUrl must not carry a query string or fragment/],
+    ["edit: { repoUrl: 'https://x.example/n#readme' },", /edit\.repoUrl must not carry a query string or fragment/],
+    ["edit: { repoUrl: 'https://x.example/n', branch: ' ' },", /edit\.branch must be a non-empty string/],
+    ["edit: { repoUrl: 'https://x.example/n', provider: 'sourcehut' },", /edit\.provider must be one of gitea, github, gitlab/],
+    ["edit: { repoUrl: 'https://x.example/n', root: '/docs' },", /edit\.root must be a repo-relative path/],
+    ["edit: { repoUrl: 'https://x.example/n', root: 'docs/' },", /edit\.root must be a repo-relative path/],
+    ["edit: { repoUrl: 'https://x.example/n', root: '../docs' },", /edit\.root must be a repo-relative path/],
+    ["edit: { repoUrl: 'https://x.example/n', root: 'a//b' },", /edit\.root must be a repo-relative path/],
+  ];
+  for (const [src, re] of bad) {
+    await assert.rejects(loadConfig(write(`bad-${Math.random()}.mjs`, src)), re, src);
+  }
+});
+
+test('editUrlOf: forge routes, a repo subdir, slashed branches and encoded file names', async () => {
+  const { editUrlOf } = await import('../src/core/config.ts');
+  const repo = 'https://git.example.com/you/notes/';
+  const gitea = { edit: { repoUrl: repo } };
+  assert.equal(editUrlOf(gitea, 'Intro.md'), 'https://git.example.com/you/notes/_edit/main/Intro.md');
+  assert.equal(editUrlOf({ edit: { repoUrl: repo, provider: 'github' } }, 'Intro.md'), 'https://git.example.com/you/notes/edit/main/Intro.md');
+  assert.equal(editUrlOf({ edit: { repoUrl: repo, provider: 'gitlab' } }, 'Intro.md'), 'https://git.example.com/you/notes/-/edit/main/Intro.md');
+  assert.equal(editUrlOf({ edit: { repoUrl: repo, branch: 'release/1.0' } }, 'Intro.md'), 'https://git.example.com/you/notes/_edit/release/1.0/Intro.md');
+  assert.equal(editUrlOf({ edit: { repoUrl: repo, root: 'site/docs' } }, 'Syntax/Features.md'), 'https://git.example.com/you/notes/_edit/main/site/docs/Syntax/Features.md');
+  assert.equal(editUrlOf(gitea, '笔记 一.md'), 'https://git.example.com/you/notes/_edit/main/%E7%AC%94%E8%AE%B0%20%E4%B8%80.md');
+  assert.equal(editUrlOf({}, 'Intro.md'), null);
+  assert.equal(editUrlOf({ edit: { repoUrl: repo } }, ''), 'https://git.example.com/you/notes/_edit/main/');
+});
+
 test('abbrlink is a URL path segment: traversal and separators are refused', () => {
   // The value becomes both a URL segment and a cache-file name; anything that
   // could escape either must fail at parse time, not at write time.

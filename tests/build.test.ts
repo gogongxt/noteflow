@@ -913,6 +913,58 @@ test('repoUrl turns into a header GitHub link that opens off-site', async () => 
   assert.ok(!html.includes('repo-link'), 'without repoUrl the header must not link anywhere');
 });
 
+test('edit links each docs page title to its source file in the forge', async () => {
+  await sharedDocs;
+  // Features.md carries a space-free path; Standard Markdown.md proves the encoding.
+  for (const [abbr, file] of [
+    ['9d19226c', 'docs/Syntax/Features.md'],
+    ['c182255e', 'docs/Syntax/Standard%20Markdown.md'],
+  ] as const) {
+    const page = fs.readFileSync(path.join(docsDist, `posts/${abbr}/index.html`), 'utf8');
+    const href = `https://github.com/gogongxt/noteflow/edit/master/${file}`;
+    assert.ok(
+      page.includes(`<a class="post-edit" href="${href}" target="_blank" rel="noopener noreferrer"`),
+      `posts/${abbr} is missing the edit link to ${href}`,
+    );
+  }
+  // The neutral profile configures no edit block, so its titles must stay bare.
+  const html = fs.readFileSync(path.join(dist, 'posts/12341234/index.html'), 'utf8');
+  assert.ok(!html.includes('post-edit'), 'without an edit block no page may carry an edit link');
+});
+
+test('edit links cover every page kind: note, bundle, _index.md directory, bare listing', async () => {
+  const out = tmpDir('blog-editdist-');
+  const profile = path.join(manifestDir, `edit-profile-${buildSeq}.mjs`);
+  fs.writeFileSync(
+    profile,
+    `export default { url: 'https://example.com', siteName: 't', lang: 'en',` +
+      ` contentDir: 'tests/fixtures/content', outDir: ${JSON.stringify(out)}, themeDir: 'themes/default',` +
+      ` cacheDir: '.cache', manifestFile: 'unused.json', postPattern: '/posts/{abbrlink}',` +
+      ` pageSize: { home: 5, feed: 5 },` +
+      ` edit: { repoUrl: 'https://git.example.com/you/notes', branch: 'trunk', provider: 'gitea', root: 'site' } };\n`,
+  );
+  const result = await runBuild(['--config', profile, '--out', out]);
+  assert.equal(result.status, 0, result.stderr);
+
+  // Locate each page by its rendered title rather than hard-coding abbrlinks.
+  const linkIn = (title: string): string | null => {
+    for (const dir of fs.readdirSync(path.join(out, 'posts'))) {
+      const file = path.join(out, 'posts', dir, 'index.html');
+      if (!fs.existsSync(file)) continue;
+      const html = fs.readFileSync(file, 'utf8');
+      if (html.includes(`<h1 class="post-title">${title}<a class="post-edit"`)) {
+        return html.match(/<a class="post-edit" href="([^"]+)"/)![1];
+      }
+    }
+    return null;
+  };
+  const base = 'https://git.example.com/you/notes/_edit/trunk/site';
+  assert.equal(linkIn('Tech notes'), `${base}/tech.md`, 'a note links its own file');
+  assert.equal(linkIn('Toolchain'), `${base}/toolchain/_index.md`, 'a directory page links its _index.md');
+  // A listing generated from children alone has no source file: no pencil.
+  assert.equal(linkIn('Articles'), null, 'a bare directory listing must not carry an edit link');
+});
+
 test('the theme CSS ships as one concatenated sheet in layer order (style-src allows no second link)', async () => {
   await shared;
   const css = fs.readFileSync(findAsset('style.css'), 'utf8');

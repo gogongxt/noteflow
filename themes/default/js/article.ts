@@ -19,7 +19,6 @@ const svgIcon = (d: string, extra: Record<string, string> = {}): SVGSVGElement =
 };
 
 const ICON_CHECK = "M5 12.5l4.5 4.5L19 7.5";
-const ICON_LINK = "M10 13.5a4 4 0 0 0 5.7 0l2.4-2.4a4 4 0 0 0-5.7-5.7l-1.2 1.2 M14 10.5a4 4 0 0 0-5.7 0l-2.4 2.4a4 4 0 0 0 5.7 5.7l1.2-1.2";
 
 // Build ships div.sourceCode > .code-wrap > (.code-head + pre); only the click is wired here,
 // delegated once so it survives <main> swaps.
@@ -84,10 +83,12 @@ export function setupHeadingLinks(): void {
     btn.setAttribute("aria-label", "Copy link to this section");
     btn.dataset.copied = "false";
 
-    const iconLink = svgIcon(ICON_LINK);
+    const hash = document.createElement("span");
+    hash.className = "anchor-hash";
+    hash.textContent = "#";
     const iconCheck = svgIcon(ICON_CHECK);
     iconCheck.classList.add("icon-done");
-    btn.append(iconLink, iconCheck);
+    btn.append(hash, iconCheck);
 
     btn.addEventListener("click", () => {
       const url = new URL(location.href);

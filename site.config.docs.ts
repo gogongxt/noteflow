@@ -13,6 +13,15 @@ const config: AppConfig = {
   // Header GitHub icon → this repository.
   repoUrl: 'https://github.com/gogongxt/noteflow',
 
+  // Hovering a page title offers to edit its source file here; the content
+  // tree is the docs/ directory of this repository.
+  edit: {
+    repoUrl: 'https://github.com/gogongxt/noteflow',
+    branch: 'master',
+    provider: 'github',
+    root: 'docs',
+  },
+
   // The mark and © line link this repository; the author credit is the one
   // config-driven piece here.
   footer: {

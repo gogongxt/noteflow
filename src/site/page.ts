@@ -1,9 +1,10 @@
 // Note pages and the shared page shell.
 import { datePart, esc } from '../core/util.ts';
+import { editUrlOf } from '../core/config.ts';
 import { CSP_META_TAG } from '../core/csp.ts';
 import { fillLayout } from './layout.ts';
 import type { SiteCtx, Theme } from './layout.ts';
-import type { Page } from '../core/types.ts';
+import { sourceRelOf, type Page } from '../core/types.ts';
 import { absUrl, ancestorsOf, descriptionOf, firstParagraph, fmtDate, pageTitleHtml, siteUrl, titleOf } from './helpers.ts';
 import { header, pageClass } from './header.ts';
 import type { PageKind } from './header.ts';
@@ -74,8 +75,19 @@ function postMeta(page: Page, ctx: SiteCtx): string {
   return `<div class="post-header-meta">\n${meta}${tagHtml ? '\n' + tagHtml : ''}\n</div>`;
 }
 
-function articleTitle(page: Page): string {
-  return `<h1 class="post-title">${esc(titleOf(page))}</h1>\n`;
+// Hovering the page title reveals it; opens the file's edit page in the forge.
+const ICON_PENCIL =
+  '<svg class="icon i-pencil" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="none" ' +
+  'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+  '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+
+function articleTitle(ctx: SiteCtx, page: Page): string {
+  const src = sourceRelOf(page);
+  const edit = src ? editUrlOf(ctx.site, src) : null;
+  const btn = edit
+    ? `<a class="post-edit" href="${esc(edit)}" target="_blank" rel="noopener noreferrer" aria-label="Edit this page" title="Edit this page">${ICON_PENCIL}</a>`
+    : '';
+  return `<h1 class="post-title">${esc(titleOf(page))}${btn}</h1>\n`;
 }
 
 const ICON_SUMMARY =
@@ -138,7 +150,7 @@ export function notePage(ctx: SiteCtx, theme: Theme, page: Page): string {
     `<article class="${pageClass(kind)}">\n` +
     '<div class="post-layout">\n' +
     '<div class="post-col">\n' +
-    `<header class="post-header">\n${articleTitle(page)}${postMeta(page, ctx)}\n</header>\n` +
+    `<header class="post-header">\n${articleTitle(ctx, page)}${postMeta(page, ctx)}\n</header>\n` +
     summaryCard(page) +
     `<div class="post-body">\n${page.html}\n</div>\n` +
     childList(page.childPages) + '\n' +

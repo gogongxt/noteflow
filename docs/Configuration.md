@@ -17,6 +17,7 @@ All configuration lives in `site.config.ts`; CLI flags (`--content`, `--out`) an
 | `pageSize` | Entries per page for the home list and the feed. |
 | `giscus` | Comments via GitHub Discussions; remove the block to disable. |
 | `repoUrl` | A repository URL shown as a GitHub icon in the header, opening in a new tab. Unset hides it — that is the default, so a site you deploy does not inherit this project's link. |
+| `edit` | Links every page to its source file in a Git forge: hovering the page title reveals a pencil that opens the file's edit page. Unset hides it. See below. |
 | `cspMeta` | Also carry the CSP in a `<meta>` tag — for hosts that cannot send response headers (GitHub Pages). |
 | `footer` | The site footer. Every field is optional and renders only when set; see below. |
 
@@ -56,6 +57,21 @@ footer: {
 - `credit: false` drops the mark; the © text then renders as plain, unlinked text.
 
 Footer links are audited like every other link: a site path must exist in the output, and an off-site link without a new-tab target fails the build.
+
+# Edit links
+
+The intended setup keeps the content tree in its own Git repository. An `edit` block connects the two: every page title gains a pencil on hover, and it opens that exact file in your forge's editor.
+
+```ts
+edit: {
+  repoUrl: 'https://git.example.com/you/notes', // the repository's web URL
+  branch: 'main',        // the branch the site builds from, 'main' by default
+  provider: 'gitea',     // edit-route shape: 'gitea' (default), 'github' or 'gitlab'
+  root: 'docs',          // where the content directory sits in the repo; omit when it is the repo root
+},
+```
+
+The built URL is `{repoUrl}/_edit/{branch}/{path}` for Gitea — `/edit/…` on GitHub, `/-/edit/…` on GitLab. Files are addressed as they sit in the content tree (`Notes/foo.md`; a directory page links its `_index.md`, and a generated listing without one gets no pencil).
 
 # Named profiles
 
