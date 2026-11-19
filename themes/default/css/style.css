@@ -53,7 +53,7 @@
   --measure: 46rem;
   --sidebar-w-min: 17rem;
   --sidebar-w: var(--sidebar-w-min);
-  --toc-w: 13rem;
+  --toc-w: 15rem;
   --toc-gap: 3.25rem;
   --content-w: calc(var(--measure) + var(--toc-w) + var(--toc-gap));
   --gutter: clamp(1.25rem, 3.2vw, 2.5rem);
@@ -2490,7 +2490,7 @@ pre.lang-mermaid {
   position: absolute;
   top: 0;
   right: calc(100% - 2rem);
-  width: min(14.5rem, 72vw);
+  width: min(16.5rem, 72vw);
   max-height: calc(100dvh - var(--header-h) - 3.5rem);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -2612,12 +2612,16 @@ pre.lang-mermaid {
 }
 
 .toc .lvl1 a {
-  font-weight: 550;
   color: var(--fg-muted);
 }
 
-.toc .lvl3 a {
+/* One step per level, so a nested heading never reads as a sibling. */
+.toc .lvl2 a {
   padding-left: 1.5rem;
+}
+
+.toc .lvl3 a {
+  padding-left: 2.25rem;
   font-size: 0.78rem;
 }
 
