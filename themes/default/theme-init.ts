@@ -8,6 +8,11 @@
     try { dark = matchMedia("(prefers-color-scheme: dark)").matches; } catch (e2) {}
   }
   d.dataset.theme = dark ? "dark" : "light";
+  // Long code blocks are clamped and folded only when this flag is present:
+  // set pre-paint, so a 500-line block never flashes open, and absent under
+  // strict CSP hash checks if the inline script were ever dropped (in which
+  // case every block correctly renders in full).
+  try { d.dataset.js = "on"; } catch (e) {}
   // Set here, not in the lazily loaded search.js: CSS picks the modifier.
   try {
     var ua = (navigator as unknown as { userAgentData?: { platform?: string } }).userAgentData;

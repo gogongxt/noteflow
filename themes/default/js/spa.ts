@@ -4,6 +4,7 @@
 
 import { flashTarget, jumpTo } from "./anchor.js";
 import { revealAnchor } from "./tabs.js";
+import { revealCodeFold } from "./code-block.js";
 
 interface SpaConfig {
   /** Content-hashed diagram stylesheet, added under `<head>` on demand. */
@@ -250,6 +251,7 @@ async function navigate(url: URL, opts: { replace?: boolean; pop?: boolean } = {
     const target = id ? document.getElementById(id) : null;
     if (target) {
       revealAnchor(id);
+      revealCodeFold(target);
       jumpTo(target);
       flashTarget(id);
     } else {

@@ -9,6 +9,7 @@ import { initTree } from "./tree.js";
 import { initSidebarCollapse, initSidebarResize, initSidebarScroll } from "./sidebar.js";
 import { setupScrollspy } from "./toc.js";
 import { initCodeCopy, initCrumbFlyouts, initAnchors, setupHeadingLinks, setupTables } from "./article.js";
+import { initCodeFold, revealCodeFold } from "./code-block.js";
 import { initSearchEntry } from "./search-entry.js";
 import { armMedia, armComments } from "./media-comments.js";
 
@@ -21,6 +22,7 @@ initSidebarCollapse();
 initSidebarResize();
 initSidebarScroll();
 initCodeCopy();
+initCodeFold();
 initCrumbFlyouts();
 initAnchors();
 
@@ -43,7 +45,13 @@ function flashFromHash(): void {
   } catch {
     id = location.hash.slice(1);
   }
-  flashTarget(id);
+  // A line anchor inside a folded block is clipped; expand before flashing so
+  // the reader lands on a visible line instead of the block's head.
+  const target = document.getElementById(id);
+  if (target) {
+    revealCodeFold(target);
+    flashTarget(id);
+  }
 }
 
 hydrate();

@@ -2,6 +2,8 @@
 // flyout flipping, heading permalink buttons, and smooth in-page anchors.
 import { glideToAnchor } from "./anchor.js";
 import { revealAnchor } from "./tabs.js";
+import { copyText } from "./clipboard.js";
+import { revealCodeFold } from "./code-block.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -19,42 +21,6 @@ const svgIcon = (d: string, extra: Record<string, string> = {}): SVGSVGElement =
 const ICON_CHECK = "M5 12.5l4.5 4.5L19 7.5";
 const ICON_LINK = "M10 13.5a4 4 0 0 0 5.7 0l2.4-2.4a4 4 0 0 0-5.7-5.7l-1.2 1.2 M14 10.5a4 4 0 0 0-5.7 0l-2.4 2.4a4 4 0 0 0 5.7 5.7l1.2-1.2";
 
-type CopyButton = HTMLButtonElement & { _t?: ReturnType<typeof setTimeout> };
-
-function copyText(text: string, btn: CopyButton): void {
-  const done = (): void => {
-    btn.dataset.copied = "true";
-    const label = btn.querySelector(".code-copy-label");
-    if (label) label.textContent = "Copied";
-    clearTimeout(btn._t);
-    btn._t = setTimeout(() => {
-      btn.dataset.copied = "false";
-      if (label) label.textContent = "Copy";
-    }, 1600);
-  };
-
-  const fallback = (): void => {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.setAttribute("readonly", "");
-    ta.setAttribute("aria-hidden", "true");
-    ta.tabIndex = -1;
-    ta.className = "clipboard-fallback";
-    document.body.appendChild(ta);
-    ta.select();
-    try {
-      document.execCommand("copy");
-      done();
-    } catch {
-    } finally {
-      ta.remove();
-    }
-  };
-
-  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done, fallback);
-  else fallback();
-}
-
 // Build ships div.sourceCode > .code-wrap > (.code-head + pre); only the click is wired here,
 // delegated once so it survives <main> swaps.
 export function initCodeCopy(): void {
@@ -64,7 +30,7 @@ export function initCodeCopy(): void {
     const pre = btn.closest(".code-wrap")?.querySelector("pre");
     if (!pre) return;
     const code = (pre.querySelector("code") || pre) as HTMLElement;
-    copyText(code.innerText.replace(/\n$/, ""), btn as CopyButton);
+    void copyText(code.innerText.replace(/\n$/, ""), btn);
   });
 }
 
@@ -111,7 +77,7 @@ export function setupHeadingLinks(): void {
     const id = h.id || section?.id;
     if (!id) continue;
 
-    const btn = document.createElement("button") as CopyButton;
+    const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "heading-anchor";
     btn.title = "Copy link to this section";
@@ -126,7 +92,7 @@ export function setupHeadingLinks(): void {
     btn.addEventListener("click", () => {
       const url = new URL(location.href);
       url.hash = encodeURIComponent(id);
-      copyText(url.href, btn);
+      void copyText(url.href, btn);
       try {
         history.replaceState(null, "", url.hash);
       } catch {
@@ -148,6 +114,7 @@ export function initAnchors(): void {
     if (!target) return;
     e.preventDefault();
     revealAnchor(id);
+    revealCodeFold(target);
     glideToAnchor(id);
     try {
       history.pushState(null, "", "#" + encodeURIComponent(id));

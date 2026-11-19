@@ -172,6 +172,101 @@ export const byName = (a, b) => a.name.localeCompare(b.name);
 ```
 :::
 
+A block of 36 lines or more opens folded: it is clamped to about 24 lines under
+a fade, with a **Show all N lines** toggle that collapses back to the same
+place. Shorter blocks are never folded, and with scripting off every block
+renders in full. The fold is a property of length, not a fence attribute, so
+there is nothing to opt into:
+
+::: {.demo}
+````markdown
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <signal.h>
+#include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <pthread.h>
+#include <dirent.h>
+#include <termios.h>
+#include <poll.h>
+#include <locale.h>
+#include <assert.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <limits.h>
+#include <ctype.h>
+#include <wchar.h>
+#include <wctype.h>
+#include <setjmp.h>
+#include <getopt.h>
+#include <libgen.h>
+#include <regex.h>
+#include <glob.h>
+#include <ftw.h>
+#include <wordexp.h>
+#include <iconv.h>
+#include <langinfo.h>
+
+int main(void) {
+    return 0;
+}
+```
+````
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <signal.h>
+#include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <pthread.h>
+#include <dirent.h>
+#include <termios.h>
+#include <poll.h>
+#include <locale.h>
+#include <assert.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <limits.h>
+#include <ctype.h>
+#include <wchar.h>
+#include <wctype.h>
+#include <setjmp.h>
+#include <getopt.h>
+#include <libgen.h>
+#include <regex.h>
+#include <glob.h>
+#include <ftw.h>
+#include <wordexp.h>
+#include <iconv.h>
+#include <langinfo.h>
+
+int main(void) {
+    return 0;
+}
+```
+:::
+
 A fence without a language (or with one the highlighter does not know) has no
 highlighting, but the same frame and copy button:
 

@@ -470,6 +470,26 @@ test('code blocks: every pre ships chrome; a hand-written div.sourceCode keeps i
   assert.ok(titleOnly.html.includes('code-head') && !titleOnly.html.includes('code-plain'), titleOnly.html);
 });
 
+test('code blocks: only a long block ships the fold bar; the count is of rendered lines', () => {
+  const fence = (n: number): string =>
+    '<pre class="js"><code>' + Array.from({ length: n }, (_, i) => `line ${i}\n`).join('') + '</code></pre>';
+  // The threshold in src/render/code-blocks.ts is 36 lines.
+  assert.ok(!pp(fence(35)).html.includes('code-fold-bar'), '35 lines stay whole');
+  const long = pp(fence(36)).html;
+  assert.ok(long.includes('class="sourceCode code-fold"'), long);
+  assert.ok(long.includes('<span class="code-fold-more">Show all 36 lines</span>'), long);
+  // The toggle ships collapsed and with the full count already baked in.
+  assert.match(long, /<button class="code-fold-btn" type="button" aria-expanded="false">/, long);
+  assert.ok(!long.includes('is-expanded'), 'the folded state is the markup default');
+
+  // Per-line highlight spans must not inflate the count: the newlines live in
+  // the text between them, so 40 wrapped lines still read as 40.
+  const highlighted = pp('<pre class="js"><code>' +
+    Array.from({ length: 40 }, (_, i) => `<span id="cb${i}"><a href="#cb${i}"></a>x${i}</span>`).join('\n') +
+    '</code></pre>').html;
+  assert.ok(highlighted.includes('Show all 40 lines'), highlighted);
+});
+
 test('link rewriting: private target → plain text "(page not public)"', () => {
   const { html } = pp('<a href="../私人/日记.md">私密</a>');
   assert.ok(!/<a /.test(html), html);
