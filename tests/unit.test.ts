@@ -1209,6 +1209,33 @@ test('footer: the theme mark, the linked © line and the author credit, all opti
   assert.ok(!hostile.includes('<script>') && !hostile.includes('<b>'), hostile);
 });
 
+test('config file missing: one readable line, not a module-resolution stack trace', async () => {
+  const { loadConfig } = await import('../src/core/config.ts');
+  // The usual cause: a --config path that still names the old .ts profile.
+  await assert.rejects(
+    loadConfig(path.join(tmpDir('nf-cfg-missing-'), 'site.config.docs.ts')),
+    /^BuildError: config file not found: .*site\.config\.docs\.ts$/,
+  );
+});
+
+test('config validation: an unknown key fails the build instead of silently doing nothing', async () => {
+  const { loadConfig } = await import('../src/core/config.ts');
+  const dir = tmpDir('nf-cfg-keys-');
+  const write = (name: string, src: string): string => {
+    const file = path.join(dir, name);
+    fs.writeFileSync(file, `export default { url: 'https://example.com', siteName: 't', lang: 'en', ${src} };\n`);
+    return file;
+  };
+  const ok = await loadConfig(write('ok.mjs', "postPattern: '/posts/{abbrlink}', pageSize: { home: 1, feed: 1 },"));
+  assert.equal(ok.lang, 'en');
+  // A typo — in the profile or the personal override — names the file and the key.
+  await assert.rejects(loadConfig(write('bad.mjs', 'siteNmae: "x",')), /bad\.mjs: unknown key 'siteNmae'/);
+  const root = tmpDir('nf-cfg-keys-');
+  fs.writeFileSync(path.join(root, 'site.config.mjs'), "export default { url: 'https://example.com', siteName: 't', lang: 'en', pageSize: { home: 1, feed: 1 } };\n");
+  fs.writeFileSync(path.join(root, 'site.config.local.mjs'), 'export default { footr: {} };\n');
+  await assert.rejects(loadConfig(undefined, undefined, root), /site\.config\.local\.mjs: unknown key 'footr'/);
+});
+
 test('config validation: footer shape is checked up front, not mid-build', async () => {
   const { loadConfig } = await import('../src/core/config.ts');
   const dir = tmpDir('nf-cfg-');
@@ -1338,21 +1365,21 @@ test('local config: the content-root file must not re-point contentDir', async (
 
   // A content-root override that only tweaks site identity is fine.
   const root1 = tmpDir('nf-cfg-move-');
-  fs.writeFileSync(path.join(root1, 'site.config.ts'), baseSrc('base'));
+  fs.writeFileSync(path.join(root1, 'site.config.mjs'), baseSrc('base'));
   fs.mkdirSync(path.join(root1, 'notes'));
   fs.writeFileSync(path.join(root1, 'notes', 'site.config.local.mjs'), "export default { siteName: 'from notes' };\n");
   assert.equal((await loadConfig(undefined, undefined, root1)).siteName, 'from notes');
 
   // One that re-points contentDir is refused: it would silently relocate the tree.
   const root2 = tmpDir('nf-cfg-move-');
-  fs.writeFileSync(path.join(root2, 'site.config.ts'), baseSrc('base'));
+  fs.writeFileSync(path.join(root2, 'site.config.mjs'), baseSrc('base'));
   fs.mkdirSync(path.join(root2, 'notes'));
   fs.writeFileSync(path.join(root2, 'notes', 'site.config.local.mjs'), "export default { contentDir: 'elsewhere' };\n");
   await assert.rejects(loadConfig(undefined, undefined, root2), /content root cannot set contentDir/);
 
   // The same override at the project root is allowed (that file is not found by a contentDir).
   const root3 = tmpDir('nf-cfg-move-');
-  fs.writeFileSync(path.join(root3, 'site.config.ts'), baseSrc('base'));
+  fs.writeFileSync(path.join(root3, 'site.config.mjs'), baseSrc('base'));
   fs.mkdirSync(path.join(root3, 'notes'));
   fs.writeFileSync(path.join(root3, 'site.config.local.mjs'), "export default { contentDir: 'elsewhere' };\n");
   assert.equal((await loadConfig(undefined, undefined, root3)).contentDir, 'elsewhere');

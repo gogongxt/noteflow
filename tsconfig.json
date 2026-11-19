@@ -9,10 +9,12 @@
     "noUnusedParameters": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "checkJs": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "themes/default/*.ts", "themes/default/js/*.ts", "site.config.ts"],
+  "include": ["src/**/*.ts", "tests/**/*.ts", "themes/default/*.ts", "themes/default/js/*.ts", "site.config.mjs", "site.config.docs.mjs"],
   "exclude": ["node_modules"]
 }

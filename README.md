@@ -33,7 +33,7 @@ npm install
 ./start.sh build               # build to dist/
 ./start.sh serve               # local preview at http://localhost:7060
 ./start.sh watch               # rebuild + preview while you edit
-npm run build:docs             # build the docs site (docs/, site.config.docs.ts)
+npm run build:docs             # build the docs site (docs/, site.config.docs.mjs)
 npm test                       # full test suite (includes a real build)
 ```
 
@@ -76,12 +76,12 @@ result, not to edit.)
 
 ## Configuration
 
-Everything lives in [`site.config.ts`](./site.config.ts): site name, URL, language, the content directory, page sizes, the optional giscus comments block, and the site footer (copyright, author credit, 备案号). Personal overrides go in a gitignored `site.config.local.mjs`, merged on top of `site.config.ts`. The same file at the root of your **notes** directory works too, so the settings travel with the notes repo; a project-root copy still wins.
+Everything lives in [`site.config.mjs`](./site.config.mjs): site name, URL, language, the content directory, page sizes, the optional giscus comments block, and the site footer (copyright, author credit, 备案号). Personal overrides go in a gitignored `site.config.local.mjs`, merged on top of `site.config.mjs`. It is the same plain-JavaScript shape, so `cp site.config.mjs site.config.local.mjs` is a working start — and the same file at the root of your **notes** directory works too, so the settings travel with the notes repo; a project-root copy still wins.
 
 CLI flags and env vars take precedence: `--content <dir>`, `--out <dir>`, `PANDOC_BIN`.
 
 `--config <file>` builds from a standalone profile that replaces the personal stack
-entirely — that is how the docs site (`site.config.docs.ts`) is built. The site's
+entirely — that is how the docs site (`site.config.docs.mjs`) is built. The site's
 base path comes from the `url` pathname (`https://…/noteflow` makes every emitted
 link carry `/noteflow`), so the same output serves a GitHub Pages project site.
 

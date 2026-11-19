@@ -20,7 +20,7 @@ cd "$ROOT"
 . ./.env.deploy
 : "${DEPLOY_HOST:?}" "${DEPLOY_ROOT:?}"
 
-# Same resolution path as the builder (site.config.ts ← local override ← defaults).
+# Same resolution path as the builder (site.config.mjs ← local override ← defaults).
 mapfile -t CFG < <(node src/cli/config-print.ts outDir manifestFile)
 OUT_DIR="${CFG[0]}"
 MANIFEST="${CFG[1]}"

@@ -1,11 +1,11 @@
 ---
 title: Configuration
 public: true
-description: site.config.ts — every path and site setting resolves through here
+description: site.config.mjs — every path and site setting resolves through here
 abbrlink: "5ec70f90"
 ---
 
-All configuration lives in `site.config.ts`; CLI flags (`--content`, `--out`) and the `PANDOC_BIN` env var take precedence over it. Personal overrides go in a gitignored `site.config.local.mjs`, which merges on top.
+All configuration lives in `site.config.mjs`; CLI flags (`--content`, `--out`) and the `PANDOC_BIN` env var take precedence over it. Personal overrides go in a gitignored `site.config.local.mjs`, which merges on top.
 
 # Where the personal override lives
 
@@ -15,10 +15,17 @@ One file name, two allowed locations — the project root wins if both exist:
 - `<contentDir>/site.config.local.mjs` — so the settings travel with the notes
   repo; drop the same file there and it keeps working unchanged.
 
-It is plain JavaScript with no imports: it must not reference the builder's
-sources, and `.mjs` keeps it loading from a bare notes repo that has no
-`package.json` declaring a module type. A named `--config` profile (e.g.
-`site.config.docs.ts`) replaces this whole stack; no local override is read then.
+The template and the override are the same kind of file — plain JavaScript with
+a default-exported object and no imports — so `cp site.config.mjs
+site.config.local.mjs` is a working starting point: delete what you do not need,
+keep what you change. `.mjs` keeps it loading from a bare notes repo that has
+no `package.json` declaring a module type. A named `--config` profile (e.g.
+`site.config.docs.mjs`) replaces this whole stack; no local override is read then.
+
+An unknown key — a typo like `siteNmae` — fails the build and names the file,
+rather than silently leaving the setting at its default. The `@type` JSDoc
+comment at the top of the template gives editors autocomplete; `npx tsc
+--noEmit` checks both shipped profiles through it.
 
 | Key | Meaning |
 | --- | --- |
@@ -91,6 +98,6 @@ The built URL is `{repoUrl}/_edit/{branch}/{path}` for Gitea — `/edit/…` on 
 `--config <file>` builds from a standalone profile that replaces the personal stack (no local overrides). This documentation site is one:
 
 ```bash
-./start.sh build --config site.config.docs.ts
-./start.sh serve --config site.config.docs.ts
+./start.sh build --config site.config.docs.mjs
+./start.sh serve --config site.config.docs.mjs
 ```

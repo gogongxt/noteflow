@@ -4,7 +4,7 @@ dist*/
 .build-manifest*.json
 
 # ⚠️ Security boundary: real content never goes into this repository.
-# The content directory (contentDir in site.config.ts, default notes/) is a
+# The content directory (contentDir in site.config.mjs, default notes/) is a
 # separate private git repository; this pattern keeps a checkout of it from
 # ever being committed by accident. If you rename your content directory,
 # update this pattern to match: `notes/` only matches that literal name.

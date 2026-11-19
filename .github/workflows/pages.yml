@@ -1,8 +1,8 @@
 name: Docs (GitHub Pages)
 
-# Builds the project's own documentation (docs/, site.config.docs.ts) with
+# Builds the project's own documentation (docs/, site.config.docs.mjs) with
 # noteflow itself and deploys it to GitHub Pages. The site's base path is the
-# repository sub-path — see site.config.docs.ts.
+# repository sub-path — see site.config.docs.mjs.
 on:
   push:
     branches: [master, main]
@@ -10,7 +10,7 @@ on:
       - docs/**
       - src/**
       - themes/**
-      - site.config.docs.ts
+      - site.config.docs.mjs
       - .github/workflows/pages.yml
       - package.json
       - package-lock.json
@@ -46,7 +46,7 @@ jobs:
         run: npx playwright-core install --with-deps chromium
       - run: npm ci || npm install
       - name: Build docs site
-        run: node src/cli/build.ts --config site.config.docs.ts
+        run: node src/cli/build.ts --config site.config.docs.mjs
         env:
           PANDOC_BIN: pandoc
       - uses: actions/upload-pages-artifact@v3

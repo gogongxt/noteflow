@@ -44,9 +44,9 @@ FROM renderer AS runtime
 ENV PANDOC_BIN=pandoc \
     PORT=8080 \
     PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
-# site.config.ts is the only file a self-hoster edits; theme, source and the
+# site.config.mjs is the only file a self-hoster edits; theme, source and the
 # demo content are the rest of what the build reads.
-COPY site.config.ts ./
+COPY site.config.mjs ./
 COPY src ./src
 COPY themes ./themes
 COPY docs ./docs

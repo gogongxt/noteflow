@@ -1,8 +1,8 @@
 // Docs-site profile: the project's own documentation, built by noteflow and
-// deployed to GitHub Pages (./start.sh build --config site.config.docs.ts).
-import type { AppConfig } from './src/core/config.ts';
-
-const config: AppConfig = {
+// deployed to GitHub Pages (--config site.config.docs.mjs). A profile replaces
+// the personal config stack entirely: no site.config.local override is read.
+/** @type {import('./src/core/config.ts').AppConfig} */
+export default {
   // The /noteflow pathname is the base path every emitted URL carries; rename
   // the repo → change it here. A custom domain just drops the path.
   url: 'https://gogongxt.github.io/noteflow',
@@ -51,5 +51,3 @@ const config: AppConfig = {
   // Pages cannot send response headers; the CSP rides in a <meta> tag instead.
   cspMeta: true,
 };
-
-export default config;

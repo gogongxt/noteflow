@@ -1,5 +1,6 @@
 // Site configuration: every value and path resolves through here. A gitignored
 // site.config.local.mjs overrides individual keys for personal values.
+// Both files are plain .mjs — see LOCAL_CONFIG_FILE for why.
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -104,11 +105,24 @@ const DEFAULTS: Partial<AppConfig> = {
   pageSize: { home: 20, feed: 20 },
 };
 
-/** The one personal override, at the project root or the content root. `.mjs`
- *  rather than `.ts`: it must load from a bare notes repo with no package.json
- *  declaring a module type, and it is never type-checked anyway. */
+/** The neutral site profile, and the personal override that merges on top. */
+export const SITE_CONFIG_FILE = 'site.config.mjs';
+
+/** `.mjs` rather than `.ts`: it must load from a bare notes repo with no
+ *  package.json declaring a module type. The file lives at the project root or
+ *  the content root; a project-root copy wins. */
 export const LOCAL_CONFIG_FILE = 'site.config.local.mjs';
-export const CONFIG_FILES = ['site.config.ts', LOCAL_CONFIG_FILE];
+export const CONFIG_FILES = [SITE_CONFIG_FILE, LOCAL_CONFIG_FILE];
+
+/** Every key a config file may set; anything else is a typo, not a new setting.
+ *  A Record over AppConfig's keys so a new field cannot be forgotten here. */
+const CONFIG_KEY_LIST: Record<keyof AppConfig, true> = {
+  url: true, siteName: true, lang: true, description: true,
+  postPattern: true, pageSize: true, giscus: true, repoUrl: true, edit: true,
+  cspMeta: true, footer: true, contentDir: true, outDir: true, themeDir: true,
+  cacheDir: true, manifestFile: true,
+};
+const CONFIG_KEYS = new Set<string>(Object.keys(CONFIG_KEY_LIST));
 
 export interface LocalConfig {
   file: string;
@@ -123,14 +137,20 @@ export function localConfigOf(root: string, contentDir: string): LocalConfig | n
   return fs.existsSync(inContent) ? { file: inContent, atContentRoot: true } : null;
 }
 
-async function readModule(file: string): Promise<Record<string, unknown>> {
+async function readModule(file: string, label: string): Promise<Record<string, unknown>> {
+  if (!fs.existsSync(file)) throw new BuildError(`config file not found: ${label}`);
   const mod = (await import(pathToFileURL(file).href)) as { default?: unknown };
-  return (mod.default ?? mod) as Record<string, unknown>;
+  const cfg = (mod.default ?? mod) as Record<string, unknown>;
+  // A typo in a key is silently ignored otherwise — the build would succeed
+  // with a setting that never took effect.
+  const unknown = Object.keys(cfg).filter((k) => !CONFIG_KEYS.has(k));
+  if (unknown.length) throw new BuildError(`${label}: unknown key ${unknown.map((k) => `'${k}'`).join(', ')}`);
+  return cfg;
 }
 
 function requireString(cfg: Record<string, unknown>, key: string): void {
   if (typeof cfg[key] !== 'string' || !(cfg[key] as string).trim()) {
-    throw new BuildError(`site.config.ts: ${key} must be a non-empty string`);
+    throw new BuildError(`${SITE_CONFIG_FILE}: ${key} must be a non-empty string`);
   }
 }
 
@@ -142,50 +162,50 @@ function checkFooterHref(href: string, key: string): void {
     !href.trim() ||
     /^\/(?:\/|\\|\/\\|\\)/.test(href) ||
     (!href.startsWith('/') && !/^(https?:\/\/|mailto:|tel:)/i.test(href));
-  if (bad) throw new BuildError(`site.config.ts: ${key} must start with / , http(s)://, mailto: or tel:`);
+  if (bad) throw new BuildError(`${SITE_CONFIG_FILE}: ${key} must start with / , http(s)://, mailto: or tel:`);
 }
 
 function validate(cfg: AppConfig): AppConfig {
   requireString(cfg as unknown as Record<string, unknown>, 'url');
   requireString(cfg as unknown as Record<string, unknown>, 'siteName');
-  if (!/^https?:\/\//i.test(cfg.url)) throw new BuildError(`site.config.ts: url must start with http:// or https://`);
+  if (!/^https?:\/\//i.test(cfg.url)) throw new BuildError(`${SITE_CONFIG_FILE}: url must start with http:// or https://`);
   siteHostOf(cfg.url); // rejects a scheme-only or otherwise unparsable url here, not mid-build
 
   const size = cfg.pageSize as { home?: unknown; feed?: unknown } | undefined;
-  if (!size || typeof size !== 'object') throw new BuildError('site.config.ts: pageSize must be an object');
+  if (!size || typeof size !== 'object') throw new BuildError(`${SITE_CONFIG_FILE}: pageSize must be an object`);
   for (const k of ['home', 'feed'] as const) {
     const v = size[k];
-    if (!Number.isInteger(v) || (v as number) <= 0) throw new BuildError(`site.config.ts: pageSize.${k} must be a positive integer`);
+    if (!Number.isInteger(v) || (v as number) <= 0) throw new BuildError(`${SITE_CONFIG_FILE}: pageSize.${k} must be a positive integer`);
   }
-  if (!cfg.postPattern.includes('{abbrlink}')) throw new BuildError('site.config.ts: postPattern must contain {abbrlink}');
+  if (!cfg.postPattern.includes('{abbrlink}')) throw new BuildError(`${SITE_CONFIG_FILE}: postPattern must contain {abbrlink}`);
 
   const g = cfg.giscus;
   if (g !== undefined) {
     if (typeof g !== 'object' || !g || typeof g.repo !== 'string' || typeof g.repoId !== 'string') {
-      throw new BuildError('site.config.ts: giscus needs at least { repo, repoId } string fields');
+      throw new BuildError(`${SITE_CONFIG_FILE}: giscus needs at least { repo, repoId } string fields`);
     }
   }
 
   const e = cfg.edit;
   if (e !== undefined) {
-    if (typeof e !== 'object' || !e || Array.isArray(e)) throw new BuildError('site.config.ts: edit must be an object');
+    if (typeof e !== 'object' || !e || Array.isArray(e)) throw new BuildError(`${SITE_CONFIG_FILE}: edit must be an object`);
     let repo: URL | null = null;
     try {
       repo = new URL(String(e.repoUrl));
     } catch {}
     if (!repo || !/^https?:$/.test(repo.protocol)) {
-      throw new BuildError('site.config.ts: edit.repoUrl must be an absolute http(s) URL');
+      throw new BuildError(`${SITE_CONFIG_FILE}: edit.repoUrl must be an absolute http(s) URL`);
     }
     // editUrlOf concatenates onto repoUrl; a ?query or #hash would land after
     // the file path and silently point at the wrong page.
     if (repo.search || repo.hash) {
-      throw new BuildError('site.config.ts: edit.repoUrl must not carry a query string or fragment');
+      throw new BuildError(`${SITE_CONFIG_FILE}: edit.repoUrl must not carry a query string or fragment`);
     }
     if (e.branch !== undefined && (typeof e.branch !== 'string' || !e.branch.trim())) {
-      throw new BuildError('site.config.ts: edit.branch must be a non-empty string');
+      throw new BuildError(`${SITE_CONFIG_FILE}: edit.branch must be a non-empty string`);
     }
     if (e.provider !== undefined && !EDIT_PROVIDERS.includes(e.provider)) {
-      throw new BuildError(`site.config.ts: edit.provider must be one of ${EDIT_PROVIDERS.join(', ')}`);
+      throw new BuildError(`${SITE_CONFIG_FILE}: edit.provider must be one of ${EDIT_PROVIDERS.join(', ')}`);
     }
     const root = e.root;
     if (
@@ -195,43 +215,43 @@ function validate(cfg: AppConfig): AppConfig {
           (root.startsWith('/') || root.endsWith('/') || root.includes('\\') ||
             root.split('/').some((s) => !s || s === '.' || s === '..'))))
     ) {
-      throw new BuildError(`site.config.ts: edit.root must be a repo-relative path like 'docs' ('' or omitted when the content dir is the repo root), without leading/trailing slashes or '..'`);
+      throw new BuildError(`${SITE_CONFIG_FILE}: edit.root must be a repo-relative path like 'docs' ('' or omitted when the content dir is the repo root), without leading/trailing slashes or '..'`);
     }
   }
 
   const f = cfg.footer;
   if (f !== undefined) {
-    if (typeof f !== 'object' || !f || Array.isArray(f)) throw new BuildError('site.config.ts: footer must be an object');
+    if (typeof f !== 'object' || !f || Array.isArray(f)) throw new BuildError(`${SITE_CONFIG_FILE}: footer must be an object`);
     for (const k of ['copyright', 'author', 'icp'] as const) {
       if (f[k] !== undefined && (typeof f[k] !== 'string' || !f[k]!.trim())) {
-        throw new BuildError(`site.config.ts: footer.${k} must be a non-empty string`);
+        throw new BuildError(`${SITE_CONFIG_FILE}: footer.${k} must be a non-empty string`);
       }
     }
     if (f.since !== undefined && (!Number.isInteger(f.since) || f.since < 1900)) {
-      throw new BuildError('site.config.ts: footer.since must be a four-digit year');
+      throw new BuildError(`${SITE_CONFIG_FILE}: footer.since must be a four-digit year`);
     }
     for (const k of ['copyrightUrl', 'authorUrl'] as const) {
       if (f[k] !== undefined) checkFooterHref(f[k]!, `footer.${k}`);
     }
     if (f.credit !== undefined && typeof f.credit !== 'boolean') {
-      throw new BuildError('site.config.ts: footer.credit must be a boolean');
+      throw new BuildError(`${SITE_CONFIG_FILE}: footer.credit must be a boolean`);
     }
     if (f.icpUrl !== undefined) checkFooterHref(f.icpUrl, 'footer.icpUrl');
   }
   return cfg;
 }
 
-/** Load site.config.ts plus the first local override (see localConfigOf).
+/** Load site.config.mjs plus the first local override (see localConfigOf).
  *  With `file` (--config) the profile replaces the whole stack: CI and docs
  *  never see a developer's personal values. */
 export async function loadConfig(file?: string, contentDir?: string, root: string = ROOT): Promise<AppConfig> {
-  const baseFile = file ?? path.join(root, 'site.config.ts');
-  const base = { ...DEFAULTS, ...(await readModule(baseFile)) } as Record<string, unknown>;
+  const baseFile = file ?? path.join(root, SITE_CONFIG_FILE);
+  const base = { ...DEFAULTS, ...(await readModule(baseFile, path.relative(root, baseFile) || baseFile)) } as Record<string, unknown>;
   let merged = base;
   if (!file) {
     const local = localConfigOf(root, contentDir ?? String(base.contentDir));
     if (local) {
-      const over = await readModule(local.file);
+      const over = await readModule(local.file, LOCAL_CONFIG_FILE);
       // The file was found *by* this contentDir; re-pointing it would move the
       // build while the file keeps being read from the old tree.
       if (local.atContentRoot && over.contentDir !== undefined) {
@@ -250,7 +270,7 @@ export function siteHostOf(siteUrl: string): string {
   try {
     return new URL(siteUrl).host;
   } catch {
-    throw new BuildError(`site.config.ts: url is not a valid absolute URL: ${siteUrl}`);
+    throw new BuildError(`${SITE_CONFIG_FILE}: url is not a valid absolute URL: ${siteUrl}`);
   }
 }
 

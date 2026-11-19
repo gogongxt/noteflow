@@ -21,9 +21,9 @@ services:
       # Personal values: site.config.local.mjs merges over the neutral config.
       # - ./site.config.local.mjs:/app/site.config.local.mjs:ro
     environment:
-      # A named site.config.* profile instead of site.config.ts, e.g.
-      # site.config.docs.ts. Mount it in /app and make sure its contentDir is
+      # A named site.config.* profile instead of site.config.mjs, e.g.
+      # site.config.docs.mjs. Mount it in /app and make sure its contentDir is
       # the directory mounted here.
-      # CONFIG: site.config.docs.ts
+      # CONFIG: site.config.docs.mjs
       PORT: "8080"
     restart: unless-stopped

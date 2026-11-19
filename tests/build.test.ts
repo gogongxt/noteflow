@@ -60,7 +60,7 @@ before(async () => {
   docsDist = tmpDir('blog-docsdist-');
   manifestDir = tmpDir('blog-manifest-');
   shared = runBuild([]);
-  sharedDocs = runBuild(['--config', 'site.config.docs.ts'], { content: 'docs', out: docsDist });
+  sharedDocs = runBuild(['--config', 'site.config.docs.mjs'], { content: 'docs', out: docsDist });
 });
 
 after(() => cleanupTmpDirs());
@@ -87,7 +87,7 @@ function runBuild(
       process.execPath,
       // The pinned config keeps CI and dev machines identical: an explicit
       // --config file never merges the developer's site.config.local overrides.
-      ['src/cli/build.ts', '--config', 'site.config.ts', '--content', opts.content ?? content, '--out', opts.out ?? dist, '--skip-mermaid', '--manifest', manifest, '--no-link-fetch', '--link-cache', linkCache, ...args],
+      ['src/cli/build.ts', '--config', 'site.config.mjs', '--content', opts.content ?? content, '--out', opts.out ?? dist, '--skip-mermaid', '--manifest', manifest, '--no-link-fetch', '--link-cache', linkCache, ...args],
       { cwd: REPO, env: { ...process.env, PANDOC_BIN: process.env.PANDOC_BIN || 'pandoc', ...opts.env } },
     );
     let stdout = '';
@@ -766,7 +766,7 @@ suite('build variants', { concurrency: 6 }, () => {
       dist: tampered,
       pages: [],
       privateItems: [],
-      cfg: await loadConfig(path.resolve(REPO, 'site.config.docs.ts')),
+      cfg: await loadConfig(path.resolve(REPO, 'site.config.docs.mjs')),
     });
     const offsite = audit.findings.find((f) => /off-site link must open a new tab/.test(f.msg));
     assert.ok(offsite, `audit must catch an off-site anchor without target: ${JSON.stringify(audit.findings.slice(0, 3))}`);
@@ -1070,11 +1070,11 @@ test('CSP: one builder, identical across serve / gen-nginx / checked-in snippet'
   // gitignored, so a fresh checkout (CI) has no .build-manifest.json.
   const sharedResult = await shared;
   const genOut = path.join(manifestDir, `snippet-${buildSeq++}.conf`);
-  const r = spawnSync(process.execPath, ['src/cli/gen-nginx.ts', '--config', 'site.config.ts', '--out', genOut, sharedResult.manifest], { cwd: REPO, encoding: 'utf8' });
+  const r = spawnSync(process.execPath, ['src/cli/gen-nginx.ts', '--config', 'site.config.mjs', '--out', genOut, sharedResult.manifest], { cwd: REPO, encoding: 'utf8' });
   assert.equal(r.status, 0, `gen-nginx failed:\n${r.stderr}`);
   const gen = fs.readFileSync(genOut, 'utf8');
   const nginx = fs.readFileSync(path.join(REPO, 'deploy/nginx/noteflow.conf'), 'utf8');
-  const cfg = await loadConfig(path.resolve(REPO, 'site.config.ts'));
+  const cfg = await loadConfig(path.resolve(REPO, 'site.config.mjs'));
   // Independent expectation: frame-src must be exactly the comments widget
   // (when configured) plus the two video embed hosts — never 'none' (that
   // would break whichever is configured), never anything broader.

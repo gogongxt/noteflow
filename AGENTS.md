@@ -1,6 +1,6 @@
 # NoteFlow
 
-Personal knowledge-base static site generator: `pandoc 3.13 server` converts the Markdown in the content directory to HTML, and the Node side does link rewriting, security sanitizing, and template rendering, emitting a static site to `dist/`. All paths and site settings resolve through `site.config.ts` (→ `src/core/config.ts`); the purpose-built test fixture tree is `tests/fixtures/content/`, real content lives in a separate private repository at `notes/` (gitignored).
+Personal knowledge-base static site generator: `pandoc 3.13 server` converts the Markdown in the content directory to HTML, and the Node side does link rewriting, security sanitizing, and template rendering, emitting a static site to `dist/`. All paths and site settings resolve through `site.config.mjs` (→ `src/core/config.ts`); the purpose-built test fixture tree is `tests/fixtures/content/`, real content lives in a separate private repository at `notes/` (gitignored).
 
 **The project is in an early stage; breaking changes are allowed.** Structure, conventions, and design are all fair game to change; where reading the code is faster than reading docs, don't write it down here.
 
@@ -13,7 +13,7 @@ npm test                   # all tests (includes a real build)
 npx tsc --noEmit           # type check
 ```
 
-The project's own docs (`docs/`) are built by noteflow itself and deployed to GitHub Pages (`site.config.docs.ts` + `.github/workflows/pages.yml`): `./start.sh build --config site.config.docs.ts`. A named `--config` profile replaces the personal config stack entirely (no `site.config.local` overrides). The docs site's base path comes from its `url` pathname (`https://…/noteflow`) — every emitted URL carries that prefix while `dist/` (and `dist-docs/`) keep the unprefixed layout; `serve.ts` strips it when serving.
+The project's own docs (`docs/`) are built by noteflow itself and deployed to GitHub Pages (`site.config.docs.mjs` + `.github/workflows/pages.yml`): `./start.sh build --config site.config.docs.mjs`. A named `--config` profile replaces the personal config stack entirely (no `site.config.local` overrides). The docs site's base path comes from its `url` pathname (`https://…/noteflow`) — every emitted URL carries that prefix while `dist/` (and `dist-docs/`) keep the unprefixed layout; `serve.ts` strips it when serving.
 
 ## Security baseline (non-negotiable)
 

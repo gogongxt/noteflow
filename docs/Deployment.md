@@ -28,7 +28,7 @@ The `:rw` matters: a note's abbrlink is written into its frontmatter on its firs
 docker compose up
 ```
 
-**Use your own config.** The image carries the neutral `site.config.ts`. Your personal values go in `site.config.local.mjs` — at the project root, or in the mounted notes directory (it travels with the notes). The project root wins if both exist. Mount the root one directly:
+**Use your own config.** The image carries the neutral `site.config.mjs`. Your personal values go in `site.config.local.mjs` — the same plain-JavaScript shape, so copying the template is a working start — at the project root, or in the mounted notes directory (it travels with the notes). The project root wins if both exist. Mount the root one directly:
 
 ```bash
 docker run --rm -p 8080:8080 \
@@ -39,7 +39,7 @@ docker run --rm -p 8080:8080 \
 
 Your `siteName`, copyright line and [footer options](https://gogongxt.github.io/noteflow/posts/5ec70f90#footer) go in the same file: the neutral config ships no `repoUrl`, so the header never points at this project's repository on your site, and the footer's only backlink is the linked © line (`footer.credit: false` removes the mark.)
 
-Setting `contentDir` there to anything but `notes` points the build elsewhere — though the notes-root copy cannot set `contentDir` (it was found by it); use the project-root copy for that. A `CONFIG=site.config.docs.ts` profile replaces the whole stack instead — no local file is read then — so a profile's `siteName`, `url` and `contentDir` are yours to edit: mount the file, and point the notes mount at its `contentDir`.
+Setting `contentDir` there to anything but `notes` points the build elsewhere — though the notes-root copy cannot set `contentDir` (it was found by it); use the project-root copy for that. A `CONFIG=site.config.docs.mjs` profile replaces the whole stack instead — no local file is read then — so a profile's `siteName`, `url` and `contentDir` are yours to edit: mount the file, and point the notes mount at its `contentDir`.
 
 One limit: a profile whose `url` carries a **base path** (a GitHub Pages project site) builds for a sub-path, and the audit requires every internal link to carry that prefix — this container serves at `/`, so use a root URL (a domain, or plain `http://localhost:8080`) for it. Pages is the right host for sub-path builds, without a container.
 

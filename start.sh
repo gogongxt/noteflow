@@ -14,10 +14,10 @@
 #
 #   Any command also accepts --config <file> to build a named profile instead
 #   of the personal stack, e.g. the docs site:
-#   ./start.sh build --config site.config.docs.ts && ./start.sh serve --config site.config.docs.ts
+#   ./start.sh build --config site.config.docs.mjs && ./start.sh serve --config site.config.docs.mjs
 #
 # Environment variables:
-#   CONTENT_DIR   content directory, default from site.config.ts (contentDir)
+#   CONTENT_DIR   content directory, default from site.config.mjs (contentDir)
 #   PORT          local preview port, default 7060
 #   PANDOC        path to the pandoc binary
 # =============================================================================
@@ -35,7 +35,7 @@ ok()   { printf '%s  ✓%s %s\n' "$GREEN" "$RESET" "$*"; }
 die()  { printf '%s  ✗%s %s\n' "$RED" "$RESET" "$*" >&2; exit 1; }
 
 config_val() {
-  # A named --config profile (e.g. site.config.docs.ts) replaces the personal
+  # A named --config profile (e.g. site.config.docs.mjs) replaces the personal
   # config stack; its own contentDir/outDir then drive everything below. The
   # subcommands just forward argv, which already carries the flag — only these
   # lookups need it extracted.

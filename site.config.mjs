@@ -2,13 +2,15 @@
 // own content. CLI flags (--content, --out) and the PANDOC_BIN env var take
 // precedence over the values here.
 //
-// Personal overrides: create site.config.local.mjs (gitignored) that
-// default-exports the keys to change — they are merged on top of this file.
-// The same file at the content root also works, so the settings travel with the
-// notes repo; a project-root copy wins over it.
-import type { AppConfig } from './src/core/config.ts';
-
-const config: AppConfig = {
+// Plain JavaScript on purpose: copy this file to site.config.local.mjs and it
+// works as-is. That personal override (gitignored) is merged on top of this
+// one — the same file at the content root works too, so the settings travel
+// with the notes repo; a project-root copy wins over it.
+//
+// The @type comment is checked by `npx tsc --noEmit` (checkJs) and costs
+// nothing at runtime.
+/** @type {import('./src/core/config.ts').AppConfig} */
+export default {
   url: 'https://example.com',
   siteName: 'my notes',
   lang: 'en',
@@ -55,5 +57,3 @@ const config: AppConfig = {
   // to enable; remove it to disable (frame-src becomes 'none').
   // giscus: { repo: 'user/repo', repoId: '…', category: 'Announcements', categoryId: '…' },
 };
-
-export default config;

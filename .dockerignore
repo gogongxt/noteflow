@@ -1,6 +1,5 @@
 # Never in the build context: private content, personal config, build output.
 notes/
-site.config.local.ts
 site.config.local.mjs
 dist/
 dist-*/

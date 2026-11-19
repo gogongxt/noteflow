@@ -36,12 +36,12 @@ jobs:
       # --check never writes back abbrlinks. CI has no private notes/ checkout,
       # so pin the target explicitly: the same fixture tree the tests build.
       - name: Build (check mode, fixtures)
-        run: node src/cli/build.ts --config site.config.ts --content tests/fixtures/content --out dist-ci --check
+        run: node src/cli/build.ts --config site.config.mjs --content tests/fixtures/content --out dist-ci --check
         env:
           PANDOC_BIN: pandoc
-      # The docs profile (site.config.docs.ts) is what Pages deploys; catch
+      # The docs profile (site.config.docs.mjs) is what Pages deploys; catch
       # drift between it and the neutral default config here, not after a push.
       - name: Build (docs profile)
-        run: node src/cli/build.ts --config site.config.docs.ts
+        run: node src/cli/build.ts --config site.config.docs.mjs
         env:
           PANDOC_BIN: pandoc
