@@ -1,0 +1,459 @@
+/* Code: block chrome, copy button, line numbers and pandoc highlighting. */
+
+.post-body div.sourceCode {
+  position: relative;
+  margin: 1.6rem 0;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: var(--radius);
+  /* hidden would make this box the scroll container and freeze the sticky
+     fold bar inside long expanded blocks; clip rounds the corners without one.
+     (Browsers without clip keep hidden and simply lose the pinning.) */
+  overflow: hidden;
+  overflow: clip;
+}
+
+.post-body .sourceCode .code-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.post-body .code-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 2.1rem;
+  padding: 0.15rem 0.5rem 0.15rem 0.9rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: var(--fg-subtle);
+  background: var(--code-head);
+  border-bottom: 1px solid var(--code-border);
+}
+
+/* A fence title is centered in the bar, so it neither shifts the language
+   label nor competes with the copy button. Out of flow: the label and the
+   copy keep their own flex positions, and the title truncates instead of
+   pushing them apart. The symmetric insets leave room for both sides. */
+.post-body .code-title {
+  position: absolute;
+  inset-inline: 4rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: center;
+  color: var(--fg-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.post-body .code-lang {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: lowercase;
+}
+
+.post-body .code-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+  color: var(--fg-subtle);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+
+.post-body div.sourceCode:hover .code-copy,
+.post-body .code-copy:focus-visible,
+.post-body .code-copy[data-copied="true"] {
+  opacity: 1;
+}
+
+.post-body .code-copy:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+.post-body .code-copy svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.post-body .code-copy[data-copied="true"] {
+  color: var(--sem-green);
+  opacity: 1;
+}
+
+.post-body .code-plain .code-copy {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  z-index: 1;
+  padding: 0.3rem;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+}
+
+.post-body .code-plain .code-copy:hover {
+  background: var(--bg-hover);
+}
+
+.post-body .code-copy .icon-done {
+  display: none;
+}
+
+.post-body .code-copy[data-copied="true"] > svg:first-child {
+  display: none;
+}
+
+.post-body .code-copy[data-copied="true"] .icon-done {
+  display: block;
+}
+
+.post-body pre,
+.post-body pre.sourceCode {
+  margin: 0;
+  padding: 0.9rem 1.05rem;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.84rem;
+  font-weight: 400;
+  line-height: 1.7;
+  color: var(--code-fg);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  -moz-tab-size: 4;
+  tab-size: 4;
+}
+
+.post-body .code-wrap > pre {
+  padding-top: 0.85rem;
+  padding-bottom: 0.95rem;
+}
+
+.post-body pre:focus-visible {
+  outline-offset: -2px;
+}
+
+.post-body pre code {
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  white-space: pre;
+}
+
+.post-body pre ::selection,
+.post-body pre::selection,
+.post-body pre code::selection {
+  background: var(--code-selection);
+}
+
+pre .lineAnchors a,
+pre .lineNumbers a {
+  color: inherit;
+  text-decoration: none;
+}
+
+pre.lineAnchors a::after,
+pre.lineNumbers a::after {
+  content: none;
+}
+
+.post-body pre.numberLines {
+  counter-reset: line;
+  padding-left: 3.4rem;
+}
+
+.post-body pre.numberLines > code > span[id] {
+  counter-increment: line;
+  position: relative;
+}
+
+.post-body pre.numberLines > code > span[id]::before {
+  content: counter(line);
+  position: absolute;
+  left: -3.4rem;
+  width: 2.6rem;
+  text-align: right;
+  color: var(--fg-faint);
+  user-select: none;
+  pointer-events: none;
+}
+
+code.sourceCode span.kw,
+code.sourceCode span.bu,
+code.sourceCode span.at,
+code.sourceCode span.al,
+code.sourceCode span.cf,
+code.sourceCode span.im,
+code.sourceCode span.pp,
+code.sourceCode span.ot {
+  color: #8250df;
+}
+
+code.sourceCode span.st,
+code.sourceCode span.sc,
+code.sourceCode span.ss,
+code.sourceCode span.vs,
+code.sourceCode span.ch {
+  color: #0a6b3d;
+}
+
+code.sourceCode span.dv,
+code.sourceCode span.bn,
+code.sourceCode span.fl {
+  color: #b35900;
+}
+
+code.sourceCode span.cn {
+  color: #9a6700;
+}
+
+code.sourceCode span.fu,
+code.sourceCode span.ex {
+  color: #0550ae;
+}
+
+code.sourceCode span.co,
+code.sourceCode span.cv,
+code.sourceCode span.do {
+  font-style: italic;
+  color: #8b949e;
+}
+
+code.sourceCode span.op {
+  color: #0a7a83;
+}
+
+code.sourceCode span.dt {
+  color: #9a6700;
+}
+
+code.sourceCode span.va {
+  color: #b32d2d;
+}
+
+code.sourceCode span.er {
+  color: #b32d2d;
+  text-decoration: underline wavy;
+}
+
+code.sourceCode span.wa {
+  font-style: italic;
+  color: #9a6700;
+}
+
+[data-theme="dark"] code.sourceCode span.kw,
+[data-theme="dark"] code.sourceCode span.bu,
+[data-theme="dark"] code.sourceCode span.at,
+[data-theme="dark"] code.sourceCode span.al,
+[data-theme="dark"] code.sourceCode span.cf,
+[data-theme="dark"] code.sourceCode span.im,
+[data-theme="dark"] code.sourceCode span.pp,
+[data-theme="dark"] code.sourceCode span.ot {
+  color: #d2a8ff;
+}
+
+[data-theme="dark"] code.sourceCode span.st,
+[data-theme="dark"] code.sourceCode span.sc,
+[data-theme="dark"] code.sourceCode span.ss,
+[data-theme="dark"] code.sourceCode span.vs,
+[data-theme="dark"] code.sourceCode span.ch {
+  color: #7ee787;
+}
+
+[data-theme="dark"] code.sourceCode span.dv,
+[data-theme="dark"] code.sourceCode span.bn,
+[data-theme="dark"] code.sourceCode span.fl {
+  color: #ffa657;
+}
+
+[data-theme="dark"] code.sourceCode span.cn,
+[data-theme="dark"] code.sourceCode span.dt {
+  color: #e3b341;
+}
+
+[data-theme="dark"] code.sourceCode span.fu,
+[data-theme="dark"] code.sourceCode span.ex {
+  color: #79c0ff;
+}
+
+[data-theme="dark"] code.sourceCode span.co,
+[data-theme="dark"] code.sourceCode span.cv,
+[data-theme="dark"] code.sourceCode span.do {
+  color: #7d8590;
+}
+
+[data-theme="dark"] code.sourceCode span.op {
+  color: #56d4dd;
+}
+
+[data-theme="dark"] code.sourceCode span.va {
+  color: #ff7b72;
+}
+
+[data-theme="dark"] code.sourceCode span.er {
+  color: #ff7b72;
+}
+
+[data-theme="dark"] code.sourceCode span.wa {
+  color: #e3b341;
+}
+
+/* --- Folded long blocks ------------------------------------------------------
+   A block at least FOLD_MIN_LINES tall ships .code-fold plus a bar under the
+   code. The clamp applies only once theme-init.ts has set `data-js` (pre-paint,
+   so nothing flashes); without scripting the block renders in full. The clamped
+   height is 24.5 line boxes — the sliver of line 25 says the code continues —
+   plus the <pre> padding (border-box). */
+
+.post-body .code-fold .code-fold-bar {
+  display: none;
+}
+
+html[data-js] .post-body .code-fold:not(.is-expanded) > .code-wrap > pre {
+  max-height: calc(24.5 * 1.7em + 0.85rem + 0.95rem);
+  /* The clamp, not an inner scroller: the wheel keeps moving the page. */
+  overflow-y: hidden;
+}
+
+/* Narrow screens fit fewer columns and wear a smaller type; give back a few
+   lines so the clamp still shows a useful excerpt. */
+@media (max-width: 767.98px) {
+  html[data-js] .post-body .code-fold:not(.is-expanded) > .code-wrap > pre {
+    max-height: calc(18.5 * 1.7em + 0.85rem + 0.95rem);
+  }
+}
+
+html[data-js] .post-body .code-fold.is-expanded > .code-wrap > pre {
+  max-height: none;
+}
+
+.post-body .code-fold-bar {
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  padding: 0.1rem 0.75rem 0.7rem;
+  background: var(--code-bg);
+}
+
+/* The fade lives on the bar's top edge, so it always ends exactly where the
+   button band begins, whatever the clamp height works out to. Short enough to
+   read as a fade, not as a dimmed block. */
+.post-body .code-fold-bar::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: 100%;
+  height: 3rem;
+  background: linear-gradient(to bottom, transparent, var(--code-bg) 90%);
+  pointer-events: none;
+}
+
+html[data-js] .post-body .code-fold .code-fold-bar {
+  display: flex;
+}
+
+/* Expanded, the block is far taller than the viewport, so a foot-of-block
+   button would be unreachable while reading. Stick it to the bottom edge
+   instead: it stays one glance away and settles into place at the block's
+   end (sticky pushes it there once the block's own foot arrives). */
+.post-body .code-fold.is-expanded .code-fold-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  padding: 0.5rem 0.75rem 0.55rem;
+  border-top: 1px solid var(--code-border);
+  background: var(--code-head);
+}
+
+/* Ancestors that clip their corners would freeze the sticky bar the same way
+   div.sourceCode did; give them the non-scrolling clip instead. */
+.post-body .demo:has(.code-fold),
+.post-body .tabs:has(.code-fold),
+.post-body .tab:has(.code-fold),
+.post-body .callout:has(.code-fold) {
+  overflow: clip;
+}
+
+.post-body .code-fold.is-expanded .code-fold-bar::before {
+  content: none;
+}
+
+.post-body .code-fold-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem 0.3rem 0.85rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--fg-muted);
+  background: var(--code-head);
+  border: 1px solid var(--code-border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-xs);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+
+.post-body .code-fold-btn:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+.post-body .code-fold-chev {
+  width: 0.8rem;
+  height: 0.8rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: rotate var(--dur) var(--ease);
+}
+
+.post-body .code-fold.is-expanded .code-fold-chev {
+  rotate: 180deg;
+}
+
+.post-body .code-fold-less {
+  display: none;
+}
+
+.post-body .code-fold.is-expanded .code-fold-more {
+  display: none;
+}
+
+.post-body .code-fold.is-expanded .code-fold-less {
+  display: inline;
+}
+
+/* Paper has no toggle: print the whole block. */
+@media print {
+  html[data-js] .post-body .code-fold:not(.is-expanded) > .code-wrap > pre {
+    max-height: none !important;
+    overflow: visible;
+  }
+
+  .post-body .code-fold-bar {
+    display: none !important;
+  }
+}
+

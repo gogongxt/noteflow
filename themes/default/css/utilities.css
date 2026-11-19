@@ -1,0 +1,81 @@
+/* Last: contrast and print overrides, which must win over everything above. */
+
+@media (prefers-contrast: more) {
+  :root {
+    --border: var(--border-strong);
+    --fg-muted: var(--fg);
+    --fg-subtle: var(--fg-muted);
+  }
+}
+
+@media print {
+  .site-header,
+  .sidebar,
+  .toc-rail,
+  .pager,
+  .comments,
+  .skip-link,
+  .nav-backdrop,
+  .code-head,
+  .tag-more {
+    display: none !important;
+  }
+
+  /* On paper the inset surface reads as a stray gray box; print the text as
+     plain body copy. A collapsed summary stays collapsed (the UA hides it). */
+  .summary-card {
+    display: block;
+    margin-bottom: 1.5rem;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .summary-card > summary {
+    display: none;
+  }
+
+  .summary-card-body {
+    margin-top: 0;
+  }
+
+  .shell {
+    display: block;
+    min-height: 0;
+  }
+
+  #main {
+    padding: 0;
+  }
+
+  .page,
+  .post-layout,
+  .post-col,
+  .post-body {
+    display: block;
+    max-width: none;
+  }
+
+  .post-layout {
+    padding-inline-end: 0;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  .post-body div.sourceCode,
+  .post-body .diagram,
+  .post-body figure,
+  .card {
+    break-inside: avoid;
+    box-shadow: none;
+  }
+
+  .mv {
+    display: none !important;
+  }
+}
+

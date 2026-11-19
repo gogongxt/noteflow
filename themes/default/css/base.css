@@ -1,0 +1,151 @@
+/* Element defaults: what a browser would render before any class exists. */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--header-h) + 1.5rem);
+  scrollbar-gutter: stable;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.65;
+  font-feature-settings: "kern", "liga";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body > .shell {
+  flex: 1 0 auto;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+a {
+  color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+  transition: color var(--dur) var(--ease);
+}
+
+a:hover {
+  color: var(--accent-hover);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--fg);
+}
+
+/* The viewer's card can sit on either theme's surface, so its selection tint
+   comes from the viewer accent rather than the page's soft background. */
+.mv ::selection {
+  background: color-mix(in srgb, var(--mv-accent) 38%, transparent);
+  color: var(--fg);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+hr {
+  border: 0;
+  height: 1px;
+  margin: 2.5rem 0;
+  background: var(--border);
+}
+
+kbd {
+  display: inline-block;
+  padding: 0.1em 0.42em;
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  line-height: 1.5;
+  color: var(--fg);
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+}
+
+mark {
+  padding: 0.05em 0.2em;
+  color: inherit;
+  background: var(--mark-bg);
+  border-radius: 4px;
+}
+
+/* a highlight's wash would otherwise double up under the code chip */
+mark code {
+  background: transparent;
+}
+
+del {
+  color: var(--fg-subtle);
+}
+
+.clipboard-fallback {
+  position: fixed;
+  top: -1000px;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: fixed;
+  top: 0.7rem;
+  left: 50%;
+  z-index: 200;
+  translate: -50% -220%;
+  padding: 0.5rem 1.1rem;
+  background: var(--solid);
+  color: var(--solid-fg);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: 999px;
+  box-shadow: var(--shadow-md);
+  transition: translate var(--dur) var(--ease);
+}
+
+.skip-link:focus-visible {
+  translate: -50% 0;
+  color: var(--solid-fg);
+}
+

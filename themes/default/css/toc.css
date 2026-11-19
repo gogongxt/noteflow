@@ -1,0 +1,236 @@
+/* The table of contents: the edge rail, its hover card, and the pinned column. */
+
+/* Default: Notion-style edge marks, with the panel opening as a hover card. */
+.toc-rail {
+  position: fixed;
+  top: calc(var(--header-h) + 2.25rem);
+  right: var(--edge-gap);
+  z-index: 30;
+}
+
+.toc-head {
+  margin: 0;
+}
+
+.toc-title {
+  display: none;
+  align-items: center;
+  gap: 0.4em;
+  margin: 0;
+  padding-left: 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+.toc-toggle {
+  position: relative;
+  display: grid;
+  padding: 0.6rem 0.45rem 0.6rem 0.2rem;
+  color: var(--fg);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-xs) 0 0 var(--radius-xs);
+  cursor: pointer;
+}
+
+.toc-toggle .icon {
+  display: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.toc-marks {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.toc-marks .m {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: color-mix(in srgb, var(--fg) 22%, transparent);
+  border-radius: 2px;
+  transition: background-color var(--dur) var(--ease), width var(--dur) var(--ease);
+}
+
+.toc-marks .m.lvl1 {
+  width: 22px;
+}
+
+.toc-marks .m.lvl3 {
+  width: 11px;
+}
+
+.toc-toggle:hover .m,
+.toc-rail:hover .m {
+  background: color-mix(in srgb, var(--fg) 40%, transparent);
+}
+
+.toc-toggle:focus-visible,
+.toc-rail:has(.toc-toggle:focus-visible) .toc-toggle {
+  outline: none;
+}
+
+.toc-toggle:focus-visible .m,
+.toc-rail:has(.toc-toggle:focus-visible) .m {
+  background: var(--accent);
+}
+
+/* Must stay last: the active tick is solid fg even under hover/focus tints. */
+.toc-marks .m.active {
+  background: var(--fg);
+}
+
+.toc-panel {
+  position: absolute;
+  top: 0;
+  right: calc(100% - 2rem);
+  width: min(16.5rem, 72vw);
+  max-height: calc(100dvh - var(--header-h) - 3.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.85rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  scrollbar-width: thin;
+  transition: opacity 140ms var(--ease), visibility 0s linear 140ms;
+}
+
+/* Pure hover/focus preview; staying is the pin's job. */
+.toc-rail:hover .toc-panel,
+.toc-rail:has(:focus-visible) .toc-panel {
+  z-index: 1;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 140ms var(--ease), visibility 0s;
+}
+
+.toc-pin {
+  position: absolute;
+  top: 0.1rem;
+  right: 0.1rem;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  color: var(--fg-faint);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 140ms var(--ease), visibility 0s linear 140ms,
+    color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+
+.toc-pin .icon {
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.toc-pin:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+.toc-rail:hover .toc-pin,
+.toc-rail:has(:focus-visible) .toc-pin {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 140ms var(--ease), visibility 0s,
+    color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+
+@media (max-width: 1079.98px) {
+  .toc-pin {
+    display: none;
+  }
+}
+
+.toc {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.toc ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.toc li {
+  margin: 0;
+}
+
+.toc a {
+  display: block;
+  position: relative;
+  padding: 0.28rem 0.5rem 0.28rem 0.75rem;
+  color: color-mix(in srgb, var(--fg) 32%, var(--fg-muted));
+  line-height: 1.45;
+  text-decoration: none;
+  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+
+.toc a::before {
+  content: "";
+  position: absolute;
+  top: 0.28rem;
+  bottom: 0.28rem;
+  left: 0;
+  width: 2px;
+  background: transparent;
+  border-radius: 2px;
+  transition: background-color var(--dur) var(--ease);
+}
+
+.toc a:hover {
+  color: var(--fg);
+  background: var(--bg-subtle);
+}
+
+.toc .lvl2 a {
+  padding-left: 1.5rem;
+}
+
+.toc .lvl3 a {
+  padding-left: 2.25rem;
+  font-size: 0.78rem;
+}
+
+.toc a.active {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.toc a.active:hover {
+  color: var(--accent-hover);
+}
+
+.toc a.active::before {
+  background: var(--accent);
+}

@@ -1,0 +1,991 @@
+/* The article: page header, prose, headings, lists, tables, callouts, tabs,
+   footnotes and the in-page anchor flash. */
+
+article.page-post,
+article.page-index {
+  min-width: 0;
+}
+
+.post-col {
+  min-width: 0;
+  max-width: var(--measure);
+}
+
+/* One centered column. Pinning widens the track and pads its right edge by
+   the rail's share, so the text slides left at constant width. */
+.post-layout {
+  display: block;
+  width: 100%;
+  max-width: var(--measure);
+  margin-inline: auto;
+  padding-inline-end: 0;
+  transition: max-width var(--dur) var(--ease), padding-inline-end var(--dur) var(--ease);
+}
+
+.post-layout > .post-col {
+  width: 100%;
+  margin-inline: auto;
+}
+
+.post-layout.no-toc {
+  max-width: var(--measure);
+}
+
+.post-body {
+  min-width: 0;
+  max-width: var(--measure);
+}
+
+.post-header {
+  margin-bottom: 2.25rem;
+}
+
+.post-title {
+  margin: 0 0 0.9rem;
+  /* Above the body's H1 (1.5rem) at every width: the title labels the page,
+     an H1 is the first level of what the page contains. */
+  font-size: clamp(2rem, 1.4rem + 1.6vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.24;
+  letter-spacing: -0.028em;
+  color: var(--fg);
+  text-wrap: balance;
+}
+
+.post-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+}
+
+.post-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--fg-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.post-meta .sep {
+  color: var(--fg-faint);
+}
+
+.post-meta .meta-kind {
+  padding: 0.05rem 0.5rem;
+  color: var(--fg-muted);
+  background: var(--bg-subtle);
+  border-radius: 999px;
+}
+
+/* Summary: a collapsible card between the header and the body. Kept visually
+   quieter than note bodies (own surface, no accent border) so it reads as
+   metadata, not as part of the article. */
+.summary-card {
+  margin: 0 0 1.75rem;
+  padding: 0.75rem 1rem 0.85rem;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.summary-card > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  color: var(--fg-muted);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: color var(--dur) var(--ease);
+}
+
+.summary-card > summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary-card > summary:hover {
+  color: var(--fg);
+}
+
+.summary-card .i-spark {
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.summary-card .i-chev {
+  flex: none;
+  margin-left: auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: rotate var(--dur) var(--ease);
+}
+
+.summary-card[open] .i-chev {
+  rotate: 180deg;
+}
+
+.summary-card-body {
+  margin-top: 0.55rem;
+  color: var(--fg-muted);
+  overflow-wrap: break-word;
+}
+
+.summary-card-body p {
+  margin: 0 0 0.6em;
+}
+
+.summary-card-body > :last-child {
+  margin-bottom: 0;
+}
+
+.summary-card-body ul,
+.summary-card-body ol {
+  margin: 0.25rem 0 0.6rem;
+  padding-left: 1.15rem;
+}
+
+.summary-card-body li {
+  margin: 0.15rem 0;
+}
+
+.summary-card-body li::marker {
+  color: var(--list-marker);
+}
+
+.prose,
+article.page-index .post-body {
+  max-width: var(--measure);
+}
+
+.post-body > *:first-child,
+article.page-index > .post-header > *:first-child {
+  margin-top: 0;
+}
+
+.post-body p,
+article.page-index .post-body p {
+  margin: 0 0 1.2em;
+}
+
+.post-body,
+article.page-index .post-body {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--fg);
+  letter-spacing: 0;
+  overflow-wrap: break-word;
+}
+
+.post-body h1 {
+  margin: 2.25rem 0 0.75rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+}
+
+.post-body h2 {
+  margin: 2.1rem 0 0.6rem;
+  font-size: 1.3125rem;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: -0.018em;
+  text-wrap: balance;
+}
+
+.post-body :is(h1, h2):first-child {
+  margin-top: 0;
+}
+
+.post-body h3 {
+  margin: 1.6rem 0 0.4rem;
+  font-size: 1.125rem;
+  font-weight: 650;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+}
+
+.post-body h4,
+article.page-index .post-body h4 {
+  margin: 1.35rem 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.post-body h5,
+.post-body h6 {
+  margin: 1.2rem 0 0.3rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+
+/* The flash layer sits behind the text and paints past its box, so a heading
+   gets breathing room without changing its layout width. */
+.post-body :is(h1, h2, h3, h4, h5, h6) {
+  position: relative;
+}
+
+.post-body :is(h2, h3, h4).accent {
+  color: var(--accent);
+}
+
+.heading-anchor {
+  position: absolute;
+  top: 50%;
+  right: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  margin-right: 0.25rem;
+  padding: 0;
+  transform: translateY(-50%);
+  color: var(--accent);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease),
+    background-color var(--dur) var(--ease);
+}
+
+.post-body :is(h1, h2, h3, h4):hover > .heading-anchor,
+.heading-anchor:focus-visible,
+.heading-anchor[data-copied="true"] {
+  opacity: 1;
+}
+
+.heading-anchor:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.heading-anchor svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.heading-anchor[data-copied="true"] {
+  color: var(--accent);
+}
+
+.heading-anchor[data-copied="true"] .icon-done {
+  display: block;
+}
+
+.heading-anchor[data-copied="true"] > svg:first-child {
+  display: none;
+}
+
+.heading-anchor .icon-done {
+  display: none;
+}
+
+@media (max-width: 1079.98px) {
+  .heading-anchor {
+    display: none;
+  }
+}
+
+.post-body :is(h1, h2, h3, h4, h5, h6) a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.post-body :is(h1, h2, h3, h4, h5, h6) a:hover {
+  color: var(--accent);
+}
+
+.post-body ul,
+.post-body ol {
+  margin: 0 0 1.2em;
+  padding-left: 1.45em;
+}
+
+.post-body li {
+  margin: 0.3em 0;
+}
+
+/* decimal markers hug the text tighter than discs (Chromium metrics); the padding must sit on the li itself — list padding moves markers too */
+.post-body ol > li,
+.summary-card-body ol > li {
+  padding-left: 0.5em;
+}
+
+.post-body li > p {
+  margin-bottom: 0.6em;
+}
+
+.post-body li::marker {
+  color: var(--list-marker);
+}
+
+.post-body ul ul,
+.post-body ol ol,
+.post-body ul ol,
+.post-body ol ul {
+  margin-top: 0.3em;
+  margin-bottom: 0.3em;
+}
+
+.post-body blockquote {
+  margin: 1.6rem 0;
+  padding: 0.1rem 0 0.1rem 1.15rem;
+  color: var(--fg-muted);
+  border-left: 3px solid var(--border-strong);
+}
+
+.post-body blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.post-body blockquote blockquote {
+  margin: 0.8rem 0;
+  font-size: 0.97em;
+}
+
+.post-body :not(pre) > code {
+  padding: 0.14em 0.4em;
+  margin-inline: 0.12em;
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  font-weight: 450;
+  color: var(--code-inline-fg);
+  background: var(--code-inline-bg);
+  border-radius: 5px;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.post-body a > code {
+  color: inherit;
+}
+
+.post-body img {
+  display: block;
+  margin: 1.75rem auto;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.post-body figure {
+  margin: 1.9rem 0;
+  text-align: center;
+}
+
+.post-body figure img {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.post-body figcaption {
+  margin-top: 0.7rem;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--fg-subtle);
+  text-align: center;
+}
+
+/* External video: [url](…){.embed} alone on a line → provider iframe
+   (src/render/embeds.ts). 16:9 box, never wider than the column. */
+.post-body .embed {
+  margin: 1.4rem 0;
+}
+
+.post-body .embed iframe {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+}
+
+.post-body .embed-fallback {
+  display: inline-block;
+  margin-top: 0.4rem;
+  font-size: 0.8125rem;
+  color: var(--fg-subtle);
+}
+
+/* Link cards: [text](url){.link-preview} alone on a line → bookmark card.
+   Metadata + favicon are baked in at build time (src/link-preview.ts). */
+.post-body a.link-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin: 1.25rem 0;
+  padding: 0.7rem 0.95rem;
+  text-decoration: none;
+  color: var(--fg);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.post-body a.link-card:hover {
+  background: var(--bg-subtle);
+  border-color: var(--accent);
+}
+
+.post-body a.link-card .lc-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.post-body a.link-card .lc-favicon {
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.post-body a.link-card .lc-glyph {
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--fg-subtle);
+}
+
+.post-body a.link-card .lc-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.post-body a.link-card .lc-title {
+  font-weight: 560;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.post-body a.link-card .lc-host {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--fg-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.post-body a.link-card .lc-desc {
+  margin-top: 0.12rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--fg-muted);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.post-body a.link-card:hover .lc-host {
+  color: var(--accent);
+}
+
+.post-body details {
+  margin: 1.25rem 0;
+  padding: 0.85rem 1.1rem;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.post-body details > summary {
+  font-weight: 600;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.post-body details > summary:hover {
+  color: var(--accent);
+}
+
+.post-body details[open] > summary {
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.post-body .callout {
+  --callout-fg: var(--accent);
+  --callout-bg: var(--accent-softer);
+  --callout-line: color-mix(in srgb, var(--accent) 26%, transparent);
+  margin: 1.5rem 0;
+  padding: 0.95rem 1.15rem 0.95rem 1.25rem;
+  background: var(--callout-bg);
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--callout-fg) 16%, transparent);
+  border-left: 3px solid var(--callout-line);
+}
+
+.post-body .callout > *:last-child {
+  margin-bottom: 0;
+}
+
+.post-body .callout[data-note]::before {
+  content: attr(data-note);
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 680;
+  letter-spacing: 0.02em;
+  color: var(--callout-fg);
+}
+
+.post-body .callout.note,
+.post-body .callout.info {
+  --callout-fg: var(--accent);
+  --callout-bg: var(--accent-softer);
+}
+
+.post-body .callout.tip,
+.post-body .callout.success {
+  --callout-fg: var(--sem-green);
+  --callout-bg: color-mix(in srgb, var(--sem-green) 7%, var(--bg));
+  --callout-line: color-mix(in srgb, var(--sem-green) 40%, transparent);
+}
+
+.post-body .callout.warning,
+.post-body .callout.important {
+  --callout-fg: var(--sem-orange);
+  --callout-bg: color-mix(in srgb, var(--sem-orange) 8%, var(--bg));
+  --callout-line: color-mix(in srgb, var(--sem-orange) 42%, transparent);
+}
+
+.post-body .callout.caution,
+.post-body .callout.danger {
+  --callout-fg: var(--sem-red);
+  --callout-bg: color-mix(in srgb, var(--sem-red) 7%, var(--bg));
+  --callout-line: color-mix(in srgb, var(--sem-red) 40%, transparent);
+}
+
+.post-body .demo {
+  margin: 1.5rem 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.post-body .demo > div.sourceCode {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px dashed var(--border);
+}
+
+.post-body .demo > div.sourceCode .code-head {
+  background: var(--bg-inset);
+}
+
+.post-body .demo > div.sourceCode:last-child {
+  border-bottom: 0;
+}
+
+.post-body .demo > :not(div.sourceCode) {
+  margin-inline: 1.15rem;
+}
+
+.post-body .demo > :not(div.sourceCode):first-of-type {
+  margin-top: 1rem;
+}
+
+.post-body .demo > :not(div.sourceCode):last-child {
+  margin-bottom: 1rem;
+}
+
+.post-body .demo > :not(div.sourceCode) + * {
+  margin-top: 0.5rem;
+}
+
+/* --- Tab groups (::: {.tabs} fenced divs) -----------------------------------
+   Progressive enhancement: before (or without) JS every panel is visible and
+   titled, stacked inside one card. The module adds [data-tabs-ready], builds
+   the tab strip and hides the inactive panels via [hidden]. */
+
+.post-body .tabs {
+  margin: 1.5rem 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.post-body .tabs > .tab {
+  padding: 0.9rem 1.15rem;
+}
+
+.post-body .tabs > .tab[hidden] {
+  display: none;
+}
+
+.post-body .tabs:not([data-tabs-ready]) > .tab + .tab {
+  border-top: 1px dashed var(--border);
+}
+
+.post-body .tabs:not([data-tabs-ready]) > .tab[data-title]::before {
+  content: attr(data-title);
+  display: block;
+  margin-bottom: 0.45rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.post-body .tabs-nav {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.35rem 0.5rem 0;
+  background: var(--bg-inset);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.post-body .tabs-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.post-body .tab-link {
+  position: relative;
+  flex: none;
+  padding: 0.5rem 0.85rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--fg-muted);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+
+.post-body .tab-link:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+.post-body .tab-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.post-body .tab-link[aria-selected="true"] {
+  color: var(--accent);
+}
+
+.post-body .tab-link[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset: auto 0.5rem -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.post-body .task-list {
+  padding-left: 0.1rem;
+  list-style: none;
+}
+
+.post-body .task-list li {
+  margin: 0.4em 0;
+}
+
+.post-body .task-list label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: default;
+}
+
+.post-body .task-list input[type="checkbox"] {
+  flex: none;
+  width: 1.05em;
+  height: 1.05em;
+  margin: 0;
+
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--bg-elev);
+  border: 1.5px solid var(--border-strong);
+  border-radius: 5px;
+  cursor: default;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.post-body .task-list input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.post-body .task-list input[type="checkbox"]:checked::after {
+  content: "";
+  display: block;
+  width: 0.28em;
+  height: 0.55em;
+  margin: 0.04em auto 0;
+  border: solid #fff;
+  border-width: 0 1.5px 1.5px 0;
+  rotate: 45deg;
+}
+
+.post-body .task-list li:has(input:checked) {
+  color: var(--fg-muted);
+}
+
+.post-body .table-wrap {
+  margin: 1.6rem 0;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  -webkit-overflow-scrolling: touch;
+}
+
+.post-body .table-wrap:focus-visible {
+  outline-offset: 3px;
+}
+
+.post-body table {
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.post-body caption {
+  padding: 0.4rem 0.95rem;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--fg-subtle);
+  text-align: left;
+}
+
+.post-body th,
+.post-body td {
+  padding: 0.6rem 0.95rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.post-body thead th {
+  background: var(--bg-inset);
+  font-weight: 600;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.post-body tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.post-body tbody tr:hover {
+  background: var(--bg-inset);
+}
+
+.post-body dl {
+  margin: 1.4rem 0;
+}
+
+.post-body dt {
+  margin-top: 1rem;
+  font-weight: 650;
+  color: var(--fg);
+}
+
+.post-body dt:first-child {
+  margin-top: 0;
+}
+
+.post-body dd {
+  margin: 0.25rem 0 0 1.1rem;
+  padding-left: 0.9rem;
+  color: var(--fg-muted);
+  border-left: 2px solid var(--border);
+}
+
+.post-body .columns {
+  display: flex;
+  gap: 1.5rem;
+  margin: 1.4rem 0;
+}
+
+.post-body .columns > .column {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+@media (max-width: 767.98px) {
+  .post-body .columns {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
+.post-body .numberLines {
+  display: block;
+}
+
+.post-body .numberLines > span[id] {
+  display: block;
+}
+
+math {
+  font-size: 1.05em;
+}
+
+math[display="block"] {
+  display: block;
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: 1.4rem 0;
+  padding: 0.35rem 0;
+}
+
+/* display math gets wrapped by the build (numberEquations) for true centering
+   plus a right-edge equation number; the rules above still cover unwrapped
+   contexts such as summary cards */
+.equation {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin: 1.4rem 0;
+  padding: 0.35rem 0;
+}
+
+.equation > math[display="block"] {
+  flex: none;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.equation .eq-no {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  color: var(--fg-muted);
+  font-size: 0.9em;
+  transform: translateY(-50%);
+}
+
+/* Flash for the element an in-page link landed on; anchor.ts toggles the
+   class because pushState never moves :target. Only the tint layer fades —
+   the text itself stays fully opaque. */
+@keyframes anchor-flash {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.anchor-flash {
+  position: relative;
+}
+
+.anchor-flash::after {
+  content: "";
+  position: absolute;
+  inset: -0.22rem -0.5rem;
+  z-index: -1;
+  background-color: var(--mark-bg);
+  border-radius: var(--radius-xs);
+  animation: anchor-flash 1.8s var(--ease) forwards;
+}
+
+/* Equations already fill the line; no extra padding, no rounding. */
+.equation.anchor-flash::after {
+  inset: 0;
+  border-radius: 0;
+}
+
+.eq-ref {
+  white-space: nowrap;
+}
+
+.post-body .footnotes {
+  margin-top: 3rem;
+  padding-top: 1.1rem;
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: var(--fg-muted);
+  border-top: 1px solid var(--border);
+}
+
+.post-body .footnotes > hr {
+  display: none;
+}
+
+.post-body .footnotes > ol {
+  margin: 0;
+  padding-left: 1.3rem;
+}
+
+.post-body .footnotes .footnote-back {
+  margin-left: 0.25rem;
+  text-decoration: none;
+}
+
+.post-body .footnotes p {
+  margin-bottom: 0.6em;
+}
+
+.post-body .footnote-ref a {
+  padding: 0 0.1em;
+  text-decoration: none;
+  font-size: 0.82em;
+}
+
+pre.mermaid,
+pre.mermaid-source,
+pre.language-mermaid,
+pre.lang-mermaid {
+  font-family: var(--font-mono);
+}
+

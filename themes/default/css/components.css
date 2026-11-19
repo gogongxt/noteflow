@@ -1,0 +1,395 @@
+/* The pinned column and the shared page furniture around the article. */
+
+/* Column form: the wide-screen default, which pinning opens at any width the
+   article has room for. Hence data-column instead of a media query. */
+:root[data-column="true"] .post-layout {
+  max-width: min(100%, var(--content-w));
+  padding-inline-end: calc(var(--toc-w) + var(--toc-gap));
+}
+
+:root[data-column="true"] .post-layout.no-toc {
+  max-width: var(--measure);
+  padding-inline-end: 0;
+}
+
+:root[data-column="true"] .toc-rail {
+  top: calc(var(--header-h) + 2.25rem);
+  right: var(--gutter);
+  translate: none;
+  width: var(--toc-w);
+  max-height: calc(100dvh - var(--header-h) - 3.5rem);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.15rem 0 0.4rem 1.1rem;
+  scrollbar-width: thin;
+  border-left: 1px solid var(--border);
+  transition: border-color var(--dur) var(--ease);
+}
+
+:root[data-column="true"] .toc-rail:hover,
+:root[data-column="true"] .toc-rail:has(:focus-visible) {
+  border-left-color: var(--border-strong);
+}
+
+:root[data-column="true"] .toc-head {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: 0.6rem;
+}
+
+:root[data-column="true"] .toc-title {
+  display: flex;
+  flex: 1;
+}
+
+:root[data-column="true"] .toc-title .i-list {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Column form swaps the marks for a small ">"; unpinning is that button. */
+:root[data-column="true"] .toc-pin {
+  display: none;
+}
+
+:root[data-column="true"] .toc-toggle {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  color: var(--fg-faint);
+  border-radius: var(--radius-xs);
+}
+
+:root[data-column="true"] .toc-toggle:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+:root[data-column="true"] .toc-marks {
+  display: none;
+}
+
+:root[data-column="true"] .toc-toggle .i-chev {
+  display: block;
+}
+
+:root[data-column="true"] .toc-panel {
+  position: static;
+  width: auto;
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: none;
+}
+
+@media (max-width: 1079.98px) {
+  /* Full-width article: keep a symmetric margin wide enough that the edge tab
+     never sits on top of the text. */
+  .post-layout {
+    max-width: min(var(--measure), calc(100% - 2.6rem - 2 * var(--edge-gap)));
+  }
+
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shell > #main {
+    grid-column: 1;
+  }
+
+  .shell > .site-footer {
+    grid-column: 1;
+  }
+
+  .page {
+    max-width: none;
+  }
+
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 90;
+    width: min(19rem, 84vw);
+    height: 100dvh;
+    margin: 0;
+
+    padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 0.75rem
+      calc(1.25rem + env(safe-area-inset-bottom, 0px));
+    visibility: hidden;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
+    translate: -102% 0;
+    opacity: 1;
+    transition: translate 240ms var(--ease), visibility 0s linear 240ms;
+  }
+
+  :root[data-sidebar="collapsed"] .sidebar {
+    visibility: hidden;
+    opacity: 1;
+  }
+
+  .nav-open .sidebar,
+  :root[data-sidebar="collapsed"] .nav-open .sidebar {
+    translate: 0 0;
+    visibility: visible;
+    transition: translate 240ms var(--ease), visibility 0s;
+  }
+
+  .nav-open {
+    overflow: hidden;
+  }
+
+  .sidebar-resizer {
+    display: none;
+  }
+
+  .nav-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 85;
+    background: var(--scrim);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    transition: opacity 240ms var(--ease);
+  }
+
+  .nav-backdrop[hidden] {
+    display: none;
+  }
+
+  .nav-open .nav-backdrop,
+  .nav-open .nav-backdrop[hidden] {
+    display: block;
+    opacity: 1;
+  }
+
+  #main {
+    padding-top: 1.75rem;
+  }
+}
+
+@media (max-width: 767.98px) {
+  :root {
+    --header-h: 3.1rem;
+    --gutter: 1.15rem;
+    --radius: 14px;
+  }
+
+  .top-nav {
+    display: none;
+  }
+
+  .search-trigger {
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-inline-end: 0;
+    padding: 0;
+    justify-content: center;
+    background: transparent;
+    border-color: transparent;
+  }
+
+  .search-trigger:hover {
+    background: var(--bg-hover);
+    border-color: transparent;
+  }
+
+  .search-trigger-label,
+  .search-trigger-kbd {
+    display: none;
+  }
+
+  .search-trigger-icon {
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+
+  .icon-btn {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .header-inner {
+    gap: 0.15rem;
+    padding: 0 0.6rem 0 0.35rem;
+  }
+
+  .brand {
+    flex: none;
+  }
+
+  .header-crumbs {
+    flex: 1 1 0;
+    overflow: hidden;
+  }
+
+  .crumb-menu {
+    display: none !important;
+  }
+
+  .header-crumbs .crumb.current > span {
+    max-width: none;
+  }
+
+  .post-body,
+  article.page-index .post-body {
+    line-height: 1.78;
+  }
+
+  .post-title {
+    font-size: 2rem;
+  }
+
+  .pager {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pager .next {
+    grid-column: 1;
+    text-align: left;
+  }
+
+  .archive li {
+    margin-inline: -0.4rem;
+  }
+
+  .archive li > a {
+    gap: 0.75rem;
+    align-items: baseline;
+    padding: 0.45rem 0.4rem;
+  }
+
+  .archive time {
+    width: 3.5rem;
+    font-size: 0.72rem;
+  }
+
+  .archive-title {
+    font-size: 0.9rem;
+  }
+
+  .archive-month {
+    margin-top: 1.1rem;
+  }
+
+  .post-body .code-copy {
+    opacity: 1;
+  }
+
+  .post-body pre {
+    font-size: 0.8rem;
+  }
+
+  .hero {
+    margin-bottom: 1.75rem;
+  }
+
+  .hero::before {
+    height: 16rem;
+  }
+
+  .hero-title {
+    font-size: 2.4rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .hero-desc {
+    margin-bottom: 1.25rem;
+  }
+
+  .home-stats {
+    margin-bottom: 1.5rem;
+  }
+
+  .section-head {
+    margin-bottom: 0.75rem;
+  }
+
+  .post-list {
+    gap: 0.55rem;
+  }
+
+  .card::after {
+    opacity: 1;
+    translate: 0 -50%;
+  }
+
+  .card {
+    padding-right: 2.25rem;
+  }
+
+  .post-title {
+    letter-spacing: -0.02em;
+  }
+
+  .header-crumbs {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-left: 0.25rem;
+    padding-left: 0.5rem;
+  }
+
+  .crumbs ol {
+    flex-wrap: nowrap;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.875rem;
+    color: var(--fg-subtle);
+  }
+
+  .crumb {
+    flex: none;
+  }
+
+  .crumb > a,
+  .crumb > span {
+    max-width: 11rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-title {
+    font-size: 2.1rem;
+  }
+
+  .card {
+    padding: 0.9rem 2.1rem 0.9rem 1rem;
+  }
+
+  .home-stats {
+    gap: 0 1.5rem;
+  }
+
+  .btn {
+    padding: 0.5rem 1rem;
+  }
+}
+
+@media (max-height: 480px) and (orientation: landscape) {
+  .sidebar {
+    overflow-y: auto;
+  }
+}
+
+@media (min-width: 1600px) {
+  :root {
+    --measure: 48rem;
+  }
+}

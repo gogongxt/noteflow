@@ -762,7 +762,7 @@ export async function prepareMermaid(opts: {
   const renderer =
     noMermaid || !blocks.length
       ? null
-      : new PlaywrightMermaidRenderer({ cacheDir: path.join(root, cacheDir, 'mermaid'), themeDir, mermaidPath: mermaidBin });
+      : new PlaywrightMermaidRenderer({ cacheDir: path.resolve(root, cacheDir, 'mermaid'), themeDir, mermaidPath: mermaidBin });
 
   let rendered: Map<string, RenderedDiagram> = empty();
   if (renderer) {

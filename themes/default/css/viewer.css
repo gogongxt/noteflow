@@ -1,0 +1,512 @@
+/* Diagrams and media: build-time SVG figures and the viewer that zooms them. */
+
+
+.post-body .diagram {
+  margin: 1.9rem 0;
+  text-align: center;
+}
+
+.post-body .diagram-frame {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  padding: 1rem;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
+  transition: border-color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+
+.post-body .diagram:hover .diagram-frame {
+  border-color: var(--border-strong);
+}
+
+.post-body .diagram-frame svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.post-body .diagram-caption {
+  margin: 0.7rem auto 0;
+  max-width: 36rem;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--fg-subtle);
+}
+
+.diagram-caption,
+.diagram-caption * {
+  color: inherit;
+}
+
+.post-body .diagram-render-error .diagram-frame {
+  display: block;
+  padding: 0.9rem 1.1rem;
+  text-align: left;
+  border-style: dashed;
+}
+
+.diagram-error-note {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--sem-red);
+}
+
+.diagram-error-src {
+  margin: 0;
+  padding: 0;
+  font-size: 0.8rem;
+  background: transparent;
+  border: 0;
+}
+.post-body .diagram-frame[data-zoomable],
+.post-body img[data-zoomable] {
+  cursor: zoom-in;
+}
+
+.post-body img[data-zoomable] {
+  transition: box-shadow var(--dur) var(--ease), filter var(--dur) var(--ease);
+}
+
+.post-body img[data-zoomable]:hover {
+  box-shadow: var(--shadow-md);
+  filter: brightness(0.985);
+}
+
+[data-theme="dark"] .post-body img[data-zoomable]:hover {
+  filter: brightness(1.08);
+}
+
+.post-body img[data-zoomable]:focus-visible,
+.post-body .diagram-frame:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* width:100vw, not inset alone: `html` keeps scrollbar-gutter reserved even
+   while the viewer is open (switching it off would shift the page), and the
+   fixed containing block is then 15px narrower than the viewport. */
+.mv {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  z-index: 120;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr);
+  color: var(--mv-fg);
+  background: var(--mv-scrim);
+  animation: mv-in 180ms var(--ease);
+}
+
+.mv[hidden] {
+  display: none;
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  .mv {
+    -webkit-backdrop-filter: var(--mv-backdrop);
+    backdrop-filter: var(--mv-backdrop);
+  }
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .mv {
+    background: var(--mv-scrim-solid);
+  }
+}
+
+@keyframes mv-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.mv-stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+}
+
+.mv-stage[data-dragging] {
+  cursor: grabbing;
+}
+
+/* No size transition: a zoom keeps its scale in a transform during the gesture
+   and swaps it into layout on commit; animating the width would make that swap
+   wobble. */
+.mv-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  overflow: hidden;
+  transition: border-radius 140ms var(--ease), background-color 140ms var(--ease);
+}
+
+/* Diagram labels are HTML in a foreignObject; selecting them is the copy path
+   that matters. The card owns the pointer cursor, so text keeps its I-beam. */
+.mv-card[data-kind="diagram"] {
+  cursor: grab;
+}
+
+.mv-canvas foreignObject div,
+.mv-canvas text {
+  cursor: text;
+}
+
+.mv-stage[data-dragging] .mv-card {
+  cursor: grabbing;
+}
+
+.mv-card[data-kind="diagram"] {
+  background: var(--mv-surface);
+  border: 1px solid var(--mv-border);
+  border-radius: var(--radius);
+  box-shadow: var(--mv-shadow);
+}
+
+.mv-card[data-kind="image"] {
+  border-radius: var(--radius-xs);
+  box-shadow: var(--mv-shadow);
+}
+
+/* The card is the canvas's frame; the canvas is centered in it, so a quarter
+   turn (transform-origin stays the element's center) sweeps it inside the
+   transposed box instead of flying out of it. */
+.mv-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  max-width: none;
+  max-height: none;
+  transform-origin: center;
+  user-select: text;
+}
+
+.mv-canvas[data-kind="image"] {
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.mv-count {
+  flex: none;
+  padding: 0 0.35rem 0.45rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--mv-fg);
+  letter-spacing: 0.01em;
+  user-select: none;
+}
+
+.mv-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 1.15rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.3rem;
+  background: var(--mv-panel-solid);
+  border: 1px solid var(--mv-border);
+  border-radius: 999px;
+  box-shadow: var(--mv-shadow-sm);
+  translate: -50% 0;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  .mv-bar,
+  .mv-close,
+  .mv-prev,
+  .mv-next {
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+}
+
+.mv-stage:hover .mv-bar,
+.mv-bar:focus-within {
+  opacity: 1;
+}
+
+.mv-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  color: var(--mv-fg-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+
+.mv-btn:hover {
+  color: var(--mv-fg);
+  background: var(--mv-hover);
+}
+
+.mv-btn:focus-visible {
+  outline: 2px solid var(--mv-accent);
+  outline-offset: 1px;
+}
+
+.mv-btn[hidden] {
+  display: none;
+}
+
+.mv-btn svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.mv-btn[data-done] {
+  color: var(--sem-green);
+}
+
+.mv-close {
+  position: absolute;
+  top: 1rem;
+  right: calc(var(--mv-rail-w) + 1rem);
+  z-index: 3;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--mv-fg-muted);
+  background: var(--mv-panel);
+  border: 1px solid var(--mv-border);
+  border-radius: 999px;
+  box-shadow: var(--mv-shadow-sm);
+}
+
+.mv[data-single] .mv-close {
+  right: 1rem;
+}
+
+.mv-prev,
+.mv-next {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-top: -1.25rem;
+  color: var(--mv-fg);
+  background: var(--mv-panel);
+  border: 1px solid var(--mv-border);
+  box-shadow: var(--mv-shadow-sm);
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+
+.mv-prev {
+  left: 1.25rem;
+}
+
+.mv-next {
+  right: 1.25rem;
+}
+
+.mv-stage:hover .mv-prev,
+.mv-prev:focus-visible {
+  opacity: 1;
+}
+
+.mv-stage:hover .mv-next,
+.mv-next:focus-visible {
+  opacity: 1;
+}
+
+.mv-prev:hover,
+.mv-next:hover {
+  background: var(--mv-panel);
+  color: var(--mv-fg);
+}
+
+.mv-rail {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: var(--mv-rail-w);
+  min-height: 0;
+  padding: 0.85rem 0.85rem 0.85rem 1rem;
+  background: var(--mv-rail);
+  border-left: 1px solid var(--mv-border);
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  .mv-rail {
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    backdrop-filter: blur(30px) saturate(180%);
+  }
+}
+
+.mv-rail[hidden] {
+  display: none;
+}
+
+.mv-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  overscroll-behavior-y: contain;
+}
+
+.mv-tab {
+  flex: none;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  padding: 0.35rem;
+  overflow: hidden;
+  background: var(--mv-tab);
+  border: 1px solid var(--mv-tab-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.mv-tab:hover {
+  background: var(--mv-hover);
+  border-color: var(--mv-tab-border-hover);
+}
+
+.mv-tab[data-kind="diagram"] {
+  background: var(--mv-surface);
+  border-color: color-mix(in srgb, var(--mv-surface) 82%, var(--mv-accent));
+}
+
+.mv-tab::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px var(--mv-accent);
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+  pointer-events: none;
+}
+
+.mv-tab[aria-selected="true"],
+.mv-tab[aria-selected="true"]:hover {
+  border-color: var(--mv-accent);
+}
+
+.mv-tab[aria-selected="true"][data-kind="diagram"] {
+  background: var(--mv-surface);
+}
+
+.mv-tab[aria-selected="true"][data-kind="image"] {
+  background: color-mix(in srgb, var(--mv-accent) 18%, transparent);
+}
+
+.mv-tab[aria-selected="true"]::after {
+  opacity: 1;
+}
+
+.mv-tab:focus-visible {
+  outline: 2px solid var(--mv-fg);
+  outline-offset: -2px;
+}
+
+.mv-tab > svg,
+.mv-tab > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+body.mv-open {
+  overflow: hidden;
+}
+
+@media (hover: none) {
+  .mv-prev,
+  .mv-next,
+  .mv-bar {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .mv {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .mv-rail {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.5rem;
+    width: auto;
+    max-height: 6.25rem;
+    padding: 0.55rem 0.55rem calc(0.55rem + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--mv-border);
+    border-left: 0;
+  }
+
+  .mv-count {
+    padding: 0;
+  }
+
+  .mv-tabs {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .mv-tab {
+    width: 5rem;
+    aspect-ratio: 4 / 3;
+  }
+
+  .mv-close,
+  .mv[data-single] .mv-close {
+    top: 0.7rem;
+    right: 0.7rem;
+  }
+
+  .mv-prev,
+  .mv-next {
+    display: none;
+  }
+
+  .mv-bar {
+    bottom: 0.85rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mv {
+    animation: none;
+  }
+
+  .mv-card {
+    transition: none;
+  }
+}
+

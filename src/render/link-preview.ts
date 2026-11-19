@@ -636,7 +636,7 @@ export async function expandPageCards(pages: Page[], opts: { args: CliArgs; root
   const pageCards = pages.map((p) => ({ p, hrefs: collectLinkPreviewHrefs(p.html) })).filter((x) => x.hrefs.length > 0);
   if (!pageCards.length) return;
   const cacheArg = opts.args['link-cache'];
-  const cacheDir = typeof cacheArg === 'string' && cacheArg ? path.resolve(opts.root, cacheArg) : path.join(opts.root, opts.cacheDir, 'link-previews');
+  const cacheDir = typeof cacheArg === 'string' && cacheArg ? path.resolve(opts.root, cacheArg) : path.resolve(opts.root, opts.cacheDir, 'link-previews');
   const { cards, notes } = await loadCards(pageCards.flatMap((x) => x.hrefs), {
     cacheDir,
     network: boolArg(opts.args['link-fetch'], true),

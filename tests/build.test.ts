@@ -5,6 +5,7 @@ import path from 'node:path';
 import { execFileSync, spawn } from 'node:child_process';
 import { cleanupTmpDirs, tmpDir, PNG } from './helpers.ts';
 import { stripTypes } from '../src/build/frontend.ts';
+import { CSS_LAYERS, themeCss } from '../src/build/static-assets.ts';
 
 // Top-level tests run serially, so every test that only reads dist/ shares one
 // build and the variant tests run their builds concurrently in a suite.
@@ -616,19 +617,20 @@ suite('build variants', { concurrency: 6 }, () => {
 
   test('the render cache reuses unchanged pages, re-converts only the edited one, and never changes the output', async () => {
     const copy = makeContentCopy();
-    const cacheDir = tmpDir('blog-cache-');
+    const cacheDir = path.join(tmpDir('blog-cache-'), 'r');
     const out = tmpDir('blog-cacheout-');
     const profile = path.join(manifestDir, `cache-${buildSeq++}.mjs`);
     fs.writeFileSync(
       profile,
       `export default { url: 'https://example.com', siteName: 't', lang: 'en',` +
         ` contentDir: ${JSON.stringify(copy)}, outDir: ${JSON.stringify(out)}, themeDir: 'themes/default',` +
-        ` cacheDir: ${JSON.stringify(cacheDir)}, manifestFile: 'unused.json', postPattern: '/posts/{abbrlink}',` +
+        ` cacheDir: ${JSON.stringify(cacheDir)}, manifestFile: ${JSON.stringify(path.join(manifestDir, `cachem-${buildSeq++}.json`))}, postPattern: '/posts/{abbrlink}',` +
         ` pageSize: { home: 5, feed: 5 } };\n`,
     );
     // --skip-mermaid: mermaid hashes Chromium's SVG output, so cached HTML
     // with figures is only reproducible on the same browser build.
     const build = (): Promise<BuildResult> => runBuild(['--config', profile, '--out', out], { content: copy, out });
+    console.log('DBGPROFILE', fs.readFileSync(profile, 'utf8'));
     const first = await build();
     assert.equal(first.status, 0, first.stderr);
     const cold = listFiles(out).filter((f) => f.endsWith('.html')).map((f) => [path.relative(out, f), fs.readFileSync(f, 'utf8')] as const);
@@ -852,6 +854,31 @@ test('repoUrl turns into a header GitHub link that opens off-site', async () => 
   );
   const html = fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
   assert.ok(!html.includes('repo-link'), 'without repoUrl the header must not link anywhere');
+});
+
+test('the theme CSS ships as one concatenated sheet in layer order (style-src allows no second link)', async () => {
+  await shared;
+  const css = fs.readFileSync(findAsset('style.css'), 'utf8');
+  for (const [a, b] of [
+    [':root {', 'html {'],
+    ['html {', '.site-header {'],
+    ['.toc .lvl3 a {', '.children {'],
+    ['code.sourceCode span.ot {', '.post-body .diagram {'],
+    ['.mv-canvas {', '.search-dialog {'],
+    ['@media (prefers-contrast: more) {', ''],
+  ] as const) {
+    const ia = css.indexOf(a);
+    assert.ok(ia >= 0, `missing ${a}`);
+    if (b) assert.ok(ia < css.indexOf(b), `${a} must come before ${b}`);
+  }
+  assert.ok(css.trimEnd().endsWith('}'), 'the sheet ends with the last utility block');
+  for (const l of CSS_LAYERS) assert.ok(fs.statSync(path.join(REPO, `themes/default/css/${l}.css`)).size > 0, `${l}.css is empty`);
+  // A stray .css file has no declared cascade position: refuse rather than guess.
+  const brokenDir = tmpDir('blog-css-');
+  fs.mkdirSync(path.join(brokenDir, 'css'));
+  fs.writeFileSync(path.join(brokenDir, 'css/tokens.css'), ':root{}');
+  fs.writeFileSync(path.join(brokenDir, 'css/stray.css'), ':root{}');
+  assert.throws(() => themeCss(brokenDir), /not listed in CSS_LAYERS/);
 });
 
 test('every page ends in a footer region; the docs profile adds the author credit', async () => {

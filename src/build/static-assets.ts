@@ -85,6 +85,26 @@ function emitModule(base: string, source: string, renamed: Map<string, string>, 
   return add(`js/${name}`, rewritten);
 }
 
+/** The CSS layers in cascade order: each one may override the ones before it,
+ *  so the order is part of the contract, not a naming accident. */
+export const CSS_LAYERS = [
+  'tokens', 'base', 'layout', 'article', 'toc', 'pages', 'code', 'components', 'viewer', 'search', 'utilities',
+] as const;
+
+/** `<theme>/css/<layer>.css` concatenated into the single sheet the CSP allows
+ *  (`style-src 'self'` — no second <link> and no @import). */
+export function themeCss(themeDir: string): string {
+  const dir = path.join(themeDir, 'css');
+  const present = fs.readdirSync(dir).filter((f) => f.endsWith('.css')).map((f) => f.slice(0, -4));
+  const unknown = present.filter((f) => !(CSS_LAYERS as readonly string[]).includes(f));
+  if (unknown.length) throw new Error(`theme CSS file not listed in CSS_LAYERS (its cascade position is undeclared): ${unknown.join(', ')}`);
+  return CSS_LAYERS.map((layer) => {
+    const file = path.join(dir, `${layer}.css`);
+    if (!fs.existsSync(file)) throw new Error(`theme CSS layer missing: ${file}`);
+    return fs.readFileSync(file, 'utf8');
+  }).join('');
+}
+
 /** Build the hashed static bundle from the theme. Pure output; no writes. */
 export function buildStaticAssets(input: StaticInput): StaticBundle {
   const files = new Map<string, string | Buffer>();
@@ -113,7 +133,7 @@ export function buildStaticAssets(input: StaticInput): StaticBundle {
     urls.set(base, url);
   }
 
-  const cssBuf = fs.readFileSync(path.join(input.themeDir, 'css/style.css'));
+  const cssBuf = themeCss(input.themeDir);
   const styleUrl = add(hashedName('style.css', hash8(cssBuf)), cssBuf);
 
   // The icon set is one raster artwork at several sizes; the wide mark is the

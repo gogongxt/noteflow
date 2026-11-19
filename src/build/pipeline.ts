@@ -102,7 +102,7 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
 
     // --check is read-only, so it never writes the cache.
     const cache = new RenderCache({
-      dir: path.join(root, cfg.cacheDir, 'render'),
+      dir: path.resolve(root, cfg.cacheDir, 'render'),
       root: renderCacheRoot({
         pandocVersion: pandoc.info?.version ?? '',
         urlMap,

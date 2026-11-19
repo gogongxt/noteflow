@@ -5,6 +5,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { cleanupTmpDirs, tmpDir } from './helpers.ts';
 import { parseSummary, summaryPlainText } from '../src/content/summary.ts';
+import { themeCss } from '../src/build/static-assets.ts';
 
 after(() => cleanupTmpDirs());
 
@@ -76,7 +77,7 @@ test('summary: a date-like value and a long unbroken token are handled', () => {
   // overflow-wrap lives in the stylesheet; assert the token is escaped and intact.
   const longHtml = fs.readFileSync(path.join(out, 'posts/cd34ef56/index.html'), 'utf8');
   assert.ok(longHtml.includes(url), 'the long token survives escaping');
-  assert.match(fs.readFileSync(path.join(REPO, 'themes/default/css/style.css'), 'utf8'), /\.summary-card-body \{[^}]*overflow-wrap: break-word/, 'the card must break long tokens');
+  assert.match(themeCss(path.join(REPO, 'themes/default')), /\.summary-card-body \{[^}]*overflow-wrap: break-word/, 'the card must break long tokens');
 
   for (const d of [content, out]) fs.rmSync(d, { recursive: true, force: true });
 });
