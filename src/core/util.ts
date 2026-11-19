@@ -84,9 +84,14 @@ export function encodePath(p: string): string {
 }
 
 export function isInside(root: string, p: string): boolean {
-  const r = path.resolve(root);
-  const x = path.resolve(p);
-  return x === r || x.startsWith(r + path.sep);
+  return underPath(path.resolve(root), path.resolve(p));
+}
+
+/** A path-segment-aware descendant check; `/` needs no trailing separator. */
+function underPath(root: string, p: string): boolean {
+  if (p === root) return true;
+  const prefix = root.endsWith(path.sep) ? root : root + path.sep;
+  return p.startsWith(prefix);
 }
 
 /** Symlinks resolved on both sides; for paths that `isInside` must not mistake
@@ -107,9 +112,7 @@ export function realInside(root: string, p: string): boolean {
       }
     }
   };
-  const r = real(root);
-  const x = real(p);
-  return x === r || x.startsWith(r + path.sep);
+  return underPath(real(root), real(p));
 }
 
 /** 'YYYY-MM-DD' prefix of a date value, or null. */

@@ -1480,3 +1480,11 @@ test('scan: an NFD-named note (a macOS volume) opens through its on-disk name', 
   assert.ok(note, 'the node key is NFC');
   assert.ok(note!.mdPath && fs.existsSync(note!.mdPath), 'the recorded path is the real, on-disk one');
 });
+
+test('realInside/isInside: the filesystem root has no trailing-separator blind spot', async () => {
+  const { realInside, isInside } = await import('../src/core/util.ts');
+  assert.ok(isInside('/', '/etc'), 'anything is inside /');
+  assert.ok(realInside('/', '/etc'));
+  assert.ok(!isInside('/a', '/ab'), 'a sibling sharing the root as a string prefix is outside');
+  assert.ok(isInside('/a', '/a/b'));
+});
