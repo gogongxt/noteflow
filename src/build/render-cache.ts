@@ -111,20 +111,23 @@ export class RenderCache {
     else this.converted++;
   }
 
-  /** The recorded attachment files still exist with the same bytes, else the
-   *  rendered URLs would point at a file `writeMissing` cannot reproduce. The
-   *  bytes are re-hashed, not trusted from size+mtime: an edit that preserves
-   *  both (cp -p, rsync -a, touch -r) would otherwise pin a URL whose embedded
-   *  hash no longer matches its content. */
+  /** The recorded files still resolve and their bytes are unchanged, else the
+   *  rendered URLs would point at a file `writeMissing` cannot reproduce. An
+   *  attachment that vanished between builds fails here (rather than anywhere
+   *  else) and the page re-converts to a clean, named error. The bytes are
+   *  re-hashed, not trusted from size+mtime: an edit that preserves both
+   *  (cp -p, rsync -a, touch -r) would otherwise pin a URL whose embedded hash
+   *  no longer matches its content. */
   private intact(render: CachedRender): boolean {
     for (const a of render.assets) {
       let abs: string;
+      let st: fs.Stats;
       try {
         abs = resolveAsset(this.contentRoot, a.srcRel);
+        st = fs.statSync(abs);
       } catch {
-        return false;
+        return false; // gone or unreadable now; a hit must not survive a vanished file
       }
-      const st = fs.statSync(abs);
       if (st.size !== a.size) return false;
       if (hashFile8(abs) !== a.hash) return false;
     }
