@@ -76,7 +76,7 @@ result, not to edit.)
 
 ## Configuration
 
-Everything lives in [`site.config.ts`](./site.config.ts): site name, URL, language, the content directory, page sizes, the optional giscus comments block, and the site footer (copyright, author credit, 备案号). Personal overrides go in `site.config.local.ts` or `.mjs` (gitignored) — its keys are merged on top of `site.config.ts`. Drop a plain `site.config.local.mjs` at the root of your **notes** directory instead and the settings travel with the notes repo; a project-root override still wins.
+Everything lives in [`site.config.ts`](./site.config.ts): site name, URL, language, the content directory, page sizes, the optional giscus comments block, and the site footer (copyright, author credit, 备案号). Personal overrides go in a gitignored `site.config.local.mjs`, merged on top of `site.config.ts`. The same file at the root of your **notes** directory works too, so the settings travel with the notes repo; a project-root copy still wins.
 
 CLI flags and env vars take precedence: `--content <dir>`, `--out <dir>`, `PANDOC_BIN`.
 

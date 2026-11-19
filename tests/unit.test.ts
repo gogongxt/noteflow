@@ -1300,38 +1300,33 @@ test('abbrlink is a URL path segment: traversal and separators are refused', () 
   assert.equal(readAbbrlink({}), null);
 });
 
-test('local config: a project-root override wins over one at the content root', async () => {
-  const { localConfigOf, CONTENT_CONFIG_FILE } = await import('../src/core/config.ts');
+test('local config: one .mjs override, project root winning over the content root', async () => {
+  const { localConfigOf, LOCAL_CONFIG_FILE } = await import('../src/core/config.ts');
+  assert.equal(LOCAL_CONFIG_FILE, 'site.config.local.mjs');
   const root = tmpDir('nf-local-');
   const content = path.join(root, 'notes');
   fs.mkdirSync(content, { recursive: true });
-  const fileOf = (r: ReturnType<typeof localConfigOf>): { file: string; atContentRoot: boolean } | null =>
-    r && { file: r.file, atContentRoot: r.atContentRoot };
 
   // Nothing configured anywhere: no override.
   assert.equal(localConfigOf(root, 'notes'), null);
 
   // Content-root override is found when the project root has none...
-  const inContent = path.join(content, CONTENT_CONFIG_FILE);
+  const inContent = path.join(content, LOCAL_CONFIG_FILE);
   fs.writeFileSync(inContent, 'export default { siteName: "from notes" };\n');
-  assert.deepEqual(fileOf(localConfigOf(root, 'notes')), { file: inContent, atContentRoot: true }, 'content-root config applies as a fallback');
+  assert.deepEqual(localConfigOf(root, 'notes'), { file: inContent, atContentRoot: true }, 'content-root config applies as a fallback');
   // ...and an absolute contentDir resolves it too.
-  assert.deepEqual(fileOf(localConfigOf(root, content)), { file: inContent, atContentRoot: true }, 'an absolute contentDir works');
+  assert.deepEqual(localConfigOf(root, content), { file: inContent, atContentRoot: true }, 'an absolute contentDir works');
 
-  // ...but a project-root override shadows it, .ts before .mjs.
-  const rootMjs = path.join(root, 'site.config.local.mjs');
-  fs.writeFileSync(rootMjs, 'export default {};\n');
-  assert.deepEqual(fileOf(localConfigOf(root, 'notes')), { file: rootMjs, atContentRoot: false }, 'root .mjs beats a content-root file');
-  const rootTs = path.join(root, 'site.config.local.ts');
-  fs.writeFileSync(rootTs, 'export default {};\n');
-  assert.deepEqual(fileOf(localConfigOf(root, 'notes')), { file: rootTs, atContentRoot: false }, 'root .ts is the highest priority');
+  // ...but a project-root file shadows it.
+  const atRoot = path.join(root, LOCAL_CONFIG_FILE);
+  fs.writeFileSync(atRoot, 'export default {};\n');
+  assert.deepEqual(localConfigOf(root, 'notes'), { file: atRoot, atContentRoot: false }, 'the project-root file wins');
 
-  // The content tree keeps only the .mjs spelling: a .ts there is ignored
-  // (the notes repo must not import this project's sources for types).
+  // Only the .mjs spelling counts; a stray .ts is ignored in both locations.
   const other = path.join(root, 'other');
   fs.mkdirSync(other, { recursive: true });
   fs.writeFileSync(path.join(other, 'site.config.local.ts'), 'export default {};\n');
-  assert.deepEqual(fileOf(localConfigOf(root, 'other')), { file: rootTs, atContentRoot: false }, 'a .ts in the content root is not picked up (root override still wins)');
+  assert.deepEqual(localConfigOf(root, 'other'), { file: atRoot, atContentRoot: false }, 'a .ts is never picked up');
 });
 
 test('local config: the content-root file must not re-point contentDir', async () => {
@@ -1353,7 +1348,7 @@ test('local config: the content-root file must not re-point contentDir', async (
   fs.writeFileSync(path.join(root2, 'site.config.ts'), baseSrc('base'));
   fs.mkdirSync(path.join(root2, 'notes'));
   fs.writeFileSync(path.join(root2, 'notes', 'site.config.local.mjs'), "export default { contentDir: 'elsewhere' };\n");
-  await assert.rejects(loadConfig(undefined, undefined, root2), /at the content root cannot set contentDir/);
+  await assert.rejects(loadConfig(undefined, undefined, root2), /content root cannot set contentDir/);
 
   // The same override at the project root is allowed (that file is not found by a contentDir).
   const root3 = tmpDir('nf-cfg-move-');

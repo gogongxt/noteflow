@@ -1,5 +1,5 @@
 // Site configuration: every value and path resolves through here. A gitignored
-// site.config.local.ts (or .mjs) overrides individual keys for personal values.
+// site.config.local.mjs overrides individual keys for personal values.
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -104,11 +104,11 @@ const DEFAULTS: Partial<AppConfig> = {
   pageSize: { home: 20, feed: 20 },
 };
 
-/** Project-root local overrides, highest priority first. */
-const LOCAL_CONFIG_FILES = ['site.config.local.ts', 'site.config.local.mjs'];
-/** At the content root: plain JS, no imports, so it travels with the notes repo. */
-export const CONTENT_CONFIG_FILE = 'site.config.local.mjs';
-export const CONFIG_FILES = ['site.config.ts', ...LOCAL_CONFIG_FILES];
+/** The one personal override, at the project root or the content root. `.mjs`
+ *  rather than `.ts`: it must load from a bare notes repo with no package.json
+ *  declaring a module type, and it is never type-checked anyway. */
+export const LOCAL_CONFIG_FILE = 'site.config.local.mjs';
+export const CONFIG_FILES = ['site.config.ts', LOCAL_CONFIG_FILE];
 
 export interface LocalConfig {
   file: string;
@@ -117,11 +117,9 @@ export interface LocalConfig {
 
 /** A project-root override wins over one at the content root. */
 export function localConfigOf(root: string, contentDir: string): LocalConfig | null {
-  for (const f of LOCAL_CONFIG_FILES) {
-    const p = path.join(root, f);
-    if (fs.existsSync(p)) return { file: p, atContentRoot: false };
-  }
-  const inContent = path.resolve(root, contentDir, CONTENT_CONFIG_FILE);
+  const atRoot = path.join(root, LOCAL_CONFIG_FILE);
+  if (fs.existsSync(atRoot)) return { file: atRoot, atContentRoot: false };
+  const inContent = path.resolve(root, contentDir, LOCAL_CONFIG_FILE);
   return fs.existsSync(inContent) ? { file: inContent, atContentRoot: true } : null;
 }
 
@@ -238,7 +236,7 @@ export async function loadConfig(file?: string, contentDir?: string, root: strin
       // build while the file keeps being read from the old tree.
       if (local.atContentRoot && over.contentDir !== undefined) {
         throw new BuildError(
-          `${CONTENT_CONFIG_FILE} at the content root cannot set contentDir; put that override in a project-root local config`,
+          `${LOCAL_CONFIG_FILE} at the content root cannot set contentDir; put that override at the project root`,
         );
       }
       merged = { ...base, ...over };

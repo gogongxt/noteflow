@@ -5,22 +5,20 @@ description: site.config.ts — every path and site setting resolves through her
 abbrlink: "5ec70f90"
 ---
 
-All configuration lives in `site.config.ts`; CLI flags (`--content`, `--out`) and the `PANDOC_BIN` env var take precedence over it. A gitignored `site.config.local.ts` (or `.mjs`) merges personal overrides on top.
+All configuration lives in `site.config.ts`; CLI flags (`--content`, `--out`) and the `PANDOC_BIN` env var take precedence over it. Personal overrides go in a gitignored `site.config.local.mjs`, which merges on top.
 
-# Where local overrides are read from
+# Where the personal override lives
 
-The first that exists wins:
+One file name, two allowed locations — the project root wins if both exist:
 
-1. `site.config.local.ts`, then `.mjs`, at the project root.
-2. `site.config.local.mjs` at the root of the **content directory** — so site
-   settings travel with the notes repo — `{ url, siteName, giscus: { … } }`.
+- `./site.config.local.mjs` — the checkout's own personal values.
+- `<contentDir>/site.config.local.mjs` — so the settings travel with the notes
+  repo; drop the same file there and it keeps working unchanged.
 
-That file is plain JavaScript with no imports: it must not reference the
-builder's sources, or it breaks when the same notes are built by another
-checkout or the Docker image.
-
-A named `--config` profile (e.g. `site.config.docs.ts`) replaces this whole
-stack; no local override is read then.
+It is plain JavaScript with no imports: it must not reference the builder's
+sources, and `.mjs` keeps it loading from a bare notes repo that has no
+`package.json` declaring a module type. A named `--config` profile (e.g.
+`site.config.docs.ts`) replaces this whole stack; no local override is read then.
 
 | Key | Meaning |
 | --- | --- |

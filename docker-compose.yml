@@ -18,8 +18,8 @@ services:
       # or a checkout newer than the tag). node_modules is installed on start
       # when this mount hides the image's own.
       # - .:/app:ro
-      # Personal values: site.config.local.ts merges over the neutral config.
-      # - ./site.config.local.ts:/app/site.config.local.ts:ro
+      # Personal values: site.config.local.mjs merges over the neutral config.
+      # - ./site.config.local.mjs:/app/site.config.local.mjs:ro
     environment:
       # A named site.config.* profile instead of site.config.ts, e.g.
       # site.config.docs.ts. Mount it in /app and make sure its contentDir is
