@@ -2587,7 +2587,7 @@ pre.lang-mermaid {
   display: block;
   position: relative;
   padding: 0.28rem 0.5rem 0.28rem 0.75rem;
-  color: var(--fg-subtle);
+  color: color-mix(in srgb, var(--fg) 32%, var(--fg-muted));
   line-height: 1.45;
   text-decoration: none;
   border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
@@ -2611,11 +2611,6 @@ pre.lang-mermaid {
   background: var(--bg-subtle);
 }
 
-.toc .lvl1 a {
-  color: var(--fg-muted);
-}
-
-/* One step per level, so a nested heading never reads as a sibling. */
 .toc .lvl2 a {
   padding-left: 1.5rem;
 }
