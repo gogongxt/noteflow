@@ -9,11 +9,11 @@ Constructs the builder adds on top of the [standard syntax](./Standard%20Markdow
 Most are ordinary pandoc fenced divs; the build gives them meaning and the theme
 gives them shape.
 
-## Callouts
+# Callouts
 
 Two spellings are equivalent; both normalize to the same colors.
 
-### Fenced divs (recommended; custom titles)
+## Fenced divs (recommended; custom titles)
 
 ::: {.demo}
 ````markdown
@@ -34,7 +34,7 @@ Without a title, the type name becomes the title.
 :::
 :::
 
-### GFM alerts
+## GFM alerts
 
 ::: {.demo}
 ````markdown
@@ -66,7 +66,7 @@ Without a title, the type name becomes the title.
 Available types: `note`, `info`, `tip`, `success`, `warning`, `caution`,
 `important`, `danger`.
 
-## Link cards
+# Link cards
 
 An external link alone on a line, tagged `.link-preview`, renders as a card
 with the site icon, title and description. The metadata is fetched **at build
@@ -81,7 +81,7 @@ the title fallback.
 [pandoc user's guide](https://pandoc.org/MANUAL.html){.link-preview}
 :::
 
-## Diagrams (Mermaid)
+# Diagrams (Mermaid)
 
 A code block tagged `mermaid` becomes a vector diagram in place. It is
 pre-rendered to SVG at build time (the page loads no charting script), so it is
@@ -129,7 +129,7 @@ Common mermaid diagram types are supported (flowchart, sequence, class, state,
 Gantt, pie, ER, mindmap, timeline and more). Click a diagram to open the viewer:
 drag to pan, scroll to zoom, double-click or press `0` to reset, `Esc` to close.
 
-## Images
+# Images
 
 Images resolve relative to the note's directory and are copied into the output;
 the build adds `loading="lazy"`. An image alone in its own paragraph shows its
@@ -156,7 +156,7 @@ A small inline image stays inline: ![icon](./img/demo.png){width=32}
 A small inline image stays inline: ![icon](./img/demo.png){width=24}
 :::
 
-## Audio and video
+# Audio and video
 
 Media uses native HTML elements; the URLs resolve relative to the note's
 directory and are copied into the output like images. The CSP is not relaxed:
@@ -181,7 +181,7 @@ playback starts only on user action. Off-site Bilibili / YouTube videos use a
 <audio controls src="./media/demo.wav"></audio>
 :::
 
-### Bilibili / YouTube
+## Bilibili / YouTube
 
 A video-page link alone on a line, tagged `.embed`, renders as the provider's
 player (`player.bilibili.com` / `www.youtube-nocookie.com`). Any other site, or
@@ -207,7 +207,7 @@ The supported types live in `ATTACHMENT_TYPES` (`src/render/attachments.ts`):
 mp4/webm/ogv video, mp3/m4a/ogg/wav/flac audio, vtt subtitles. Media and
 subtitles load only from this site; same-origin is enough, no CORS needed.
 
-## Tabs
+# Tabs
 
 Several takes on one task nest into a tab group the reader picks from by
 environment. It is a plain pandoc fenced div: `::: {.tabs}` opens a group,
@@ -261,7 +261,7 @@ Panel titles are plain text (in the `data-title` attribute); a panel holds any
 block content (lists, tables, collapsibles, mermaid). Without scripting, every
 panel renders stacked with its title, so nothing is lost.
 
-## Columns
+# Columns
 
 `::: {.columns}` with `::: {.column}` gives a simple side-by-side layout (equal
 widths):

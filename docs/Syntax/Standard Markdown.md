@@ -8,7 +8,7 @@ abbrlink: "c182255e"
 The everyday Markdown syntax. Everything here is ordinary pandoc Markdown; the
 [next page](./Features.md) covers what NoteFlow adds on top.
 
-## Inline formatting
+# Inline formatting
 
 ::: {.demo}
 ````markdown
@@ -35,24 +35,28 @@ Emoji shorts are converted too:
 
 (Wrapping in backticks keeps it literal: `:sparkles:`)
 
-## Headings and anchors
+# Headings and anchors
 
 pandoc generates an `id` for every heading. Mixed-script headings get stable
 anchors too.
 
-### Custom ids and classes
+The page title comes from the `title:` frontmatter, not from a heading, so the
+body is free to start at `#` and organize itself the same way the page does —
+this page does.
+
+## Custom ids and classes
 
 ::: {.demo}
 ````markdown
-## A heading with a custom anchor {#my-anchor .accent}
+## A sub-heading with a custom anchor {#my-anchor .accent}
 ````
-## A heading with a custom anchor {#my-anchor .accent}
+## A sub-heading with a custom anchor {#my-anchor .accent}
 :::
 
 `{#my-anchor}` overrides the auto id; `{.accent}` adds a class (styled in the
 theme).
 
-## Lists
+# Lists
 
 ::: {.demo}
 ````markdown
@@ -81,7 +85,7 @@ theme).
 - [ ] An open task
 :::
 
-## Blockquotes
+# Blockquotes
 
 ::: {.demo}
 ````markdown
@@ -102,7 +106,7 @@ theme).
 > — the attribution
 :::
 
-## Tables
+# Tables
 
 ::: {.demo}
 ````markdown
@@ -121,7 +125,7 @@ theme).
 : The table caption is the colon line under the table
 :::
 
-## Code blocks
+# Code blocks
 
 Fenced code with a language tag is syntax-highlighted, with a copy button in the
 corner.
@@ -217,7 +221,7 @@ column):
       git commit -m "update"
 :::
 
-## Mathematics
+# Mathematics
 
 Inline math uses `$...$`, display math `$$...$$`; the output is standard MathML.
 
@@ -264,7 +268,7 @@ F = ma \tag{7}
 $$
 :::
 
-## Links
+# Links
 
 ::: {.demo}
 ````markdown
@@ -283,7 +287,7 @@ $$
 
 [pd]: https://pandoc.org "the pandoc site"
 
-## Footnotes
+# Footnotes
 
 ::: {.demo}
 ````markdown
@@ -296,7 +300,7 @@ The mass–energy relation follows from special relativity.[^1]
 [^1]: From the 1905 paper "On the Electrodynamics of Moving Bodies".
 :::
 
-## Definition lists
+# Definition lists
 
 ::: {.demo}
 ````markdown
@@ -313,7 +317,7 @@ Second term
 :   Its explanation.
 :::
 
-## Collapsible blocks and raw HTML
+# Collapsible blocks and raw HTML
 
 HTML is allowed by default; `<details>` is the common way to collapse content:
 
@@ -336,7 +340,7 @@ line after `<summary>`.
 </details>
 :::
 
-## Rules and escaping
+# Rules and escaping
 
 ::: {.demo}
 ````markdown
@@ -355,7 +359,7 @@ To print a literal, escape with a backslash: \*not italic\*, \`not code\`, and
 a price of \$5.
 :::
 
-## Unsupported or degraded constructs
+# Unsupported or degraded constructs
 
 | Construct | Result |
 |---|---|

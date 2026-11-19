@@ -20,7 +20,7 @@ All configuration lives in `site.config.ts`; CLI flags (`--content`, `--out`) an
 | `cspMeta` | Also carry the CSP in a `<meta>` tag — for hosts that cannot send response headers (GitHub Pages). |
 | `footer` | The site footer. Every field is optional and renders only when set; see below. |
 
-## Footer
+# Footer
 
 Every page ends in one quiet line: the theme mark, the copyright line, an optional author credit, and the filing number on the right. Without configuration the © line reads `© <year> <siteName>` and links this project as a whole — mark and text are one target. The `footer` block changes any of those pieces:
 
@@ -46,7 +46,7 @@ footer: {
 
 Footer links are audited like every other link: a site path must exist in the output, and an off-site link without a new-tab target fails the build.
 
-## Named profiles
+# Named profiles
 
 `--config <file>` builds from a standalone profile that replaces the personal stack (no local overrides). This documentation site is one:
 

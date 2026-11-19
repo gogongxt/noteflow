@@ -7,7 +7,7 @@ abbrlink: "211fd193"
 
 `dist/` is a fully static tree — no application server, no runtime. Any static host works.
 
-## Docker
+# Docker
 
 The published image bundles everything the build needs — Node, pandoc with `+server`, headless Chromium for mermaid — and serves the result. Mount a notes directory and it becomes a site:
 
@@ -56,7 +56,7 @@ The image is published from a version tag by `.github/workflows/docker.yml` — 
 
 For TLS, a domain, or several sites behind one proxy, run the container on a private port and put it behind the nginx setup below.
 
-## Self-hosting with nginx (production)
+# Self-hosting with nginx (production)
 
 `src/cli/gen-nginx.ts` regenerates the security-header snippet (CSP hashes change per build) from the build manifest:
 
@@ -67,7 +67,7 @@ node src/cli/gen-nginx.ts --out deploy/nginx/csp.conf
 
 `deploy/nginx/` holds the reference server config: content-addressed `/static/` and `/assets/` paths cache forever, HTML revalidates, and directory-style URLs (`/posts/<abbrlink>`) resolve without redirects.
 
-## GitHub Pages
+# GitHub Pages
 
 The site can serve under a repository sub-path (`https://<user>.github.io/<repo>/`). Set `url` to that address — the `/repo` pathname becomes the base path every emitted link and asset carries — and enable `cspMeta`, because Pages cannot send response headers:
 
@@ -78,11 +78,11 @@ cspMeta: true,
 
 `.github/workflows/pages.yml` in this repository builds exactly this documentation site that way: pandoc 3.13 + Node + Chromium for mermaid prerendering, then the standard Pages deploy actions.
 
-## Custom domain
+# Custom domain
 
 A custom domain (or a `*.github.io` user site) serves at the root: point `url` at it with no pathname and the base path disappears — nothing else changes.
 
-## What the security model costs you
+# What the security model costs you
 
 The output is built to run under a strict Content Security Policy, and a few
 authoring habits follow from that. Worth knowing before you write notes:

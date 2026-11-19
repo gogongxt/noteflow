@@ -9,7 +9,7 @@ The page tree is derived entirely from **filesystem paths**. No parent-child
 relationships or ordering are declared inside Markdown; `.md` files stay pure,
 and the directory layout is the structure.
 
-## Nodes
+# Nodes
 
 A **node** is the merge of a `.md` file and a folder of the same name:
 
@@ -41,7 +41,7 @@ notes/
 └── sort.txt                  # order of root-level nodes
 ```
 
-## Ordering
+# Ordering
 
 Each directory may contain a `sort.txt` listing its **direct child nodes** in
 order, one name per line (no `.md` extension). `#` comments and blank lines are
@@ -62,7 +62,7 @@ Fault tolerance is deliberate — writing should never block publishing:
   so `page2` precedes `page10` and case or accents never reorder anything.
   (Latin text falls back to the same collation's default ordering.)
 
-## Collection rules
+# Collection rules
 
 - Only `.md` files and directories form nodes; `sort.txt` and anything else is
   ignored.
@@ -70,7 +70,7 @@ Fault tolerance is deliberate — writing should never block publishing:
 - A `.md` file and a folder sharing a name merge into one node.
 - Names are case-sensitive, matching the filesystem.
 
-## Front matter
+# Front matter
 
 ```yaml
 ---
@@ -92,8 +92,10 @@ tags: [docker, ops]
   `updated` shows a separate "updated" line when it differs from the date.
 - Links between notes use relative Markdown paths; the build rewrites them to
   stable `/posts/<abbrlink>` URLs and fails on any broken one.
+- `title` is the page title, so the body doesn't need an H1 of its own: headings
+  inside the note start at `#` and read as the page's own outline.
 
-## Privacy
+# Privacy
 
 Privacy works by **physical exclusion**: private content is never built, so it
 cannot leak through search, feeds, archives or the sitemap.
