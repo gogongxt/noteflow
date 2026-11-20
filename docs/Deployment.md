@@ -74,13 +74,13 @@ For TLS, a domain, or several sites behind one proxy, run the container on a pri
 
 # Self-hosting with nginx (production)
 
-`./start.sh deploy` builds and then runs `scripts/deploy.sh`, the single entry point: it refuses to upload if `dist/` no longer matches the audited manifest hash, rsyncs into `releases/<buildId>/`, regenerates the security-header snippet (CSP hashes change per build) and switches the `current` symlink atomically. It reads `DEPLOY_HOST` / `DEPLOY_ROOT` from a gitignored `.env.deploy` (see `.env.example`).
+`./start.sh deploy` builds and then runs `scripts/deploy.sh`, the single entry point: it refuses to upload if `dist/` no longer matches the audited manifest hash, rsyncs into `releases/<buildId>/`, and switches the `current` symlink atomically. It reads `DEPLOY_HOST` / `DEPLOY_ROOT` from a gitignored `.env.deploy` (see `.env.example`).
 
-To regenerate the header snippet alone:
+CSP hashes change with every build, so the server's snippet must be refreshed too. Set `DEPLOY_NGINX_SNIPPET` to its path on the server and the deploy script writes the freshly generated file there, runs `nginx -t` and reloads; without that variable it warns and skips, leaving a stale policy that blocks the new hashes. To write the snippet locally instead — into the file nginx actually includes:
 
 ```bash
 ./start.sh build
-node src/cli/gen-nginx.ts --out deploy/nginx/csp.conf
+node src/cli/gen-nginx.ts --out deploy/nginx/snippets/security-headers.conf
 ```
 
 `deploy/nginx/` holds the reference server config: content-addressed `/static/` and `/assets/` paths cache forever, HTML revalidates, and directory-style URLs (`/posts/<abbrlink>`) resolve without redirects.

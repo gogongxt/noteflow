@@ -6,7 +6,8 @@
 #   ./start.sh              build and start a local preview (default)
 #   ./start.sh build        build to dist/ (missing abbrlinks are written into the
 #                           notes' frontmatter — commit them with the note)
-#   ./start.sh check        CI mode: read-only validation, computes on the fly
+#   ./start.sh check        CI gate: writes dist/, but no abbrlinks, cache or
+#                           network; abbrlinks are computed on the fly
 #   ./start.sh serve        preview an existing dist/ (optional port: ./start.sh serve 7061)
 #                           serving hosts add --sync: with a sync block configured, the
 #                           mirror daemon — poll the notes remote, rebuild on change,

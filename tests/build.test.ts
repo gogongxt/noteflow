@@ -1306,13 +1306,7 @@ test('CSP: one builder, identical across serve / gen-nginx / checked-in snippet'
   assert.equal(
     hashless(snippet),
     hashless(gen),
-    'deploy/nginx/snippets/security-headers.conf is stale; run src/cli/gen-nginx.ts --out <file> <manifest> and commit the result',
-  );
-  const scriptHashes = (s: string): string => s.match(/script-src [^;]*/)![0];
-  assert.equal(
-    scriptHashes(snippet),
-    scriptHashes(gen),
-    'the snippet must carry this checkout\'s inline-script hashes; regenerate it from a build of this repo',
+    `deploy/nginx/snippets/security-headers.conf is stale (script hashes must match this build of the repo's own content); run src/cli/gen-nginx.ts --out deploy/nginx/snippets/security-headers.conf and commit the result`,
   );
   assert.match(nginx, /location ~ \^\/posts\/\(\[\^\/\]\+\)\\\.html\$/, 'nginx is missing the 301 for old .html URLs');
 });

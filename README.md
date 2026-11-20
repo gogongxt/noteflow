@@ -128,8 +128,9 @@ suite builds; `docs/` is the project's own documentation, built by NoteFlow itse
 ./start.sh deploy     # build, then scripts/deploy.sh: rsync a release + atomic switch
 ```
 
-The deploy script verifies the build manifest hash before uploading, regenerates
-the nginx security-header snippet (CSP hashes change per build), and switches a
+The deploy script verifies the build manifest hash before uploading, syncs the
+nginx security-header snippet (CSP hashes change per build; set
+`DEPLOY_NGINX_SNIPPET` to the snippet's path on the server), and switches a
 symlink atomically. See `deploy/nginx/` for the reference server config. The
 content repository never goes on the server.
 
