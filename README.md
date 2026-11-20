@@ -14,9 +14,15 @@ the sidebar, and everything else stays private by construction.
 
 ![An article page: sidebar tree, table of contents, and source/rendering comparison blocks](./assets/shots/article-light.png)
 
-| Search matches sections, not just pages | The same page under the dark theme |
+| The home page lists recent updates | The same article under the dark theme |
 | --- | --- |
-| ![Search with section-level hits](./assets/shots/search.png) | ![Dark theme](./assets/shots/article-dark.png) |
+| ![Home page](./assets/shots/home-light.png) | ![Dark theme](./assets/shots/article-dark.png) |
+
+![Search groups hits per page and matches sections, not just pages](./assets/shots/search.png)
+
+<div align="center">
+  <img src="./assets/shots/mobile.png" alt="The same site on a phone" width="260">
+</div>
 
 **[Browse the live demo + docs →](https://gogongxt.github.io/noteflow/)** — the site is NoteFlow
 building its own documentation in [`docs/`](./docs), so it doubles as the demo.
@@ -57,8 +63,9 @@ tree under version control. NoteFlow turns that tree into a fast static site:
 - **Directory tree = sidebar.** `x.md` beside an `x/` directory is the standard page-with-children form; `_index.md` customizes a directory's landing page; `sort.txt` pins ordering.
 - **Privacy by physical exclusion.** Only notes with `public: true` are built; everything else (and its attachments) never enters `dist/`. Private content cannot leak through search, feeds, or archives because it is simply not there.
 - **Stable URLs.** Every note gets a CRC32-based `abbrlink` written into its frontmatter on its first build; the URL `/posts/<abbrlink>` then survives renames and reorganization.
-- **The site can follow the notes repository.** A `sync` block in the config turns the serving host into a git mirror: clone on first start, poll the remote, rebuild when the branch tip moves. Edit anywhere, `git push`, the site catches up.
-- **pandoc-powered Markdown.** A long-lived `pandoc server` converts content; the Node side does link rewriting, sanitizing, and template rendering. Mermaid diagrams are pre-rendered in headless Chromium at build time; audio and video use native `<audio>`/`<video>` with content-addressed attachments, so no player library is needed under strict CSP.
+- **The site can follow the notes repository.** A `sync` block in the config turns the serving host into a git mirror: clone on first start, poll the remote, rebuild when the branch tip moves, and push new notes' `abbrlink`s back. Edit anywhere, `git push`, the site catches up.
+- **pandoc-powered Markdown.** A long-lived `pandoc server` converts content; the Node side does link rewriting, sanitizing, and template rendering. On top of standard Markdown come callouts, GFM alerts, link cards, build-time mermaid SVG, tabs, columns, native media, and a `w-` component layer — all from plain Markdown.
+- **Notes can ship their own widgets.** A note may load a `.js` (and `.css`) placed beside it with a src-only `<script>`; the build hashes and publishes it same-origin, so the CSP stays unchanged.
 - **Security-first output.** Strict CSP (no inline scripts/styles except build-time sha256-hashed ones), no CDN, no external fonts, fail-closed builds (broken links and private-content leaks abort the build). The local preview serves the exact same security headers as production nginx.
 
 ### Scope: publishing, not editing
@@ -77,7 +84,7 @@ result, not to edit.)
 
 ## Configuration
 
-Everything lives in [`site.config.mjs`](./site.config.mjs): site name, URL, language, the content directory, page sizes, the optional giscus comments block, and the site footer (copyright, author credit, 备案号). Personal overrides go in a gitignored `site.config.local.mjs`, merged on top of `site.config.mjs`. It is the same plain-JavaScript shape, so `cp site.config.mjs site.config.local.mjs` is a working start — and the same file at the root of your **notes** directory works too, so the settings travel with the notes repo; a project-root copy still wins.
+Everything lives in [`site.config.mjs`](./site.config.mjs): site name, URL, language, the content directory, page sizes, the optional giscus comments block, and the site footer (copyright, author credit, 备案号). Personal overrides go in a gitignored `site.config.local.mjs`, merged on top of `site.config.mjs`. It is the same plain-JavaScript shape, so `cp site.config.mjs site.config.local.mjs` is a working start — and the same file at the root of your **notes** directory works too, so the settings travel with the notes repo; a project-root copy still wins. An unknown key fails the build rather than being silently ignored.
 
 CLI flags and env vars take precedence: `--content <dir>`, `--out <dir>`, `PANDOC_BIN`.
 
@@ -118,8 +125,7 @@ suite builds; `docs/` is the project's own documentation, built by NoteFlow itse
 `dist/` is a fully static tree; any nginx (or other web server) can serve it:
 
 ```bash
-./start.sh build
-scripts/deploy.sh    # rsync to releases/<buildId>/ + atomic symlink switch
+./start.sh deploy     # build, then scripts/deploy.sh: rsync a release + atomic switch
 ```
 
 The deploy script verifies the build manifest hash before uploading, regenerates

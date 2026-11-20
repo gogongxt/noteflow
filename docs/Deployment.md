@@ -74,7 +74,9 @@ For TLS, a domain, or several sites behind one proxy, run the container on a pri
 
 # Self-hosting with nginx (production)
 
-`src/cli/gen-nginx.ts` regenerates the security-header snippet (CSP hashes change per build) from the build manifest:
+`./start.sh deploy` builds and then runs `scripts/deploy.sh`, the single entry point: it refuses to upload if `dist/` no longer matches the audited manifest hash, rsyncs into `releases/<buildId>/`, regenerates the security-header snippet (CSP hashes change per build) and switches the `current` symlink atomically. It reads `DEPLOY_HOST` / `DEPLOY_ROOT` from a gitignored `.env.deploy` (see `.env.example`).
+
+To regenerate the header snippet alone:
 
 ```bash
 ./start.sh build

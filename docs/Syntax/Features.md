@@ -1,7 +1,7 @@
 ---
 title: NoteFlow features
 public: true
-description: Callouts, link cards, diagrams, media, tabs, columns and widgets — what the builder adds on top of Markdown
+description: Callouts, link cards, diagrams, media, tabs, columns, components and widgets — what the builder adds on top of Markdown
 abbrlink: "9d19226c"
 ---
 

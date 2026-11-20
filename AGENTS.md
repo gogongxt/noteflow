@@ -1,46 +1,42 @@
 # NoteFlow
 
-Personal knowledge-base static site generator: `pandoc 3.13 server` converts the Markdown in the content directory to HTML, and the Node side does link rewriting, security sanitizing, and template rendering, emitting a static site to `dist/`. All paths and site settings resolve through `site.config.mjs` (→ `src/core/config.ts`); the purpose-built test fixture tree is `tests/fixtures/content/`, real content lives in a separate private repository at `notes/` (gitignored).
+Personal knowledge-base static site generator: `pandoc server` converts the Markdown tree to HTML; the Node side rewrites links, sanitizes, and renders templates into `dist/`. Settings resolve through `site.config.mjs` (→ `src/core/config.ts`). Test fixtures: `tests/fixtures/content/`; real content: separate private repo at `notes/` (gitignored).
 
-**The project is in an early stage; breaking changes are allowed.** Structure, conventions, and design are all fair game to change; where reading the code is faster than reading docs, don't write it down here.
-
-Work directly on `master` unless a change needs isolation.
+**Early stage; breaking changes are fine.** Refactor freely — prefer robust and simple over keeping legacy structure. Work on `master` unless a change needs isolation. Where the code answers a question faster than docs would, don't write it down here.
 
 ```bash
-./start.sh build           # build to dist/
-./start.sh serve           # preview at http://localhost:7060
-npm test                   # all tests (includes a real build)
-npx tsc --noEmit           # type check
+./start.sh build    # build to dist/
+./start.sh serve    # preview at http://localhost:7060
+./start.sh watch    # rebuild + preview while editing
+./start.sh check    # read-only CI mode (no writes)
+npm test            # all tests (includes a real build)
+npx tsc --noEmit    # type check
 ```
 
-The project's own docs (`docs/`) are built by noteflow itself and deployed to GitHub Pages (`site.config.docs.mjs` + `.github/workflows/pages.yml`): `./start.sh build --config site.config.docs.mjs`. A named `--config` profile replaces the personal config stack entirely (no `site.config.local` overrides). The docs site's base path comes from its `url` pathname (`https://…/noteflow`) — every emitted URL carries that prefix while `dist/` (and `dist-docs/`) keep the unprefixed layout; `serve.ts` strips it when serving.
+`docs/` is built and shipped by noteflow itself: `npm run build:docs` (`--config site.config.docs.mjs`, output `dist-docs/`, GitHub Pages via `.github/workflows/pages.yml`). A named profile replaces the personal config stack entirely. The docs `url` pathname (`…/noteflow`) is the base path of every emitted URL; `serve.ts` strips it when serving.
 
 ## Security baseline (non-negotiable)
 
-CSP is enforced end to end: production nginx and `src/cli/serve.ts` send the same set of headers, and **no relaxation of any kind is allowed** except the explicitly recorded ones (`img-src … https:` 2026-11-16; `frame-src` video embeds 2026-11-17). The one deliberate difference: the preview server omits `upgrade-insecure-requests` — it serves plain http, and under that directive WebKit rewrites every same-origin http subresource to https (Chromium does it on redirect hops), so nothing would load locally. Production is https and keeps the directive.
+CSP is enforced end to end: nginx, `src/cli/serve.ts`, and (with `cspMeta: true`, for header-less hosts like GitHub Pages) a `<meta>` tag all carry the same directive set. **No relaxation except the recorded ones:** `img-src … https:` (2026-11-16, notes embed external image hosts) and `frame-src` for the two `EMBED_ORIGINS` video providers (2026-11-17). Preview and the meta tag omit `upgrade-insecure-requests` (it would break plain-http preview).
 
-A third delivery channel exists for hosts that cannot send headers (GitHub Pages): with `cspMeta: true` the build also bakes the policy into a `<meta http-equiv="Content-Security-Policy">` (2026-11-17). Same directive set as the headers, minus `upgrade-insecure-requests` (same WebKit reason — the same dist/ must stay previewable over plain http). nginx/serve keep sending headers regardless; `frame-ancestors` is ignored inside a meta tag, which costs nothing there.
+- `style-src 'self'`: templates never emit `<style>`/`style=""`; frontend styling only via CSSOM (`element.style.x`, `setProperty`, `animate()`). Inline styles in note bodies are user content, allowed via build-time hashes.
+- `script-src 'self'` + hashes: exactly two inline scripts, `theme-init.ts` (head) and `ui-boot.ts` (after sidebar), order matters. A new one must be added to `inlineScripts` in `src/build/pipeline.ts` plus test updates.
+- Media is native HTML only (`<video>`/`<audio>`/`<source>`/`<track>`); an off-site `src` fails the build. Publishable types live in `ATTACHMENT_TYPES` (`src/render/attachments.ts`); nginx, the preview server, and a test all follow that table.
+- Video embeds: `[watch URL](…){.embed}` alone on a line → iframe from `EMBED_ORIGINS` only (`src/render/embeds.ts`); the output audit rejects any other iframe. No `sandbox` (Bilibili needs same-origin storage), never `autoplay`.
+- Widget channel: a note loads code shipped next to itself — src-only `<script src="rel.js" defer>` and `<link rel="stylesheet" href="rel.css">`, `w-` class namespace. Only those two forms survive sanitize (any other raw HTML degrades to a span); refs are rewritten to hashed `/assets/` URLs, so the CSP is unchanged. A missing file aborts the build. `spa.ts` replays widget scripts on soft navigation — widgets must be idempotent initializers.
+- Component layer: `w-` classes as pure Markdown (`components.css`) — no script, nothing new in sanitize. Traps: filled buttons use `--accent-solid*`; section-divs force `h1` margin-top 0, so fenced-div containers carry their own `1.2em` margin; `.w-reveal` is an animation (not transition) so a lingering `translate` can't outrank `.w-card:hover`.
+- No CDNs, no external fonts; libraries self-hosted under `themes/default/`. All rendered text goes through `esc()` (`src/core/util.ts`); private content reaches templates only via `ctx.pages` / `ctx.sidebar`.
+- Build is fail-closed: broken links, private-content leaks, and audit hits abort. Never "fix" a failure by bypassing the whitelist.
 
-- `style-src 'self'`: templates must never produce `<style>` or `style=""`. Frontend styling changes may only go through the CSSOM (`element.style.x` / `setProperty` / `animate()`). Inline styles inside note bodies are user content and are allowed via build-time sha256 hashes (`--unsafe-hashes`).
-- `img-src 'self' data: https:` (deliberate, owner decision 2026-11-16): notes embed external image hosts (image CDNs, paste services, …), and images are passive content — script/style/connect stay locked down. Per-host whitelisting was rejected as every new image host would need a CSP edit.
-- `script-src 'self'` + build-time hashes: there are exactly two inline scripts, `theme-init.ts` (in `<head>`) and `ui-boot.ts` (after the sidebar), and their order carries meaning. Any new inline script must be added to `inlineScripts` in `src/build/pipeline.ts` together with matching test updates.
-- Media is native HTML only (`<video>`/`<audio>`/`<source>`/`<track>`): `default-src 'self'` covers `media-src`, so an off-site `src` fails the build. A JS player would need an injected stylesheet, which CSP blocks. Publishable types live in `ATTACHMENT_TYPES` (`src/render/attachments.ts`) — nginx's `/assets/` block, the preview server, and a test all follow that table.
-- Third-party video is an iframe from exactly the two `EMBED_ORIGINS` (`src/core/config.ts`): `[watch URL](…){.embed}` alone on a line becomes a provider player (`src/render/embeds.ts`). `frame-src` lists only those origins plus giscus; the output audit rejects any other iframe. The frames carry no `sandbox` — Bilibili's player needs same-origin storage and renders blank without it, and `allow-same-origin` + `allow-scripts` would make a sandbox meaningless anyway; containment is the frame-src allowlist plus Permissions-Policy. The frame is never granted `autoplay`, and Bilibili's URL carries an explicit `autoplay=0` (its player auto-starts when the parameter is absent); playback always waits for a click.
-- Widget channel (owner decision 2026-11-21): a note may load code shipped next to itself — a src-only `<script src="relative.js" defer>` (empty body) and `<link rel="stylesheet" href="relative.css">`, mounts in the `w-` class namespace. Sanitize keeps exactly those two forms (anything else — inline code, external URLs, escapes — becomes a plain span; an inline body appears as escaped text, fail-visible) and postprocess rewrites the refs to hashed `/assets/` URLs like any attachment, so **the CSP is unchanged** (`'self'` already covers them). js/css live in `ATTACHMENT_TYPES`; a missing file aborts the build. `spa.ts` replays swapped-in widget scripts on soft navigation — widgets must be idempotent initializers.
-- Component layer (the same `w-` namespace, no script): `components.css` provides buttons, chips, cards/grids, a timeline and a scroll-reveal as pure Markdown (pandoc attributes), so sanitize needs nothing new. Three traps: the filled button uses `--accent-solid*` (the dark accent is too pale for white labels); section-divs give every `h1` margin-top 0, so a fenced-div container must carry its own `1.2em` margin; and reveal is an *animation*, not a transition — `.w-card.w-reveal` is one element, so a lingering `translate` would outrank `.w-card:hover` forever.
-- No CDNs and no externally hosted fonts; libraries are self-hosted under `themes/default/`.
-- All rendered text goes through `esc()`; private content reaches templates only via `ctx.pages` / `ctx.sidebar`.
-- The build is fail-closed: broken links, private-content leaks, and audit hits all abort the build. Never "fix" a failure by bypassing the whitelist.
+## Regression traps
 
-## Known regression traps
-
-- **mermaid must be pre-rendered at build time.** Under strict CSP, client-side rendering turns diagrams into black boxes (the `<style>` and `style=""` injected by the mermaid runtime are all blocked). See `src/render/mermaid.ts` for details.
-- **The sync daemon (`serve.ts --sync`, `src/sync/`) mirrors the notes repo** with an unconditional `reset --hard` and, after each successful build, commits exactly the abbrlink write-backs (`abbrlinkWrites` in the manifest) and pushes them back. It arms only with `--sync` — the config block travels with the notes repo and must never start the daemon on its own. A rejected push is a race only when git says `! [rejected]`/non-fast-forward; a hook-declined push (`remote rejected`) is a hard failure whose local commit must be undone.
-- New Markdown syntax = update the `FROM` in `pandoc.ts` + update the `sanitize.ts` whitelist + add cases to the syntax reference under `docs/Syntax/` — standard Markdown in `Standard Markdown.md`, builder-specific constructs in `Features.md`; both are public reference *and* test fixture (the suite builds the docs profile and asserts on their output), and their demos carry the abbrlinks the tests read (`c182255e`, `9d19226c`). The whitelist **silently drops** anything not covered; the symptom of a missed update is "content mysteriously disappearing". The widget channel is the one sanctioned form of raw-HTML code: src-only, relative path, `w-` mount — every other spelling degrades to a span. The keys of `allowedStyles` are **CSS selectors** — writing attribute names there means no filtering happens at all.
-- **Opening an overlay must not change the page layout.** `scrollbar-gutter: stable` on `html` must be kept; full-screen layers must supply their own containing block with `width: 100vw` — do not touch the gutter (that would shift the body content sideways).
-- **Navigating between pages must not make the sidebar flash.** The server renders `open` only for the current page's ancestor chain; `ui-boot.ts` overrides it from `localStorage` before the first frame; entry animations are attached only to `.tree-anim`, never written as `details[open] > ul`. `src/cli/serve.ts` re-reads the CSP hash manifest whenever its mtime changes (the manifest is written atomically), so a long-running process never blocks the inline scripts of a newly built site.
-- Lazily loaded images have no layout box while off-screen, so "rendered width" cannot be used to detect icons — use the build-time `data-inline` flag instead.
+- **mermaid must be pre-rendered at build time** — client-side rendering is a black box under strict CSP. See `src/render/mermaid.ts`.
+- **Sync daemon** (`serve.ts --sync`, `src/sync/`): mirrors the notes repo with unconditional `reset --hard`; after each build commits exactly the `abbrlinkWrites` manifest entries and pushes them back. Arms only with `--sync` — the config block travels with the notes repo and must never start the daemon on its own. `! [rejected]`/non-fast-forward is a race (drop and retry); a hook-declined push (`remote rejected`) is a hard failure — undo the local commit.
+- **New Markdown syntax** = `FROM` in `pandoc.ts` + `sanitize.ts` whitelist + cases in `docs/Syntax/` (`Standard Markdown.md` for standard, `Features.md` for builder constructs). Those two docs are both public reference and test fixture; their demos carry the abbrlinks tests read (`c182255e`, `9d19226c`). The whitelist **silently drops** uncovered markup — symptom: content mysteriously disappearing. `allowedStyles` keys are **CSS selectors**.
+- **Overlays must not move the page:** keep `scrollbar-gutter: stable` on `html`; full-screen layers supply their own containing block (`width: 100vw`), never touch the gutter.
+- **No sidebar flash between pages:** server renders `open` only for the current page's ancestor chain; `ui-boot.ts` overrides from `localStorage` pre-paint; entry animations only on `.tree-anim`. `serve.ts` re-reads the CSP hash manifest on mtime change.
+- Lazy images have no layout box off-screen — detect icons with the build-time `data-inline` flag, not rendered width.
 
 ## Delivery
 
-After making changes, run `npx tsc --noEmit && npm test && ./start.sh build`. For visual changes, verify in the local preview (`./start.sh serve`). Do not commit / push unless asked.
+After changes: `npx tsc --noEmit && npm test && ./start.sh build`. Visual changes: verify in `./start.sh serve`. Do not commit / push unless asked.

@@ -1296,18 +1296,23 @@ test('CSP: one builder, identical across serve / gen-nginx / checked-in snippet'
   // serve.ts must go through the same builder (grep: importing it boots a server).
   const serve = fs.readFileSync(path.join(REPO, 'src/cli/serve.ts'), 'utf8');
   assert.ok(serve.includes('buildCsp('), 'serve.ts must build its CSP via src/core/csp.ts');
-  // The checked-in snippet must be current. Hash values AND counts are
-  // content-derived (inline styles in note bodies), so comparing them across
-  // the demo build here and the real-content build that produced the snippet
-  // would be unsound; collapse hash runs and compare the skeleton. Actual
-  // hash freshness in the snippet is the release step's job.
-  const hashless = (s: string): string =>
-    s.replace(/'sha256-[^']*'/g, "'#'").replace(/'#'(?: '#')+/g, "'#'");
+  // The checked-in snippet must be current. It is generated from a build of
+  // this repo's own fixture content, so the theme's inline-script hashes are
+  // reproducible here and compared exactly; style hashes are content-derived
+  // (inline styles in note bodies) and are the release step's job to refresh.
   const snippet = fs.readFileSync(path.join(REPO, 'deploy/nginx/snippets/security-headers.conf'), 'utf8');
+  const hashless = (s: string): string =>
+    s.split('\n').slice(1).join('\n').replace(/(style-src [^;]*?) 'sha256-[^']*'(?: 'sha256-[^']*')*/, '$1');
   assert.equal(
-    hashless(snippet.split('\n').slice(1).join('\n')),
-    hashless(gen.split('\n').slice(1).join('\n')),
+    hashless(snippet),
+    hashless(gen),
     'deploy/nginx/snippets/security-headers.conf is stale; run src/cli/gen-nginx.ts --out <file> <manifest> and commit the result',
+  );
+  const scriptHashes = (s: string): string => s.match(/script-src [^;]*/)![0];
+  assert.equal(
+    scriptHashes(snippet),
+    scriptHashes(gen),
+    'the snippet must carry this checkout\'s inline-script hashes; regenerate it from a build of this repo',
   );
   assert.match(nginx, /location ~ \^\/posts\/\(\[\^\/\]\+\)\\\.html\$/, 'nginx is missing the 301 for old .html URLs');
 });
