@@ -30,7 +30,7 @@ export function rawDateString(
   field: 'date' | 'updated' = 'date',
 ): string | null {
   if (data?.[field] == null) return null;
-  const m = new RegExp(`^${field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[ \\t]*:[ \\t]*(.+)$`, 'm').exec(yamlText);
+  const m = new RegExp(`^${field}[ \\t]*:[ \\t]*(.+)$`, 'm').exec(yamlText);
   if (m) {
     let v = m[1].trim();
     if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);

@@ -632,7 +632,7 @@ function cardChildren(meta: LinkCardMeta, fallbackTitle: string): P5Any[] {
 // ------------------------------------------------------- build-time stage
 
 /** Collect candidates, load metadata (cache/network per args), expand cards in place.
- *  `--check` must stay read-only and offline; an explicit --link-fetch wins. */
+ *  An explicit --link-fetch wins over `network`. */
 export async function expandPageCards(
   pages: Page[],
   opts: { args: CliArgs; root: string; cacheDir: string; siteHost: string; network?: boolean },

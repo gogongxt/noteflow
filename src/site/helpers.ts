@@ -36,8 +36,7 @@ export function descriptionOf(page: Page, limit = 160): string {
   return firstParagraph(page.html || '', limit);
 }
 
-// A `>` inside a quoted attribute value does not close the tag: `title="1 > 2"`
-// survives, where a naive /<[^>]*>/ would cut the text to ` 2">link`.
+// `>` inside a quoted attribute does not close the tag.
 const TAG = /<(?:"[^"]*"|'[^']*'|[^'">])*>/g;
 
 export function firstParagraph(html: string, limit = 200): string {

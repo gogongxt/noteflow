@@ -246,10 +246,8 @@ function rewriteImage(node: P5Any, ctx: PostprocessCtx): void {
   if (/^data:image\//i.test(src)) return; // already whitelist-limited to bitmap types
   if (isExternal(src)) return;
   const pathPart = nfc(decodeURIComponentSafe(src)).split('#')[0].split('?')[0];
-  // A root-absolute src means the site root, never the note's directory: a
-  // hand-written /img/x.png refers to the content tree's own img/, unlike a
-  // relative src. Prefixing the base path and leaving the URL alone keeps that
-  // meaning; resolving it against relDir would silently publish another file.
+  // Root-absolute means the site root: resolving it against relDir would
+  // silently publish a different file.
   if (pathPart.startsWith('/')) {
     if (ctx.basePath) {
       const i = src.indexOf('#');

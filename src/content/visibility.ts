@@ -31,18 +31,14 @@ function normalizeSummary(value: unknown, label: string): string | null {
   return text || null;
 }
 
-/** YAML date objects must not become locale strings; keep YYYY-MM-DD. A bare
- *  YAML date is midnight UTC, so the UTC date is the author's date; toISOString
- *  is avoided because it would also accept, say, a Date built from a
- *  non-existent 2026-02-30. */
+/** A YAML date is midnight UTC: its UTC day is the author's day. */
 function asDate(value: Date, field: string, label: string): string {
   const part = datePart(value.toISOString());
   if (!part) throw new BuildError(`${label}: frontmatter field ${field} is an invalid date`);
   return part;
 }
 
-/** `date` is what decides whether a note reaches archives and the feed, so an
- *  unparseable value must fail the build rather than vanish from both. */
+/** An unparseable `date` would silently drop the note from archives and the feed. */
 function checkDate(raw: string | null, label: string): string | null {
   if (raw == null) return null;
   const part = datePart(raw);
@@ -50,9 +46,8 @@ function checkDate(raw: string | null, label: string): string | null {
   return part;
 }
 
-/** `updated` follows the same rule as `date`; YAML turns an unquoted
- *  `2026-01-30 07:00:00 +08:00` into a Date whose UTC calendar day is the 29th,
- *  so the raw frontmatter text wins whenever it carries a date. */
+/** The raw text wins: YAML turns `2026-01-30 07:00:00 +08:00` into a Date whose
+ *  UTC day is the 29th. */
 function normalizeUpdated(raw: string | null, data: Frontmatter, label: string): string | null {
   if (data.updated == null) return null;
   const fromRaw = datePart(raw);
@@ -97,8 +92,10 @@ export function resolveTree(parsedRoot: ParsedNode): ResolveResult {
       content = parsed.content;
       if (data.title != null) title = nfc(String(data.title));
       abbrlink = readAbbrlink(data);
-      date = checkDate(rawDateString(src.yaml, data), node.relPath);
-      updated = normalizeUpdated(rawDateString(src.yaml, data, 'updated'), data, node.relPath);
+      const rawDate = rawDateString(src.yaml, data);
+      const rawUpdated = rawDateString(src.yaml, data, 'updated');
+      date = checkDate(rawDate, node.relPath);
+      updated = normalizeUpdated(rawUpdated, data, node.relPath);
     }
 
     let isPublic = node.mdPath ? parentPublic && strictBool(data.public, 'public', node.relPath) : parentPublic;

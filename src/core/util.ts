@@ -119,9 +119,8 @@ export function realInside(root: string, p: string): boolean {
   return underPath(realPath(root), realPath(p));
 }
 
-/** 'YYYY-MM-DD' prefix of a date value, or null. A single-digit month or day
- *  (`2022-8-12`) is padded rather than dropped; `2026-02-30` and `2026-13-45`
- *  are null because they are not dates at all. */
+/** 'YYYY-MM-DD' prefix of a date value; null for a non-date (`2026-02-30`).
+ *  `2022-8-12` is allowed and padded, as the notes have always written it. */
 export function datePart(value: unknown): string | null {
   if (value == null) return null;
   const m = String(value).trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)/);
