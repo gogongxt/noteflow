@@ -1,0 +1,22 @@
+/* Companion stylesheet for the orbit demo widget, loaded through the widget
+   channel itself (<link rel="stylesheet">) and published same-origin. Only
+   theme tokens — no hardcoded colors, so it follows light/dark on its own. */
+.w-orbit {
+  position: relative;
+  height: 260px;
+  margin: 1.25rem 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-inset);
+  overflow: hidden;
+  touch-action: pan-y; /* the pointer game must not hijack touch scrolling */
+}
+
+.w-orbit canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: crosshair;
+}

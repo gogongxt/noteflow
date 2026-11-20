@@ -100,6 +100,8 @@ export function runAuditDetailed(input: AuditInput): AuditResult {
         const src = node.attrs?.find((a) => a.name === 'src')?.value;
         if (body.includes('/*BLOG_THEME_INIT*/')) findings.push({ file: rel, msg: 'theme init script was not replaced' });
         if (!src && !body.trim()) findings.push({ file: rel, msg: 'empty inline script' });
+        // Widget scripts are src-only; a body means inline code slipped past sanitize.
+        if (src && body.trim()) findings.push({ file: rel, msg: 'script with src must have an empty body (inline code is not allowed)' });
       }
       if (node.nodeName === 'iframe') {
         // The only frame the CSP allows is the comments widget.

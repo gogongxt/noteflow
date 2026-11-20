@@ -21,6 +21,9 @@ const TAGS = [
   'math', 'semantics', 'annotation', 'mrow', 'mi', 'mn', 'mo', 'ms', 'mtext', 'msup', 'msub', 'msubsup',
   'mfrac', 'msqrt', 'mroot', 'mspace', 'mstyle', 'mtable', 'mtr', 'mtd', 'munder', 'mover', 'munderover',
   'mphantom', 'mpadded', 'menclose', 'merror', 'mfenced', 'mstack', 'mlongdiv', 'mglyph',
+  // Widget channel (see WIDGET_SRC); transformTags reduces 'script' to a
+  // relative .js src before it can reach the output.
+  'script', 'link',
 ];
 
 const CLASSES = [
@@ -46,6 +49,24 @@ const CLASSES = [
 ];
 
 const LANG_CLASS = /^[a-z][a-z0-9_+-]*$/;
+// Widget mounts live in the `w-` namespace, so a note's own widget needs no
+// per-widget whitelist entry and `grep w-` finds every hook on the site.
+const WIDGET_CLASS = /^w-[a-z0-9-]+$/;
+
+// The widget channel (owner decision 2026-11-21): a note may load code shipped
+// next to itself. Exactly two forms pass — a src-only <script> with a relative
+// .js path, and <link rel="stylesheet"> with a relative .css path. postprocess
+// rewrites them to hashed same-origin /assets/ URLs, which CSP already allows.
+const WIDGET_SRC = /^[a-z0-9][a-z0-9._\/ -]*\.(js|css)$/i;
+const widgetRefOk = (value: string | undefined, ext: 'js' | 'css'): boolean => {
+  if (!value) return false;
+  // `./` prefixes are the house style (./media/demo.webm); strip them, then
+  // any surviving dot-starting segment is a `../` escape or a dotfile.
+  const bare = value.replace(/^(\.\/)+/, '');
+  if (!bare.toLowerCase().endsWith('.' + ext)) return false;
+  if (!WIDGET_SRC.test(bare)) return false;
+  return !bare.split('/').some((seg) => seg.startsWith('.'));
+};
 
 const MATH_ATTRS = [
   'xmlns', 'display', 'encoding', 'href', 'mathvariant', 'mathsize', 'stretchy', 'fence',
@@ -78,7 +99,7 @@ type TransformFn = (tagName: string, attribs: Attribs) => { tagName: string; att
 export const SANITIZE_OPTIONS = {
   allowedTags: TAGS,
   allowedAttributes: {
-    '*': ['id', 'class', 'title', 'dir', 'lang', 'style', 'data-emoji', ...MATH_ATTRS],
+    '*': ['id', 'class', 'title', 'dir', 'lang', 'style', 'role', 'aria-label', 'data-emoji', ...MATH_ATTRS],
     a: ['href', 'title', 'id', 'class', 'name', 'rel'],
     img: ['src', 'alt', 'width', 'height', 'style', 'title', 'loading', 'decoding', 'data-inline'],
     input: ['type', 'checked', 'disabled'],
@@ -99,9 +120,11 @@ export const SANITIZE_OPTIONS = {
     li: ['value'],
     math: ['xmlns', 'display'],
     annotation: ['encoding'],
+    script: ['src', 'defer'],
+    link: ['rel', 'href'],
   } as Record<string, string[]>,
   allowedClasses: {
-    '*': [...CLASSES, 'mermaid-host'],
+    '*': [...CLASSES, 'mermaid-host', WIDGET_CLASS],
     pre: [...CLASSES, LANG_CLASS],
     code: [...CLASSES, LANG_CLASS],
   },
@@ -125,7 +148,27 @@ export const SANITIZE_OPTIONS = {
       if (attribs.href && /^\s*\/\//.test(attribs.href)) delete attribs.href;
       return { tagName, attribs };
     }) as TransformFn,
+    // Widget channel gates: keep exactly src (+defer) / rel+href, or degrade
+    // to a plain span — an inline body then appears as escaped text
+    // (fail-visible beats fail-invisible).
+    script: ((tagName: string, attribs: Attribs) => {
+      if (widgetRefOk(attribs.src, 'js')) {
+        const a: Attribs = { src: attribs.src };
+        if (attribs.defer !== undefined) a.defer = '';
+        return { tagName, attribs: a };
+      }
+      return { tagName: 'span', attribs: {} };
+    }) as TransformFn,
+    link: ((tagName: string, attribs: Attribs) => {
+      if ((attribs.rel || '') === 'stylesheet' && widgetRefOk(attribs.href, 'css')) {
+        return { tagName, attribs: { rel: 'stylesheet', href: attribs.href } };
+      }
+      return { tagName: 'span', attribs: {} };
+    }) as TransformFn,
   },
+  // 'script' in allowedTags trips the library's warning; the transform above
+  // has already reduced it to a relative .js filename.
+  allowVulnerableTags: true,
   allowedSchemes: ['http', 'https', 'mailto', 'tel', 'ftp'],
   // img may inline small bitmaps as data: URIs (the transformTags rule above
   // whitelists the exact mimes).

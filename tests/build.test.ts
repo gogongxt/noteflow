@@ -228,6 +228,55 @@ test('tabs: fenced-div groups render as semantic divs, the widget module ships, 
   assert.match(spa, /anchor(\.[0-9a-f]{8})?\.js/, 'spa.js should import the scroll helper by its hashed name');
 });
 
+test('widgets: note scripts and stylesheets publish same-origin through the asset pipeline', async () => {
+  // The orbit demo lives on the noteflow-features child page of the docs build.
+  await sharedDocs;
+  const html = fs.readFileSync(path.join(docsDist, 'posts/9d19226c/index.html'), 'utf8');
+  // Same hashed-URL shape as every other attachment, base path included; the
+  // audit's script-src existence check accepted it (the build resolved).
+  assert.match(html, /<script src="\/noteflow\/assets\/9d19226c\/orbit\.[0-9a-f]{8}\.js" defer=""><\/script>/,
+    'the demo script ships as a hashed same-origin URL');
+  assert.match(html, /<link rel="stylesheet" href="\/noteflow\/assets\/9d19226c\/orbit\.[0-9a-f]{8}\.css">/,
+    'the companion stylesheet ships the same way');
+  // URLs carry the /noteflow base path; the dist tree keeps the unprefixed layout.
+  const jsRel = html.match(/<script src="\/noteflow\/(assets\/9d19226c\/orbit\.[0-9a-f]{8}\.js)"/)![1];
+  const body = fs.readFileSync(path.join(docsDist, jsRel), 'utf8');
+  assert.ok(body.includes('w-orbit'), 'the published file is the widget source');
+  assert.ok(!body.includes('innerHTML'), 'the widget builds DOM via createElement only');
+  // Soft navigation swaps <main> via importNode, which never executes a
+  // script; the replay is what keeps widgets alive across soft navigation.
+  const spa = fs.readFileSync(findAsset('spa.js'), 'utf8');
+  assert.match(spa, /main script\[src\]/, 'spa must replay swapped-in widget scripts');
+  // The code fence quoting the same markup stays quoted, not live.
+  assert.ok(!/<script src="\.\/widgets\/orbit\.js"/.test(html), 'the fenced example must not survive as a live tag');
+});
+
+test('widgets: inline and external scripts never reach the output; a broken ref fails the build', async () => {
+  const fm = (body: string) => `---\ntitle: 小玩具\npublic: true\nabbrlink: "widget001"\n---\n\n${body}\n`;
+  // A missing widget file aborts like any broken reference.
+  const copy = tmpDir();
+  fs.writeFileSync(path.join(copy, 'a.md'), fm('<div class="w-x"></div>\n<script src="./gone.js" defer></script>\n'));
+  const bad = await runBuild([], { content: copy, out: tmpDir() });
+  assert.notEqual(bad.status, 0);
+  assert.match(bad.stderr + bad.stdout, /a\.md .*widget|attachment not found: .*gone\.js/);
+
+  // Without it, the build passes and only the sanctioned forms ship.
+  const okCopy = tmpDir();
+  fs.writeFileSync(
+    path.join(okCopy, 'a.md'),
+    fm('<script>alert(1)</script>\n\n<script src="https://evil.example.org/x.js"></script>\n\n<script src="./viz.js" defer>ignored body</script>\n'),
+  );
+  fs.writeFileSync(path.join(okCopy, 'viz.js'), '// ok\n');
+  const outDir = tmpDir();
+  const ok = await runBuild([], { content: okCopy, out: outDir });
+  assert.equal(ok.status, 0, ok.stderr);
+  const page = fs.readFileSync(path.join(outDir, 'posts/widget001/index.html'), 'utf8');
+  assert.ok(!page.includes('evil.example.org'), 'an external script URL must not survive');
+  assert.ok(page.includes('<span>alert(1)</span>'), 'inline code degrades to visible text');
+  assert.match(page, /<script src="\/assets\/widget001\/viz\.[0-9a-f]{8}\.js" defer=""><\/script>/, 'the relative one ships');
+  assert.ok(!page.includes('ignored body'), 'a src script body never ships');
+});
+
 test('code blocks: every block ships its chrome at build time (indented / language-less included)', async () => {
   // The demos live on the Standard Markdown child page of the docs build.
   await sharedDocs;

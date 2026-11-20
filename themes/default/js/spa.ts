@@ -195,6 +195,18 @@ function ensureStyles(root: Document): void {
   }
 }
 
+/** Swapped-in note widgets (<script src> under main) are inert — importNode
+ *  never executes a script. Replace each with a fresh copy so it runs; the
+ *  copies re-run on every navigation into the page, so widgets must be
+ *  idempotent initializers (they re-query their mounts). */
+function runWidgetScripts(): void {
+  for (const s of document.querySelectorAll<HTMLScriptElement>("main script[src]")) {
+    const fresh = document.createElement("script");
+    for (const a of s.attributes) fresh.setAttribute(a.name, a.value);
+    s.replaceWith(fresh);
+  }
+}
+
 const titleOf = (root: Document): string => root.querySelector("title")?.textContent || document.title;
 
 /** Per-page head tags: the canonical URL, the description (giscus sends it to
@@ -244,6 +256,7 @@ async function navigate(url: URL, opts: { replace?: boolean; pop?: boolean } = {
     setFooter(root);
     setCurrentInSidebar(root);
     ensureStyles(root);
+    runWidgetScripts();
 
     // Hooks reshape the layout (table wrappers, tab panels): run before measuring.
     for (const hook of hooks) {

@@ -1,7 +1,7 @@
 ---
 title: NoteFlow features
 public: true
-description: Callouts, link cards, diagrams, media, tabs and columns — what the builder adds on top of Markdown
+description: Callouts, link cards, diagrams, media, tabs, columns and widgets — what the builder adds on top of Markdown
 abbrlink: "9d19226c"
 ---
 
@@ -292,3 +292,44 @@ The right column.
 :::
 ::::
 :::
+
+# Widgets
+
+A note can run small interactive widgets of its own: drop a `.js` (and
+optionally a `.css`) next to the note, then reference them with plain HTML —
+the build publishes the files same-origin under `/assets/` and rewrites the
+references. The CSP is not relaxed: scripts and styles load from this site
+only, so pasted embeds from elsewhere stay inert.
+
+::: {.demo}
+````markdown
+<link rel="stylesheet" href="./widgets/orbit.css">
+<div class="w-orbit" role="img" aria-label="Interactive particle orbit"></div>
+<script src="./widgets/orbit.js" defer></script>
+````
+<link rel="stylesheet" href="./widgets/orbit.css">
+<div class="w-orbit" role="img" aria-label="Interactive particle orbit"></div>
+<script src="./widgets/orbit.js" defer></script>
+:::
+
+Move the pointer over the field — particles near it light up and accelerate.
+
+The rules of the channel:
+
+- `<script src="…">` must point at a **relative** `.js` file and carry **no
+  body**; `defer` is optional (and recommended). `<link rel="stylesheet"
+  href="…">` must point at a relative `.css` file.
+- Anything else — inline code (`<script>alert(1)</script>`), external URLs,
+  `on*` handlers — is dropped at build time. The one spelling that ships is
+  the one you wrote on purpose.
+- The mount element's class must live in the `w-` namespace (`w-orbit`,
+  `w-clock`, …); any other class is filtered as usual.
+- A missing file fails the build, exactly like a broken image link.
+- A widget script re-runs every time the page is soft-navigated to, so write
+  it as an idempotent initializer: find its mounts (`querySelectorAll`) at run
+  time and gate animation on visibility, never on "first load".
+
+The widget itself is ordinary, CSP-clean code: build DOM with
+`createElement`, style through the companion stylesheet or `element.style`,
+and the theme stays in reach via the `--accent` / `--fg` / `--border` tokens
+(and `data-theme` on `<html>` for the light/dark switch).

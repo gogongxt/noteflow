@@ -265,6 +265,10 @@ writeFile(PP_ROOT, '技术笔记/媒体/cover.png', PNG);
 writeFile(PP_ROOT, '技术笔记/媒体/song.mp3', Buffer.from('fake mp3'));
 writeFile(PP_ROOT, '技术笔记/媒体/subs.vtt', 'WEBVTT\n');
 writeFile(PP_ROOT, '私人/媒体/secret.mp4', Buffer.from('private mp4'));
+// Widget-channel fixtures: a note may load code shipped next to itself.
+writeFile(PP_ROOT, '技术笔记/widgets/clock.js', '// demo widget\n');
+writeFile(PP_ROOT, '技术笔记/widgets/clock.css', '.w-clock{}\n');
+writeFile(PP_ROOT, '私人/widgets/secret.js', '// private widget\n');
 
 function pp(html: string, overrides = {}) {
   const broken: unknown[] = [];
@@ -366,6 +370,68 @@ test('sanitize: media keeps only passive attributes; autoplay/crossorigin/on* ar
   assert.ok(!/autoplay|crossorigin|onerror/.test(out), out);
   assert.ok(out.includes('label="中文字幕"') && out.includes('default'), out);
   assert.ok(!out.includes('javascript:'), out);
+});
+
+test('sanitize: widget channel keeps only src-only relative scripts and stylesheet links', () => {
+  const out = sanitize(
+    '<script src="./widgets/clock.js" defer onload="evil()" async></script>' +
+      '<script src="widgets/clock.js"></script>' +
+      '<script src="./sub/dir/viz.min.js" defer></script>' +
+      '<link rel="stylesheet" href="./widgets/clock.css" media="print">',
+  );
+  assert.ok(out.includes('<script src="./widgets/clock.js" defer></script>'), out);
+  assert.ok(out.includes('<script src="widgets/clock.js"></script>'), out);
+  assert.ok(out.includes('<script src="./sub/dir/viz.min.js" defer></script>'), out);
+  assert.ok(out.includes('<link rel="stylesheet" href="./widgets/clock.css"'), out);
+  assert.ok(!/onload|async|media=/.test(out), out);
+});
+
+test('sanitize: widget gate drops inline code, external URLs, escapes and wrong extensions', () => {
+  const out = sanitize(
+    '<script>alert(1)</script>' +
+      '<script src="https://evil.example.org/x.js"></script>' +
+      '<script src="//evil.example.org/x.js"></script>' +
+      '<script src="../outside.js"></script>' +
+      '<script src=".hidden.js"></script>' +
+      '<script src="./widgets/clock.css"></script>' +
+      '<link rel="stylesheet" href="https://evil.example.org/x.css">' +
+      '<link rel="preload" href="./widgets/clock.css">' +
+      '<link rel="stylesheet" href="./widgets/clock.js">' +
+      '<script src="javascript:alert(1).js"></script>',
+  );
+  assert.ok(!out.includes('<script') && !out.includes('<link'), out);
+  // Inline code degrades to escaped visible text (fail-visible), never ships as code.
+  assert.ok(out.includes('<span>alert(1)</span>'), out);
+});
+
+test('sanitize: widget mounts live in the w- namespace; foreign classes stay filtered', () => {
+  const out = sanitize('<div class="w-orbit callout-demo"><span class="w-x evil">t</span></div>');
+  assert.ok(out.includes('class="w-orbit"'), out);
+  assert.ok(out.includes('class="w-x"'), out);
+  assert.ok(!out.includes('evil') && !out.includes('callout-demo'), out);
+});
+
+test('widgets: script and link rewrite to hashed /assets/ URLs; the body never ships', () => {
+  const { html, broken } = pp(
+    '<script src="./widgets/clock.js" defer>stale body bytes</script>' +
+      '<link rel="stylesheet" href="./widgets/clock.css">',
+  );
+  assert.equal(broken.length, 0, JSON.stringify(broken));
+  assert.match(html, /<script src="\/assets\/p1\/clock\.[0-9a-f]{8}\.js" defer=""><\/script>/, html);
+  assert.match(html, /<link rel="stylesheet" href="\/assets\/p1\/clock\.[0-9a-f]{8}\.css"/, html);
+  assert.ok(!html.includes('stale body'), html);
+});
+
+test('widgets: a missing file is a broken reference like any other', () => {
+  const { broken } = pp('<script src="./widgets/none.js" defer></script>');
+  assert.equal(broken.length, 1, JSON.stringify(broken));
+  assert.match(String((broken[0] as { msg: string }).msg), /not found/);
+});
+
+test('widgets: a private widget reference disappears rather than publishing it', () => {
+  const { html, broken } = pp('<script src="./widgets/secret.js" defer></script>', { pageRelPath: '私人/日记.md' });
+  assert.equal(broken.length, 0, JSON.stringify(broken));
+  assert.ok(!/<script/.test(html) && !html.includes('secret'), html);
 });
 
 test('display math: wrapped in .equation with per-page (n) counter; inline math untouched', () => {

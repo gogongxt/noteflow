@@ -21,7 +21,11 @@ export function postprocess(fragment: string, ctx: PostprocessCtx): PostprocessR
 
   walk(root, (node) => {
     const name = node.nodeName;
-    if (name === 'script' || name === 'style' || name === 'iframe' || name === 'object' || name === 'embed') return SKIP;
+    if (name === 'style' || name === 'iframe' || name === 'object' || name === 'embed') return SKIP;
+    if (name === 'script') {
+      rewriteWidgetScript(node, ctx);
+      return SKIP; // raw text children must not be visited
+    }
     const style = getAttr(node, 'style');
     if (style !== undefined) inlineStyles.push(style);
     if (name === 'a') rewriteLink(node, ctx);
@@ -31,6 +35,7 @@ export function postprocess(fragment: string, ctx: PostprocessCtx): PostprocessR
     else if (name === 'audio') rewriteAssetAttr(node, 'src', ctx, true);
     else if (name === 'source') rewriteAssetAttr(node, 'src', ctx, true);
     else if (name === 'track') rewriteAssetAttr(node, 'src', ctx, true);
+    else if (name === 'link') rewriteStylesheetLink(node, ctx);
     else if (name === 'div') normalizeCallout(node);
     else if (name === 'pre') {
       normalizeCodeBlock(node);
@@ -205,6 +210,35 @@ function rewriteVideo(node: P5Any, ctx: PostprocessCtx): void {
   rewriteAssetAttr(node, 'src', ctx, true);
   rewriteAssetAttr(node, 'poster', ctx, false);
   if (!getAttr(node, 'preload')) setAttr(node, 'preload', 'metadata');
+}
+
+/** Widget channel (2026-11-21): a note loads code shipped next to itself.
+ *  sanitize already reduced the tags to exactly two forms — src-only script /
+ *  stylesheet link with a relative path — so here there is only resolving and
+ *  rewriting to do, through the same hashed /assets/ pipeline as images. */
+function rewriteWidgetScript(node: P5Any, ctx: PostprocessCtx): void {
+  node.childNodes = []; // a src script's body is dead weight; never ship it
+  rewriteWidgetRef(node, 'src', ctx);
+}
+
+function rewriteStylesheetLink(node: P5Any, ctx: PostprocessCtx): void {
+  rewriteWidgetRef(node, 'href', ctx);
+}
+
+function rewriteWidgetRef(node: P5Any, attr: string, ctx: PostprocessCtx): void {
+  const value = getAttr(node, attr)!; // sanitize guarantees both form and value
+  const pathPart = nfc(decodeURIComponentSafe(value)).split('#')[0].split('?')[0];
+  const rel = resolveIn(relDirOf(ctx.pageRelPath), pathPart);
+  if (rel == null) {
+    broken(ctx, `widget ${attr} escapes the content root: ${pathPart}`, node);
+    return;
+  }
+  if (!ctx.isPublicAsset(rel)) {
+    replaceWithText(node, '');
+    return;
+  }
+  const out = addAsset(ctx, { srcRel: rel, origin: pathPart, attr, node: node.nodeName }, node);
+  if (out) setAttr(node, attr, ctx.basePath + '/' + encodePath(out));
 }
 
 /** Rewrite a local media reference to its hashed /assets/ URL, fail-closed

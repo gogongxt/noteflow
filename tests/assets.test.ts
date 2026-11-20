@@ -10,13 +10,19 @@ test('assets: media extensions are publishable, other types still refuse', async
   writeFile(root, 'song.mp3', 'y');
   writeFile(root, 'subs.vtt', 'WEBVTT\n');
   writeFile(root, 'evil.html', '<script>');
-  writeFile(root, 'evil.js', '1');
+  writeFile(root, 'evil.exe', 'MZ');
+  // js/css publish too — the widget channel (2026-11-21); executables and
+  // arbitrary documents still refuse.
+  writeFile(root, 'widget.js', '1');
+  writeFile(root, 'widget.css', '.w-x{}');
   const namer = makeAssetNamer(fs.realpathSync(root));
   assert.match(namer.assign('p', 'clip.mp4'), /\.mp4$/);
   assert.match(namer.assign('p', 'song.mp3'), /\.mp3$/);
   assert.match(namer.assign('p', 'subs.vtt'), /\.vtt$/);
+  assert.match(namer.assign('p', 'widget.js'), /\.js$/);
+  assert.match(namer.assign('p', 'widget.css'), /\.css$/);
   assert.throws(() => namer.assign('p', 'evil.html'), /not allowed/);
-  assert.throws(() => namer.assign('p', 'evil.js'), /not allowed/);
+  assert.throws(() => namer.assign('p', 'evil.exe'), /not allowed/);
   cleanupTmpDirs();
 });
 
