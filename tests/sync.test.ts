@@ -92,6 +92,33 @@ test('local modifications are discarded by the unconditional reset; untracked fi
   assert.ok(fs.existsSync(path.join(dir, 'untracked.txt')));
 });
 
+test('commitAndPush pins exactly the written files; a lost race drops the commit', async () => {
+  const [remote, seed] = makeRemote();
+  const dir = path.join(tmpDir('sync-work-'), 'notes');
+  const s = syncIn(dir, remote);
+  await s.ensureCloned();
+
+  assert.equal(await s.commitAndPush([path.join(dir, 'note.md')], 'test pin'), 'nothing', 'unmodified file');
+
+  // A build-style write-back: a tracked file modified locally.
+  fs.writeFileSync(path.join(dir, 'note.md'), 'one\nabbrlink: "deadbeef"\n');
+  assert.equal(await s.commitAndPush([path.join(dir, 'note.md')], 'test pin'), 'pushed');
+  assert.match(git(['log', '-1', '--format=%s', 'master'], remote), /test pin/);
+
+  // Race: the remote moves while the mirror pins on the old tip. The push is
+  // rejected, the pin commit is dropped onto the remote's newer tip.
+  commit(seed, 'other.md', 'unrelated\n');
+  git(['pull', '--rebase', 'origin', 'master'], seed);
+  git(['push'], seed);
+  fs.writeFileSync(path.join(dir, 'note.md'), 'one\nabbrlink: "deadbeef"\nagain\n');
+  fs.writeFileSync(path.join(dir, 'untracked.txt'), 'never committed\n');
+  assert.equal(await s.commitAndPush([path.join(dir, 'note.md')], 'test pin 2'), 'dropped');
+  assert.equal(fs.readFileSync(path.join(dir, 'note.md'), 'utf8'), 'one\nabbrlink: "deadbeef"\n');
+  assert.ok(fs.existsSync(path.join(dir, 'untracked.txt')), 'untracked files stay untracked');
+  assert.match(git(['log', '--format=%s', 'master'], remote), /test pin/);
+  assert.doesNotMatch(git(['log', '--format=%s', 'master'], remote), /test pin 2/);
+});
+
 test('an unreachable remote and a missing branch fail loudly, not silently', async () => {
   const gone = path.join(tmpDir('sync-gone-'), 'nope.git');
   const dir = path.join(tmpDir('sync-work-'), 'notes');

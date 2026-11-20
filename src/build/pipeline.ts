@@ -63,7 +63,7 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
   const pageByNode = new Map<TreeNode, Page>(pages.map((p) => [p.node, p]));
   const pageByRel = new Map(pages.map((p) => [p.relPath, p]));
 
-  const unpinned = assignAbbrlinks(treeRoot, pageByNode, pages, fix);
+  const assigned = assignAbbrlinks(treeRoot, pageByNode, pages, fix);
 
   const urlMap = new Map<string, string>();
   for (const p of pages) {
@@ -257,6 +257,7 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
       buildTime,
       pandocVersion: pandoc.info?.version,
       scriptHashes,
+      abbrlinkWrites: fix ? assigned.files.map((abs) => toPosix(path.relative(realRoot, abs))) : [],
     },
     manifestFile,
   );
@@ -269,11 +270,11 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
     log.info(`  ${warnings.length} notes:`);
     for (const w of warnings.slice(0, 10)) log.info(`    - ${w}`);
   }
-  if (unpinned.length) {
-    log.info(`  Note: ${unpinned.length} note(s) without an abbrlink (${args.check === true ? '--check' : 'read-only mode'} computed theirs on the fly):`);
-    for (const u of unpinned.slice(0, 10)) log.info(`    - ${u}`);
-    if (unpinned.length > 10) log.info(`    … and ${unpinned.length - 10} more`);
-    log.info('    A normal build writes them into the notes; commit them with the note.');
+  if (!fix && assigned.labels.length) {
+    log.info(`  Note: ${assigned.labels.length} note(s) without an abbrlink (--check computed theirs on the fly):`);
+    for (const u of assigned.labels.slice(0, 10)) log.info(`    - ${u}`);
+    if (assigned.labels.length > 10) log.info(`    … and ${assigned.labels.length - 10} more`);
+    log.info('    A normal build writes them into the notes.');
   }
 }
 

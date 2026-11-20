@@ -20,6 +20,9 @@ export interface ManifestInput {
   buildTime: Date;
   pandocVersion: string | undefined;
   scriptHashes: string[];
+  /** Content-rel paths whose frontmatter this build wrote an abbrlink into —
+   *  the sync daemon commits exactly these files back to the notes remote. */
+  abbrlinkWrites: string[];
 }
 
 export interface FinishedBuild {
@@ -58,6 +61,7 @@ export function finishBuild(input: ManifestInput, manifestFile: string): Finishe
     counts: { ...input.counts, private: input.privateItems.length },
     contentHash: hashContent(input.contentRoot),
     distHash: hashDist(input.dist),
+    abbrlinkWrites: input.abbrlinkWrites,
     // --skip-audit style hashes are incomplete; gen-nginx must refuse them.
     audited: !input.skipAudit,
     csp: {

@@ -12,6 +12,7 @@ import { basePathOf, loadConfig, repoPath, CONFIG_FILES, LOCAL_CONFIG_FILE, ROOT
 import { buildCsp, hashesOf, type CspHashes } from '../core/csp.ts';
 import { ATTACHMENT_TYPES } from '../render/attachments.ts';
 import { GitSync } from '../sync/git.ts';
+import { pushAbbrlinkPins } from '../sync/pins.ts';
 import { BuildRunner, runBuildChild } from '../build/runner.ts';
 
 const args = parseArgs(process.argv.slice(2));
@@ -275,21 +276,36 @@ const syncCfg: SyncConfig | undefined = cfg.sync;
 if (syncCfg) {
   const syncLog = (msg: string): void => console.log(`\x1b[2m[${new Date().toLocaleTimeString()}]\x1b[0m ${msg}`);
   const buildArgs = [...process.argv.slice(2), '--out', ROOT];
+  const contentDir = path.resolve(REPO_ROOT, String(args.content || cfg.contentDir));
+  const git = new GitSync({ dir: contentDir, remote: syncCfg.remote, branch: syncCfg.branch ?? 'master' });
+  const pins = { sync: git, manifestFile: path.resolve(REPO_ROOT, cfg.manifestFile), contentDir, log: syncLog };
+  let pinning = false;
+  const pinAfterBuild = (): void => {
+    if (pinning) return;
+    pinning = true;
+    pushAbbrlinkPins(pins)
+      .then((retry) => {
+        if (retry) runner.request();
+      })
+      .catch((err) => console.error(`[sync] ${err instanceof Error ? err.message : err}`))
+      .finally(() => {
+        pinning = false;
+      });
+  };
   const runner = new BuildRunner({
     args: buildArgs,
     cwd: REPO_ROOT,
     events: {
       start: () => syncLog('Rebuilding…'),
-      exit: (code, ms) =>
-        code === 0
-          ? syncLog(`Build OK (${ms}ms)`)
-          : console.error(`[sync] build FAILED (exit ${code}); still serving the previous dist — the next push retries`),
+      exit: (code, ms) => {
+        if (code === 0) {
+          syncLog(`Build OK (${ms}ms)`);
+          pinAfterBuild();
+        } else {
+          console.error(`[sync] build FAILED (exit ${code}); still serving the previous dist — the next push retries`);
+        }
+      },
     },
-  });
-  const git = new GitSync({
-    dir: path.resolve(REPO_ROOT, String(args.content || cfg.contentDir)),
-    remote: syncCfg.remote,
-    branch: syncCfg.branch ?? 'master',
   });
   const hasDist = (): boolean => fs.existsSync(path.join(ROOT, 'build-info.json'));
 
@@ -304,10 +320,11 @@ if (syncCfg) {
     if ((await runBuildChild({ args: buildArgs, cwd: REPO_ROOT })) !== 0) {
       throw new Error('the initial build failed (see its output above)');
     }
+    if (await pushAbbrlinkPins(pins)) runner.request();
   };
 
   const tick = async (): Promise<void> => {
-    if (!runner.busy) {
+    if (!runner.busy && !pinning) {
       try {
         // ensureCloned is an existsSync no-op once cloned; it lets the poll
         // recover from a first clone that failed while an old dist served.

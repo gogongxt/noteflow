@@ -12,7 +12,8 @@
 #                           serving daemon: poll the notes remote, rebuild on change
 #   ./start.sh watch        rebuild on change + preview (edit your notes, refresh the browser)
 #   ./start.sh sync         one-shot: mirror the notes from their git remote, rebuild if
-#                           anything moved (sync must be configured)
+#                           anything moved, push new notes' abbrlinks back
+#                           (sync must be configured)
 #   ./start.sh deploy       build + publish to the server
 #   ./start.sh clean        remove the build output and caches
 #   ./start.sh doctor       check local dependencies

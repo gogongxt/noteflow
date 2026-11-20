@@ -67,11 +67,16 @@ export function writeAbbrlinks(writes: { path: string; text: string }[]): number
 }
 
 /** Compute missing slugs, refuse collisions, and (in fix mode) write them back.
- *  Check mode touches nothing and returns the unpinned notes' rel paths. */
-export function assignAbbrlinks(root: TreeNode, pageByNode: Map<TreeNode, Page>, pages: Page[], fix: boolean): string[] {
+ *  Returns what it assigned in both modes — `labels` for display (rel paths),
+ *  `files` as absolute paths (fix mode wrote them, check mode did not). */
+export function assignAbbrlinks(
+  root: TreeNode,
+  pageByNode: Map<TreeNode, Page>,
+  pages: Page[],
+  fix: boolean,
+): { labels: string[]; files: string[] } {
   const seen = new Map<string, string>();
   const writes: { path: string; raw: string; abbrlink: string; label: string }[] = [];
-  const unpinned: string[] = [];
   const nodes: TreeNode[] = [];
   (function walk(n: TreeNode): void {
     for (const c of n.children) {
@@ -101,11 +106,8 @@ export function assignAbbrlinks(root: TreeNode, pageByNode: Map<TreeNode, Page>,
   }
   for (const p of pages) if (p.kind === 'index') assertUnique(seen, { abbrlink: p.abbrlink, label: p.relPath + '/_index' });
 
-  if (!writes.length) return [];
-  if (!fix) {
-    for (const w of writes) unpinned.push(w.label);
-    return unpinned;
-  }
+  const assigned = { labels: writes.map((w) => w.label), files: writes.map((w) => w.path) };
+  if (!writes.length || !fix) return assigned;
   // Verified write-back: re-read each file so an edit saved mid-build is not
   // overwritten with the stale snapshot.
   const prepared = writes.map((entry) => {
@@ -119,6 +121,6 @@ export function assignAbbrlinks(root: TreeNode, pageByNode: Map<TreeNode, Page>,
     return { path: entry.path, text: injectAbbrlink(current, entry.abbrlink, entry.label) };
   });
   writeAbbrlinks(prepared);
-  log.info(`✓ Wrote back abbrlink: ${prepared.length} files — commit them with the note`);
-  return [];
+  log.info(`✓ Wrote back abbrlink: ${prepared.length} files`);
+  return assigned;
 }

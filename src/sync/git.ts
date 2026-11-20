@@ -20,7 +20,9 @@ function git(args: string[], cwd: string, timeoutMs = 60_000): Promise<string> {
           reject(new BuildError('git executable not found; the sync mode shells out to git — install it'));
           return;
         }
-        const tail = String(stderr).trim().split('\n').slice(-2).join(' ').slice(0, 300);
+        // Enough context for callers to classify failures (a rejected push
+        // names its reason a few lines above the hints).
+        const tail = String(stderr).trim().split('\n').slice(-8).join(' ').slice(0, 400);
         reject(new BuildError(`git ${args[0]} failed: ${tail || err.message}`));
         return;
       }
@@ -92,5 +94,26 @@ export class GitSync {
     await git(['fetch', '--no-tags', this.opts.remote, this.opts.branch], this.dir, 600_000);
     await git(['reset', '--hard', 'FETCH_HEAD'], this.dir);
     return { changed: true, sha: remote };
+  }
+
+  /** Commit exactly `files` (absolute paths inside the tree) and push to the
+   *  remote. 'nothing' when none is modified. A lost push race (someone pushed
+   *  past us) drops the commit onto the remote's newer tip — the pins simply
+   *  regenerate on the next build; anything else (permissions, protected
+   *  branch) throws. */
+  async commitAndPush(files: string[], message: string): Promise<'pushed' | 'nothing' | 'dropped'> {
+    const dirty = await git(['--no-optional-locks', 'status', '--porcelain', '--', ...files], this.dir);
+    if (!dirty.trim()) return 'nothing';
+    await git(['add', '--', ...files], this.dir);
+    await git(['-c', 'user.name=noteflow', '-c', 'user.email=noteflow@localhost', 'commit', '-m', message], this.dir);
+    try {
+      await git(['push', this.opts.remote, `HEAD:refs/heads/${this.opts.branch}`], this.dir, 120_000);
+      return 'pushed';
+    } catch (err) {
+      if (!(err instanceof BuildError) || !/rejected|non-fast-forward|fetch first/.test(err.message)) throw err;
+      await git(['fetch', '--no-tags', this.opts.remote, this.opts.branch], this.dir, 600_000);
+      await git(['reset', '--hard', 'FETCH_HEAD'], this.dir);
+      return 'dropped';
+    }
   }
 }

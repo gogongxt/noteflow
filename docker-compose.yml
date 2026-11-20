@@ -17,9 +17,9 @@ services:
       - ./notes:/app/notes:rw
       # Mode 2 — sync, mutually exclusive with the bind mount above: comment
       # the rw line out. The container clones the repository itself (configure
-      # sync: { remote, branch } in site.config.local.mjs, mount an ssh key that
-      # can read it) and keeps it current on a named volume — declare it at the
-      # bottom of this file.
+      # sync: { remote, branch } in site.config.local.mjs, mount an ssh key
+      # with push access — it commits new notes' abbrlinks back) and keeps it
+      # current on a named volume — declare it at the bottom of this file.
       # - notes-store:/app/notes
       # - ./site.config.local.mjs:/app/site.config.local.mjs:ro
       # - ~/.ssh/id_ed25519:/root/.ssh/id_ed25519:ro
