@@ -53,8 +53,9 @@ if [ "$sync" = 0 ]; then
 fi
 
 # Sync mode: serve resolves the content dir from the config itself (or an
-# explicit CONTENT_DIR); an absent dir is simply the clone target.
+# explicit CONTENT_DIR); an absent dir is simply the clone target. --sync arms
+# the mirror daemon — the config block alone never does.
 serve_content_args=""
 [ -n "${CONTENT_DIR:-}" ] && serve_content_args="--content $CONTENT_DIR"
 echo "==> Serving on :${PORT:-8080}, syncing the notes from their remote"
-exec node src/cli/serve.ts --root dist --port "${PORT:-8080}" $serve_content_args $config_args
+exec node src/cli/serve.ts --root dist --port "${PORT:-8080}" --sync $serve_content_args $config_args

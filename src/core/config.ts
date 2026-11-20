@@ -47,6 +47,10 @@ export interface SyncConfig {
   branch?: string;
   /** Poll interval in seconds; a failed poll backs off up to 5×. Default 15, min 2. */
   intervalSec?: number;
+  /** An http proxy for http(s) remotes (e.g. 'http://127.0.0.1:7890'), for
+   *  hosts whose git remote is behind a network restriction. `''` explicitly
+   *  disables proxies inherited from the environment. Ignored for ssh. */
+  proxy?: string;
 }
 
 /** The site footer: one line of identity on the left, the filing number on the
@@ -252,6 +256,7 @@ function checkSync(s: unknown, origin: string): void {
   if (s.intervalSec !== undefined && (!Number.isFinite(s.intervalSec) || (s.intervalSec as number) < 2)) {
     bad(origin, 'sync.intervalSec must be a number of seconds >= 2');
   }
+  if (s.proxy !== undefined && typeof s.proxy !== 'string') bad(origin, 'sync.proxy must be a proxy URL string (or "" to disable inherited proxies)');
 }
 
 /** #rgb, #rrggbb, rgb()/rgba() or a colour name; `url(...)` stays out. */

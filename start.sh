@@ -8,8 +8,9 @@
 #                           notes' frontmatter — commit them with the note)
 #   ./start.sh check        CI mode: read-only validation, computes on the fly
 #   ./start.sh serve        preview an existing dist/ (optional port: ./start.sh serve 7061)
-#                           with sync configured in site.config.local.mjs, this is the
-#                           serving daemon: poll the notes remote, rebuild on change
+#                           serving hosts add --sync: with a sync block configured, the
+#                           mirror daemon — poll the notes remote, rebuild on change,
+#                           pin new notes' abbrlinks back
 #   ./start.sh watch        rebuild on change + preview (edit your notes, refresh the browser)
 #   ./start.sh sync         one-shot: mirror the notes from their git remote, rebuild if
 #                           anything moved, push new notes' abbrlinks back
@@ -203,19 +204,13 @@ free_port() {
   ok "Stopped the previous preview (pid $pids)"
 }
 
-# Non-fatal --exists probe; a config that no longer parses fails inside serve.
-sync_enabled() {
-  if [ "$HAS_CONFIG_ARG" = 1 ]; then
-    node src/cli/config-print.ts --config "$CONFIG_FILE" --exists sync 2>/dev/null
-  else
-    node src/cli/config-print.ts --exists sync 2>/dev/null
-  fi
-}
-
 do_serve() {
-  # In sync mode serve owns the no-dist decision (it clones and builds); every
+  # With --sync serve owns the no-dist decision (it clones and builds); every
   # other mode needs an existing dist.
-  sync_enabled || { [ -d "$OUT_DIR" ] || die "$OUT_DIR/ does not exist; run ./start.sh build first"; }
+  case " $* " in
+    *" --sync "*) ;;
+    *) [ -d "$OUT_DIR" ] || die "$OUT_DIR/ does not exist; run ./start.sh build first" ;;
+  esac
   need_node
   free_port
   info "Local preview http://localhost:${PORT}/  ${DIM}(Ctrl+C to stop)${RESET}"

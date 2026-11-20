@@ -18,7 +18,7 @@ const cfg = await loadConfig(
 if (!cfg.sync) fatal(new BuildError('sync is not configured: set sync: { remote, branch } in site.config.local.mjs'));
 
 const contentDir = path.resolve(ROOT, String(args.content || cfg.contentDir));
-const git = new GitSync({ dir: contentDir, remote: cfg.sync.remote, branch: cfg.sync.branch ?? 'master' });
+const git = new GitSync({ dir: contentDir, remote: cfg.sync.remote, branch: cfg.sync.branch ?? 'master', proxy: cfg.sync.proxy });
 
 try {
   const cloned = await git.ensureCloned();
@@ -29,7 +29,9 @@ try {
   // "exit 0 ⇒ dist is fresh", so a missing dist builds too.
   const dist = path.resolve(ROOT, String(args.out || cfg.outDir));
   if (cloned || res.changed || args.build === true || !fs.existsSync(path.join(dist, 'build-info.json'))) {
-    const code = await runBuildChild({ args: process.argv.slice(2).filter((a) => a !== '--build'), cwd: ROOT });
+    // Pin the manifest path so the pin push below reads what the build wrote.
+    const buildArgs = [...process.argv.slice(2).filter((a) => a !== '--build'), '--manifest', path.resolve(ROOT, cfg.manifestFile)];
+    const code = await runBuildChild({ args: buildArgs, cwd: ROOT });
     if (code === 0 && (await pushAbbrlinkPins({ sync: git, manifestFile: path.resolve(ROOT, cfg.manifestFile), contentDir, log: (m) => console.log(m) }))) {
       console.log('✓ A pin push lost a race; the next run finishes it');
     }

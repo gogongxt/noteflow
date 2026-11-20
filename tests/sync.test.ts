@@ -120,6 +120,23 @@ test('commitAndPush pins exactly the written files; a lost race drops the commit
   assert.doesNotMatch(git(['log', '--format=%s', 'master'], remote), /test pin 2/);
 });
 
+test('a hook-declined push is a hard failure, not a race; the commit is undone', async () => {
+  const [remote, seed] = makeRemote();
+  // Reject every push from here on (a protected branch behaves the same).
+  fs.writeFileSync(path.join(remote, 'hooks', 'pre-receive'), '#!/bin/sh\nexit 1\n');
+  fs.chmodSync(path.join(remote, 'hooks', 'pre-receive'), 0o755);
+  const dir = path.join(tmpDir('sync-work-'), 'notes');
+  const s = syncIn(dir, remote);
+  await s.ensureCloned();
+
+  fs.writeFileSync(path.join(dir, 'note.md'), 'one\nabbrlink: "deadbeef"\n');
+  await assert.rejects(s.commitAndPush([path.join(dir, 'note.md')], 'test pin'), /git push failed/);
+  // The local commit is rolled back to the remote tip: no rebuild loop can
+  // form around a persistently failing push.
+  assert.equal(fs.readFileSync(path.join(dir, 'note.md'), 'utf8'), 'one\n');
+  assert.equal(git(['log', '--oneline'], dir).trim(), git(['log', '--oneline'], seed).trim());
+});
+
 test('an unreachable remote and a missing branch fail loudly, not silently', async () => {
   const gone = path.join(tmpDir('sync-gone-'), 'nope.git');
   const dir = path.join(tmpDir('sync-work-'), 'notes');
@@ -139,10 +156,13 @@ suite('sync config validation', () => {
     return f;
   };
 
-  test('remote is required; interval has a floor; scalars are rejected', async () => {
+  test('remote is required; interval has a floor; scalars are rejected; proxy is a string', async () => {
     await assert.rejects(loadConfig(profile('sync: { branch: "master" }')), /sync\.remote/);
     await assert.rejects(loadConfig(profile('sync: { remote: "x", intervalSec: 1 }')), /intervalSec/);
+    await assert.rejects(loadConfig(profile('sync: { remote: "x", proxy: 8080 }')), /sync\.proxy/);
     await assert.rejects(loadConfig(profile('sync: "ssh://x"')), /sync must be an object/);
+    const ok = await loadConfig(profile("sync: { remote: 'x', proxy: 'http://127.0.0.1:7890' }"));
+    assert.equal(ok.sync?.proxy, 'http://127.0.0.1:7890');
   });
 
   test('branch and intervalSec default, and the merged config is usable', async () => {

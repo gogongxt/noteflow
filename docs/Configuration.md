@@ -123,15 +123,18 @@ The built URL is `{repoUrl}/_edit/{branch}/{path}` for Gitea — `/edit/…` on 
 
 # Git mirroring (`sync`)
 
-Edit your notes wherever you edit them, `git push`, and the site follows. With a `sync` block, `./start.sh serve` stops being a static preview and becomes the serving daemon: it clones the repository on first start, polls `git ls-remote` every `intervalSec`, and when the branch tip has moved it fetches, hard-resets the content dir onto it and rebuilds.
+Edit your notes wherever you edit them, `git push`, and the site follows. A `sync` block configures the mirror daemon; on a serving host `./start.sh serve --sync` (the docker entrypoint passes the flag) arms it: it clones the repository on first start, polls `git ls-remote` every `intervalSec`, and when the branch tip has moved it fetches, hard-resets the content dir onto it and rebuilds. The flag is deliberate — the config block travels with the notes repository, and it alone must not turn every machine's preview into a resetting mirror.
 
 ```ts
 sync: {
   remote: 'https://gdt_<token>@git.example.com/you/notes.git',  // or ssh://…
   branch: 'master',     // the branch the site follows, 'master' by default
   intervalSec: 15,      // poll interval in seconds; failures back off up to 5×
+  proxy: 'http://127.0.0.1:7890',  // optional: http proxy for http(s) remotes
 },
 ```
+
+`proxy` exists for hosts whose git remote sits behind a network restriction — a notes repository on GitHub, say. `''` explicitly disables proxies inherited from the environment (`http_proxy`/`https_proxy` reach git out of the box otherwise). It applies to http(s) remotes only; for ssh use `GIT_SSH_COMMAND` with your own ssh config.
 
 An https remote carries the token in the URL (`https://<token>@host/you/notes.git`) — no ssh key, no host-key setup. The tool keeps the token out of harm's way: error messages have the credential redacted, and the mirror's clone is left without an `origin` so nothing sits in `.git/config`. Committing the token into a **private** notes repository is a deliberate trade: everyone who can read the repo can push to it (a Gitea token acts as your user, across all your repos on that host — scope it minimally when creating it). Prefer an ssh deploy key when you want a per-repository credential instead.
 
@@ -144,7 +147,7 @@ A missing `abbrlink` is written into the note's frontmatter by the first build t
 
 `./start.sh sync` runs one clone/fetch/reset/build/pin cycle and exits — enough for a cron job when you would rather not keep a process running. The ssh key and volume setup for the container are covered under [Deployment](https://gogongxt.github.io/noteflow/posts/211fd193#docker).
 
-The `sync` block itself must survive the reset it configures: keep it in the serving host's project-root `site.config.local.mjs` (or a named profile), or commit it to the notes repository — a block edited into the notes-tree local config but left uncommitted is discarded by the first reset. And enable it only on serving hosts: on a machine where you edit notes, the daemon would keep resetting your work-in-progress away.
+The `sync` block itself must survive the reset it configures: keep it in the serving host's project-root `site.config.local.mjs` (or a named profile), or commit it to the notes repository — a block edited into the notes-tree local config but left uncommitted is discarded by the first reset. And arm the daemon (`--sync`) only on serving hosts: on a machine where you edit notes, it would keep resetting your work-in-progress away.
 
 # Named profiles
 

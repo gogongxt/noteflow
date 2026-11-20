@@ -1,7 +1,8 @@
 // Local preview: dist/ with production's security headers and cache policy
-// (minus upgrade-insecure-requests — this is plain http). With `sync` in the
-// config it doubles as the serving daemon: poll the notes remote, hard-reset
-// the content dir onto it, rebuild into the served root.
+// (minus upgrade-insecure-requests — this is plain http). With --sync and a
+// configured sync block it is the serving daemon: poll the notes remote,
+// hard-reset the content dir onto it, rebuild into the served root, pin new
+// notes' abbrlinks back into the repository.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -267,27 +268,42 @@ const server = createServer(async (req, res) => {
 
 server.on('clientError', (_err, socket) => socket.end('HTTP/1.1 400 Bad Request\r\n\r\n'));
 
-// ---- sync daemon (config.sync) ---------------------------------------------
-// Startup: clone if needed, sync once, build when anything moved or there is
-// no dist yet. With a dist already present, any startup failure only degrades
-// to serving it — without one there is nothing to serve, so exit non-zero.
-// Afterwards: poll; a failure backs off and repeats its message only on change.
+// ---- sync daemon (config.sync + --sync) -------------------------------------
+// The config block travels with the notes repository, so it alone must not
+// turn every machine's preview into a resetting mirror: the daemon arms only
+// with an explicit --sync (docker's entrypoint passes it). Startup: clone if
+// needed, sync once, build when anything moved or there is no dist yet — with
+// a dist already present, a startup failure only degrades to serving it;
+// without one there is nothing to serve, so exit non-zero. Afterwards: poll;
+// a failure backs off and repeats its message only on change.
 const syncCfg: SyncConfig | undefined = cfg.sync;
-if (syncCfg) {
+if (args.sync === true && !syncCfg) {
+  console.error('✗ --sync: no sync block in the config (site.config.local.mjs: sync: { remote, branch })');
+  process.exit(1);
+}
+if (args.sync === true && syncCfg) {
   const syncLog = (msg: string): void => console.log(`\x1b[2m[${new Date().toLocaleTimeString()}]\x1b[0m ${msg}`);
-  const buildArgs = [...process.argv.slice(2), '--out', ROOT];
+  // Pin and build paths stay pinned to the boot config regardless of later edits.
+  const buildArgs = [...process.argv.slice(2), '--out', ROOT, '--manifest', path.resolve(REPO_ROOT, cfg.manifestFile)];
   const contentDir = path.resolve(REPO_ROOT, String(args.content || cfg.contentDir));
-  const git = new GitSync({ dir: contentDir, remote: syncCfg.remote, branch: syncCfg.branch ?? 'master' });
+  const git = new GitSync({ dir: contentDir, remote: syncCfg.remote, branch: syncCfg.branch ?? 'master', proxy: syncCfg.proxy });
   const pins = { sync: git, manifestFile: path.resolve(REPO_ROOT, cfg.manifestFile), contentDir, log: syncLog };
   let pinning = false;
+  let pinsPaused = false;
   const pinAfterBuild = (): void => {
-    if (pinning) return;
+    if (pinning || pinsPaused) return;
     pinning = true;
     pushAbbrlinkPins(pins)
       .then((retry) => {
         if (retry) runner.request();
       })
-      .catch((err) => console.error(`[sync] ${err instanceof Error ? err.message : err}`))
+      .catch((err) => {
+        // A hard push failure (permissions, protected branch) leaves the pins
+        // unpushed; retrying every build would only churn — wait for the
+        // remote content to move again.
+        pinsPaused = true;
+        console.error(`[sync] pin push failed; pinning paused until the next content change: ${err instanceof Error ? err.message : err}`);
+      })
       .finally(() => {
         pinning = false;
       });
@@ -333,6 +349,7 @@ if (syncCfg) {
         fails = 0;
         lastError = '';
         if (res.changed) {
+          pinsPaused = false;
           syncLog(`sync: ${syncCfg.branch} → ${res.sha.slice(0, 8)}, rebuilding`);
           runner.request();
         }
