@@ -7,13 +7,18 @@
   text-align: center;
 }
 
-/* Above the frame, never over the drawing. Hidden without scripting: the
-   panel cannot be opened, so the switch would be a dead control. */
+/* A segmented switch: the group is a grey track, the selected tab is tinted
+   blue. Above the frame, never over the drawing. Hidden without scripting:
+   the panel cannot be opened, so the switch would be a dead control. */
 .post-body .diagram-tools {
   display: none;
-  justify-content: flex-end;
-  gap: 0.15rem;
-  margin-bottom: 0.55rem;
+  gap: 0.1rem;
+  width: fit-content;
+  margin: 0 0 0.55rem auto;
+  padding: 0.2rem;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 999px;
 }
 
 html[data-js] .post-body .diagram-tools {
@@ -21,17 +26,16 @@ html[data-js] .post-body .diagram-tools {
 }
 
 .post-body .diagram-tab {
-  padding: 0.22rem 0.7rem;
+  padding: 0.22rem 0.75rem;
   font-size: 0.72rem;
   font-weight: 500;
   line-height: 1.4;
-  color: var(--fg-subtle);
+  color: var(--fg-muted);
   background: transparent;
   border: 1px solid transparent;
   border-radius: 999px;
   cursor: pointer;
-  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease),
-    border-color var(--dur) var(--ease);
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
 }
 
 .post-body .diagram-tab:hover {
@@ -40,9 +44,8 @@ html[data-js] .post-body .diagram-tools {
 }
 
 .post-body .diagram-tab[aria-pressed="true"] {
-  color: var(--fg);
-  background: var(--bg-subtle);
-  border-color: var(--border);
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .post-body .diagram-tab:focus-visible {
@@ -77,7 +80,7 @@ html[data-js] .post-body .diagram-tools {
   justify-content: center;
   max-width: 100%;
   padding: 1rem;
-  background: var(--bg-inset);
+  background: transparent;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-xs);
