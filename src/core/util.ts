@@ -119,11 +119,19 @@ export function realInside(root: string, p: string): boolean {
   return underPath(realPath(root), realPath(p));
 }
 
-/** 'YYYY-MM-DD' prefix of a date value, or null. */
+/** 'YYYY-MM-DD' prefix of a date value, or null. A single-digit month or day
+ *  (`2022-8-12`) is padded rather than dropped; `2026-02-30` and `2026-13-45`
+ *  are null because they are not dates at all. */
 export function datePart(value: unknown): string | null {
   if (value == null) return null;
-  const m = String(value).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return m ? `${m[1]}-${m[2]}-${m[3]}` : null;
+  const m = String(value).trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)/);
+  if (!m) return null;
+  const [y, mo, d] = [m[1], Number(m[2]), Number(m[3])];
+  // Date.UTC maps years 0–99 to 1900–1999; setUTCFullYear takes them literally.
+  const at = new Date(0);
+  at.setUTCFullYear(Number(y), mo - 1, d);
+  if (at.getUTCFullYear() !== Number(y) || at.getUTCMonth() !== mo - 1 || at.getUTCDate() !== d) return null;
+  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
 type CliValue = string | boolean | string[];

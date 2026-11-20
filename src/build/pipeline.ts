@@ -169,7 +169,8 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
   }
 
   // ---- link cards ----------------------------------------------------------
-  await expandPageCards(pages, { args, root, cacheDir: cfg.cacheDir, siteHost });
+  // --check is read-only, so it never touches the network unless asked to.
+  await expandPageCards(pages, { args, root, cacheDir: cfg.cacheDir, siteHost, network: fix });
 
   // ---- site assembly -------------------------------------------------------
   for (const p of pages) p.childPages = collectChildPages(p.node, pageByNode);

@@ -246,6 +246,17 @@ function rewriteImage(node: P5Any, ctx: PostprocessCtx): void {
   if (/^data:image\//i.test(src)) return; // already whitelist-limited to bitmap types
   if (isExternal(src)) return;
   const pathPart = nfc(decodeURIComponentSafe(src)).split('#')[0].split('?')[0];
+  // A root-absolute src means the site root, never the note's directory: a
+  // hand-written /img/x.png refers to the content tree's own img/, unlike a
+  // relative src. Prefixing the base path and leaving the URL alone keeps that
+  // meaning; resolving it against relDir would silently publish another file.
+  if (pathPart.startsWith('/')) {
+    if (ctx.basePath) {
+      const i = src.indexOf('#');
+      setAttr(node, 'src', ctx.basePath + src.split('#')[0] + (i >= 0 ? src.slice(i) : ''));
+    }
+    return;
+  }
   const rel = resolveIn(relDirOf(ctx.pageRelPath), pathPart);
   if (rel == null) {
     broken(ctx, `image escapes the content root: ${pathPart}`, node);

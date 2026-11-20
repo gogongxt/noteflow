@@ -631,15 +631,19 @@ function cardChildren(meta: LinkCardMeta, fallbackTitle: string): P5Any[] {
 
 // ------------------------------------------------------- build-time stage
 
-/** Collect candidates, load metadata (cache/network per args), expand cards in place. */
-export async function expandPageCards(pages: Page[], opts: { args: CliArgs; root: string; cacheDir: string; siteHost: string }): Promise<void> {
+/** Collect candidates, load metadata (cache/network per args), expand cards in place.
+ *  `--check` must stay read-only and offline; an explicit --link-fetch wins. */
+export async function expandPageCards(
+  pages: Page[],
+  opts: { args: CliArgs; root: string; cacheDir: string; siteHost: string; network?: boolean },
+): Promise<void> {
   const pageCards = pages.map((p) => ({ p, hrefs: collectLinkPreviewHrefs(p.html) })).filter((x) => x.hrefs.length > 0);
   if (!pageCards.length) return;
   const cacheArg = opts.args['link-cache'];
   const cacheDir = typeof cacheArg === 'string' && cacheArg ? path.resolve(opts.root, cacheArg) : path.resolve(opts.root, opts.cacheDir, 'link-previews');
   const { cards, notes } = await loadCards(pageCards.flatMap((x) => x.hrefs), {
     cacheDir,
-    network: boolArg(opts.args['link-fetch'], true),
+    network: boolArg(opts.args['link-fetch'], opts.network ?? true),
     refresh: opts.args['refresh-links'] === true || opts.args['refresh-links'] === 'true',
   });
   let expanded = 0;

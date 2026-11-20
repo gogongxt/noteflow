@@ -519,6 +519,20 @@ test('images: public → root-absolute /assets/<abbrlink>/; private → text', (
   assert.ok(!html.includes('secret.png'), html);
 });
 
+test('images: a root-absolute src means the site root, not the note directory', () => {
+  // The note lives in 技术笔记/, where ./img/demo.png is 技术笔记/img/demo.png.
+  // A leading slash must not resolve against that directory.
+  const { html, broken } = pp('<img src="/img/demo.png">');
+  assert.equal(broken.length, 0, JSON.stringify(broken));
+  assert.ok(html.includes('src="/img/demo.png"'), html);
+  assert.ok(!html.includes('/assets/'), html);
+});
+
+test('images: a root-absolute src carries the base path when the site has one', () => {
+  const { html } = pp('<img src="/img/demo.png">', { basePath: '/noteflow' });
+  assert.ok(html.includes('src="/noteflow/img/demo.png"'), html);
+});
+
 test('link policy: external URLs open a new tab, keeping the author href and rel', () => {
   const { html, broken } = pp(
     '<a href="https://x.com/a">1</a><a href="https://x.com/b" rel="nofollow">2</a>' +
@@ -1057,6 +1071,37 @@ test('firstParagraph skips link-card rows: external og text is not the page desc
     '<p>真正的第一段正文。</p>';
   assert.equal(firstParagraph(html), '真正的第一段正文。');
   assert.equal(firstParagraph('<p class="link-card-row">only a card</p>'), '');
+});
+
+test('firstParagraph: a `>` inside a quoted attribute does not truncate the tag', async () => {
+  const { firstParagraph } = await import('../src/site/index.ts');
+  // A naive /<[^>]*>/ strip would cut this to ` 2">link and more`.
+  const html = '<p>Hello <a href="/x" title="1 &gt; 2">link</a> and more</p>';
+  assert.equal(firstParagraph(html), 'Hello link and more');
+  assert.equal(firstParagraph('<p><abbr title="a > b">x</abbr></p>'), 'x');
+});
+
+test('datePart: single-digit month/day are padded; a non-existent date is null', () => {
+  assert.equal(datePart('2022-8-12T17:42:15.000Z'), '2022-08-12');
+  assert.equal(datePart('2022-8-1'), '2022-08-01');
+  assert.equal(datePart('2026-02-30'), null, 'February has no 30th');
+  assert.equal(datePart('2026-13-45'), null);
+  assert.equal(datePart('2026-11-12T23:00:00.000-05:00'), '2026-11-12', 'the prefix date is used as written');
+});
+
+test('date: an unparseable frontmatter date fails the build instead of vanishing from archives', () => {
+  const root = tmpDir();
+  writeFile(root, 'a.md', '---\ntitle: T\npublic: true\ndate: 2026-02-30\n---\nbody');
+  const { root: tree } = scanTree(root);
+  assert.throws(() => resolveTree(tree), /date is not a valid YYYY-MM-DD date/);
+});
+
+test('updated: the raw frontmatter text wins, so a +08:00 timestamp keeps its calendar day', () => {
+  const root = tmpDir();
+  // 07:00 +08:00 is the previous day in UTC; toISOString would show the 29th.
+  writeFile(root, 'a.md', '---\ntitle: T\npublic: true\nupdated: 2026-01-30 07:00:00 +08:00\n---\nbody');
+  const { pages } = resolveTree(scanTree(root).root);
+  assert.equal(pages[0].updated, '2026-01-30');
 });
 
 test('output writes refuse a dist-relative path that escapes the root (crafted abbrlink)', async () => {

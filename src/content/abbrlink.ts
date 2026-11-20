@@ -23,16 +23,20 @@ export function computeIndexAbbrlink(relDir: string): string {
 }
 
 /** The date as written in frontmatter — a timezone-dependent toISOString would
- *  change the slug. */
-export function rawDateString(yamlText: string, data: { date?: unknown } | null): string | null {
-  if (data?.date == null) return null;
-  const m = /^date[ \t]*:[ \t]*(.+)$/m.exec(yamlText);
+ *  change the slug, and for `updated` it would show the previous day. */
+export function rawDateString(
+  yamlText: string,
+  data: { date?: unknown; updated?: unknown } | null,
+  field: 'date' | 'updated' = 'date',
+): string | null {
+  if (data?.[field] == null) return null;
+  const m = new RegExp(`^${field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[ \\t]*:[ \\t]*(.+)$`, 'm').exec(yamlText);
   if (m) {
     let v = m[1].trim();
     if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
     return v;
   }
-  return datePart(data.date);
+  return datePart(data[field]);
 }
 
 interface MissingEntry {

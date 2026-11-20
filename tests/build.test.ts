@@ -637,6 +637,27 @@ suite('build variants', { concurrency: 6 }, () => {
     assert.equal(fs.readFileSync(extra, 'utf8'), before, '--check must not modify source files');
   });
 
+  test('--check never fetches link metadata: a card with no cache degrades, offline', async () => {
+    const copy = tmpDir('check-offline-');
+    fs.writeFileSync(
+      path.join(copy, 'a.md'),
+      '---\ntitle: Card\npublic: true\nabbrlink: "c0ffee01"\n---\n\n[某站](https://unreachable.example.org/x){.link-preview}\n',
+    );
+    const out = tmpDir('check-offline-out-');
+    // No --no-link-fetch and no cache: without the fix this build would try the
+    // network during --check, whose output must not depend on network state.
+    const r = await runBuild(['--check', '--out', out, '--content', copy, '--link-cache', tmpDir('check-offline-cache-')], {
+      content: copy,
+      out,
+    });
+    assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
+    assert.match(r.stderr, /no cached metadata \(fetch disabled\)/);
+    // Degraded to the plain link the author wrote, not a card.
+    const html = fs.readFileSync(path.join(out, 'posts/c0ffee01/index.html'), 'utf8');
+    assert.ok(!html.includes('class="link-card"'), 'no card without fetched metadata');
+    assert.ok(html.includes('class="link-preview"'), 'the plain link survives');
+  });
+
   test('the build writes back missing abbrlinks and leaves unknown fields untouched', async () => {
     const original = '---\ntitle: 新笔记\ndate: 2026-11-01\npublic: true\ncustom: keep-me\n---\nbody text\n';
     const copy = makeContentCopy();

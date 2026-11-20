@@ -36,16 +36,20 @@ export function descriptionOf(page: Page, limit = 160): string {
   return firstParagraph(page.html || '', limit);
 }
 
+// A `>` inside a quoted attribute value does not close the tag: `title="1 > 2"`
+// survives, where a naive /<[^>]*>/ would cut the text to ` 2">link`.
+const TAG = /<(?:"[^"]*"|'[^']*'|[^'">])*>/g;
+
 export function firstParagraph(html: string, limit = 200): string {
   const src = String(html || '');
   // Skip link-card rows: external og metadata is not the page's own prose.
   let text = '';
-  for (const m of src.matchAll(/<p\b([^>]*)>([\s\S]*?)<\/p>/gi)) {
+  for (const m of src.matchAll(/<p\b((?:"[^"]*"|'[^']*'|[^'">])*)>([\s\S]*?)<\/p>/gi)) {
     if (/\blink-card-row\b/.test(m[1])) continue;
     text = m[2];
     break;
   }
-  text = decodeEntities(text.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' '))
+  text = decodeEntities(text.replace(TAG, '').replace(/&nbsp;/g, ' '))
     .replace(/\s+/g, ' ')
     .trim();
   const chars = Array.from(text);

@@ -1,7 +1,7 @@
 // Fail-closed: only a literal boolean `true` is public, and a private parent
 // makes the whole subtree private. Private content never enters Page[].
 import fs from 'node:fs';
-import { BuildError, nfc } from '../core/util.ts';
+import { BuildError, datePart, nfc } from '../core/util.ts';
 import { parseNote, readAbbrlink, splitSource } from './frontmatter.ts';
 import { rawDateString, computeIndexAbbrlink } from './abbrlink.ts';
 import type { Frontmatter, IndexPage, NodeState, NotePage, Page, ParsedNode, PrivateItem, SidebarItem, TreeNode } from '../core/types.ts';
@@ -26,22 +26,40 @@ function normalizeSummary(value: unknown, label: string): string | null {
   if (Array.isArray(value) || (typeof value === 'object' && !(value instanceof Date))) {
     throw new BuildError(`${label}: frontmatter field summary must be a string, got ${JSON.stringify(value)}`);
   }
-  const raw = value instanceof Date ? value.toISOString().slice(0, 10) : String(value);
+  const raw = value instanceof Date ? asDate(value, 'summary', label) : String(value);
   const text = nfc(raw).replace(/\r\n?/g, '\n').trim();
   return text || null;
 }
 
-/** YAML date objects must not become locale strings; keep YYYY-MM-DD. */
-function normalizeDateLike(value: unknown, field: string, label: string): string | null {
-  if (value == null) return null;
-  if (value instanceof Date) {
-    if (Number.isNaN(value.getTime())) {
-      throw new BuildError(`${label}: frontmatter field ${field} is an invalid date`);
-    }
-    return value.toISOString().slice(0, 10);
-  }
-  const text = String(value).trim();
-  return text || null;
+/** YAML date objects must not become locale strings; keep YYYY-MM-DD. A bare
+ *  YAML date is midnight UTC, so the UTC date is the author's date; toISOString
+ *  is avoided because it would also accept, say, a Date built from a
+ *  non-existent 2026-02-30. */
+function asDate(value: Date, field: string, label: string): string {
+  const part = datePart(value.toISOString());
+  if (!part) throw new BuildError(`${label}: frontmatter field ${field} is an invalid date`);
+  return part;
+}
+
+/** `date` is what decides whether a note reaches archives and the feed, so an
+ *  unparseable value must fail the build rather than vanish from both. */
+function checkDate(raw: string | null, label: string): string | null {
+  if (raw == null) return null;
+  const part = datePart(raw);
+  if (!part) throw new BuildError(`${label}: frontmatter field date is not a valid YYYY-MM-DD date: ${JSON.stringify(raw)}`);
+  return part;
+}
+
+/** `updated` follows the same rule as `date`; YAML turns an unquoted
+ *  `2026-01-30 07:00:00 +08:00` into a Date whose UTC calendar day is the 29th,
+ *  so the raw frontmatter text wins whenever it carries a date. */
+function normalizeUpdated(raw: string | null, data: Frontmatter, label: string): string | null {
+  if (data.updated == null) return null;
+  const fromRaw = datePart(raw);
+  if (fromRaw) return fromRaw;
+  const value = data.updated;
+  if (value instanceof Date) return asDate(value, 'updated', label);
+  throw new BuildError(`${label}: frontmatter field updated is not a valid YYYY-MM-DD date: ${JSON.stringify(String(value).trim())}`);
 }
 
 interface ResolveResult {
@@ -68,6 +86,7 @@ export function resolveTree(parsedRoot: ParsedNode): ResolveResult {
     let title = node.name;
     let abbrlink: string | null = null;
     let date: string | null = null;
+    let updated: string | null = null;
 
     if (node.mdPath) {
       raw = fs.readFileSync(node.mdPath, 'utf8');
@@ -78,7 +97,8 @@ export function resolveTree(parsedRoot: ParsedNode): ResolveResult {
       content = parsed.content;
       if (data.title != null) title = nfc(String(data.title));
       abbrlink = readAbbrlink(data);
-      date = rawDateString(src.yaml, data);
+      date = checkDate(rawDateString(src.yaml, data), node.relPath);
+      updated = normalizeUpdated(rawDateString(src.yaml, data, 'updated'), data, node.relPath);
     }
 
     let isPublic = node.mdPath ? parentPublic && strictBool(data.public, 'public', node.relPath) : parentPublic;
@@ -108,7 +128,7 @@ export function resolveTree(parsedRoot: ParsedNode): ResolveResult {
       tags: normalizeTags(data.tags),
       description: data.description == null ? null : String(data.description),
       summary: normalizeSummary(data.summary, node.relPath),
-      updated: normalizeDateLike(data.updated, 'updated', node.relPath),
+      updated,
       abbrlink,
       content,
       raw,
