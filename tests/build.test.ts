@@ -230,12 +230,13 @@ test('tabs: fenced-div groups render as semantic divs, the widget module ships, 
 test('code blocks: every block ships its chrome at build time (indented / language-less included)', async () => {
   // The demos live on the Standard Markdown child page of the docs build.
   await sharedDocs;
-  const html = fs.readFileSync(path.join(docsDist, 'posts/c182255e/index.html'), 'utf8');
+  const raw = fs.readFileSync(path.join(docsDist, 'posts/c182255e/index.html'), 'utf8');
+  // Diagram source panels are injected after postprocess with their own
+  // chrome; drop them so only pandoc's blocks are counted.
+  const html = raw.replace(/<div class="sourceCode diagram-source[\s\S]*?<\/figure>/g, '');
   // Indented and language-less fences render as bare <pre> from pandoc; the
-  // build must wrap every block, not just highlighted ones. The mermaid
-  // fallback (<pre class="diagram-error-src">) is injected after postprocess
-  // and deliberately unstyled, so it does not count.
-  const pres = (html.match(/<pre\b(?! class="diagram-error-src")/g) || []).length;
+  // build must wrap every block, not just highlighted ones.
+  const pres = (html.match(/<pre\b/g) || []).length;
   const wraps = (html.match(/<div class="code-wrap">/g) || []).length;
   assert.ok(pres > 0, 'the syntax page should contain code blocks');
   assert.equal(wraps, pres, 'every <pre> must sit inside a build-time .code-wrap');

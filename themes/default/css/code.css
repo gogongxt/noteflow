@@ -77,6 +77,11 @@
   opacity: 1;
 }
 
+/* A visible panel, not a hover-revealed block: the copy must not hide. */
+.post-body .diagram-source .code-copy {
+  opacity: 1;
+}
+
 .post-body .code-copy:hover {
   color: var(--fg);
   background: var(--bg-hover);

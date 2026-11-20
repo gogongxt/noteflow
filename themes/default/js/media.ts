@@ -84,7 +84,8 @@ function collectItems(): Item[] {
     if (seen.has(svg)) continue;
     seen.add(svg);
     const { width, height } = diagramSize(svg);
-    const caption = svg.closest(".diagram")?.querySelector(".diagram-caption")?.textContent?.trim();
+    const figure = svg.closest(".diagram");
+    const caption = figure?.querySelector(".diagram-caption")?.textContent?.trim();
     const thumb = svg.cloneNode(true) as SVGSVGElement;
     renameIds(thumb);
     items.push({
@@ -95,7 +96,7 @@ function collectItems(): Item[] {
       origin: svg,
       media: svg,
       thumb,
-      source: svg.outerHTML,
+      source: figure?.querySelector(".diagram-source pre")?.textContent?.trim() || svg.outerHTML,
     });
   }
 

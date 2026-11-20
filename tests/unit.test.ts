@@ -11,7 +11,7 @@ import { postprocess } from '../src/render/postprocess.ts';
 import { scanTree, assertReserved, collectNodes, assertNoCaseCollision } from '../src/content/scan.ts';
 import { resolveTree } from '../src/content/visibility.ts';
 import { makeAssetNamer, resolveAsset } from '../src/render/attachments.ts';
-import { extractMermaid, figureHtml, mergeDiagramCss } from '../src/render/mermaid.ts';
+import { extractMermaid, figureHtml, mergeDiagramCss, sourceFigure } from '../src/render/mermaid.ts';
 import type { RenderedDiagram } from '../src/render/mermaid.ts';
 import { cleanupTmpDirs, tmpDir, writeFile, PNG } from './helpers.ts';
 
@@ -852,10 +852,32 @@ test('mermaid CSS: per-type shared rules emitted once, per-diagram rules stay ha
 });
 
 test('mermaid figure: carries the shared type id so shared styles hit', () => {
-  const html = figureHtml('p-1', '图注', '<svg data-mmd="h1"></svg>', 'tp1');
+  const html = figureHtml({ key: 'p-1', caption: '图注', svg: '<svg data-mmd="h1"></svg>', source: 'A --> B', type: 'tp1' });
   assert.ok(html.includes('data-mmdt="tp1"'), html);
   assert.ok(html.includes('data-mmd="h1"'), html);
   assert.ok(html.includes('<figcaption class="diagram-caption">图注</figcaption>'), html);
+});
+
+test('mermaid figure: the source panel ships with the diagram and defaults to the diagram', () => {
+  const html = figureHtml({ key: 'p-1', caption: '', svg: '<svg data-mmd="h1"></svg>', source: 'flowchart LR\n  A --> B' });
+  assert.ok(/<figure class="diagram" id="diagram-p-1" data-view="diagram">/.test(html), html);
+  // The switch marks the diagram pressed and owns the source panel.
+  assert.ok(html.includes('data-view="diagram" aria-controls="diagram-src-p-1" aria-pressed="true"'), html);
+  assert.ok(html.includes('data-view="source" aria-controls="diagram-src-p-1" aria-pressed="false"'), html);
+  assert.ok(html.includes('<span class="code-lang">mermaid</span>'), html);
+  assert.ok(html.includes('flowchart LR\n  A --&gt; B'), html);
+  // The copy affordance is the same button the code-block handler picks up.
+  assert.ok(html.includes('<button class="code-copy" type="button" title="Copy source">'), html);
+  // No source panel chrome in the caption-less figure beyond the switch.
+  assert.ok(!html.includes('<figcaption'), html);
+});
+
+test('mermaid figure: an unrendered diagram shows its source without a view switch', () => {
+  const html = sourceFigure('p-1', '说明', 'A --> B');
+  assert.ok(html.includes('diagram-unrendered'), html);
+  assert.ok(!html.includes('diagram-tabs'), html);
+  assert.ok(html.includes('Diagram not prerendered'), html);
+  assert.ok(html.includes('A --&gt; B'), html);
 });
 
 test('images: lazy loading added; block-level images become captioned figures, inline icons untouched', () => {

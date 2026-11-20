@@ -5,8 +5,8 @@
 // scripting means every block renders in full.
 import { append, classesOf, dropAttr, element, getAttr, setAttr, SVG_NS, text, type P5Any } from '../core/dom.ts';
 
-const ICON_COPY_D = 'M9 9h10v10H9z M5 15V5h10';
-const ICON_CHECK_D = 'M5 12.5l4.5 4.5L19 7.5';
+export const ICON_COPY_D = 'M9 9h10v10H9z M5 15V5h10';
+export const ICON_CHECK_D = 'M5 12.5l4.5 4.5L19 7.5';
 const ICON_CHEVRON_D = 'M6 9l6 6 6-6';
 
 /** Code CSS clamps a folded block to 24.5 line boxes. A block only slightly
@@ -34,7 +34,7 @@ function codeLangOf(pre: P5Any): string {
   return '';
 }
 
-function copyButton(withLabel: boolean): P5Any {
+export function copyButton(withLabel: boolean): P5Any {
   const btn = element('button', 'code-copy');
   setAttr(btn, 'type', 'button');
   setAttr(btn, 'title', 'Copy code');

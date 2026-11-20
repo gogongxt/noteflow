@@ -2,8 +2,72 @@
 
 
 .post-body .diagram {
+  position: relative;
   margin: 1.9rem 0;
   text-align: center;
+}
+
+/* Above the frame, never over the drawing. Hidden without scripting: the
+   panel cannot be opened, so the switch would be a dead control. */
+.post-body .diagram-tools {
+  display: none;
+  justify-content: flex-end;
+  gap: 0.15rem;
+  margin-bottom: 0.55rem;
+}
+
+html[data-js] .post-body .diagram-tools {
+  display: flex;
+}
+
+.post-body .diagram-tab {
+  padding: 0.22rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--fg-subtle);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+
+.post-body .diagram-tab:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+.post-body .diagram-tab[aria-pressed="true"] {
+  color: var(--fg);
+  background: var(--bg-subtle);
+  border-color: var(--border);
+}
+
+.post-body .diagram-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.post-body .diagram .diagram-source {
+  display: none;
+  margin: 0;
+  text-align: left;
+}
+
+.post-body .diagram[data-view="source"] .diagram-frame {
+  display: none;
+}
+
+.post-body .diagram[data-view="source"] .diagram-source,
+.post-body .diagram-unrendered .diagram-source {
+  display: block;
+}
+
+.post-body .diagram-source .diagram-error-note {
+  margin: 0;
+  padding: 0.55rem 0.9rem 0;
 }
 
 .post-body .diagram-frame {
@@ -44,25 +108,10 @@
   color: inherit;
 }
 
-.post-body .diagram-render-error .diagram-frame {
-  display: block;
-  padding: 0.9rem 1.1rem;
-  text-align: left;
-  border-style: dashed;
-}
-
 .diagram-error-note {
   margin: 0 0 0.5rem;
   font-size: 0.8125rem;
   color: var(--sem-red);
-}
-
-.diagram-error-src {
-  margin: 0;
-  padding: 0;
-  font-size: 0.8rem;
-  background: transparent;
-  border: 0;
 }
 .post-body .diagram-frame[data-zoomable],
 .post-body img[data-zoomable] {

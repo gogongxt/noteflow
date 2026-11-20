@@ -11,6 +11,7 @@ import { setupScrollspy } from "./toc.js";
 import { initCodeCopy, initAnchors, setupHeadingLinks, setupTables } from "./article.js";
 import { initCrumbMenu } from "./crumb-menu.js";
 import { initCodeFold, revealCodeFold } from "./code-block.js";
+import { initDiagramView } from "./diagram.js";
 import { initSearchEntry } from "./search-entry.js";
 import { armMedia, armComments } from "./media-comments.js";
 
@@ -24,6 +25,7 @@ initSidebarResize();
 initSidebarScroll();
 initCodeCopy();
 initCodeFold();
+initDiagramView();
 initCrumbMenu();
 initAnchors();
 

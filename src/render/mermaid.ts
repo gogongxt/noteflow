@@ -5,6 +5,7 @@ import http from 'node:http';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { BuildError, isInside, log } from '../core/util.ts';
+import { ICON_CHECK_D, ICON_COPY_D } from './code-blocks.ts';
 import type { Page } from '../core/types.ts';
 
 // Label metrics come from the theme's sans family, else the system stack.
@@ -180,12 +181,44 @@ export interface RenderedDiagram {
   typeCssDark: string;
 }
 
-export function figureHtml(key: string, caption: string, svg: string, type = ''): string {
+function copyButton(): string {
+  return (
+    '<button class="code-copy" type="button" title="Copy source">' +
+    `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICON_COPY_D}"/></svg>` +
+    `<svg viewBox="0 0 24 24" aria-hidden="true" class="icon-done"><path d="${ICON_CHECK_D}"/></svg>` +
+    '<span class="code-copy-label">Copy</span></button>'
+  );
+}
+
+/** Same classes as a fenced code block, so article.ts's copy handler picks it
+ *  up without knowing diagrams exist. */
+function sourcePanel(key: string, source: string, note = ''): string {
+  return (
+    `<div class="sourceCode diagram-source" id="diagram-src-${escapeAttr(key)}">` +
+    (note ? `<p class="diagram-error-note">${escapeHtml(note)}</p>` : '') +
+    '<div class="code-wrap"><div class="code-head"><span class="code-lang">mermaid</span>' +
+    `${copyButton()}</div><pre><code>${escapeHtml(source.trim())}</code></pre></div>` +
+    '</div>'
+  );
+}
+
+function viewTabs(key: string, active: 'diagram' | 'source'): string {
+  const tab = (view: 'diagram' | 'source', label: string): string =>
+    `<button class="diagram-tab" type="button" data-view="${view}" ` +
+    `aria-controls="diagram-src-${escapeAttr(key)}" aria-pressed="${active === view}">${label}</button>`;
+  return `<div class="diagram-tools" role="group" aria-label="Diagram view">${tab('diagram', 'Diagram')}${tab('source', 'Source')}</div>`;
+}
+
+export function figureHtml(
+  { key, caption, svg, source, type = '' }: { key: string; caption: string; svg: string; source: string; type?: string },
+): string {
   const cap = caption.trim();
   const tagged = type ? svg.replace('<svg ', `<svg data-mmdt="${escapeAttr(type)}" `) : svg;
   return (
-    `<figure class="diagram" id="diagram-${escapeAttr(key)}">\n` +
+    `<figure class="diagram" id="diagram-${escapeAttr(key)}" data-view="diagram">\n` +
+    viewTabs(key, 'diagram') + '\n' +
     `<div class="diagram-frame" data-mermaid-key="${escapeAttr(key)}">${tagged}</div>\n` +
+    sourcePanel(key, source) + '\n' +
     (cap ? `<figcaption class="diagram-caption">${escapeHtml(cap)}</figcaption>\n` : '') +
     '</figure>'
   );
@@ -715,9 +748,8 @@ async function renderInPage({
 export function sourceFigure(key: string, caption: string, source: string): string {
   const cap = caption.trim();
   return (
-    `<figure class="diagram diagram-source" id="diagram-${escapeAttr(key)}">\n` +
-    '<p class="diagram-error-note">Diagram not prerendered (mermaid was skipped at build time); source below:</p>\n' +
-    `<pre class="diagram-error-src"><code>${escapeHtml(source)}</code></pre>\n` +
+    `<figure class="diagram diagram-unrendered" id="diagram-${escapeAttr(key)}">\n` +
+    sourcePanel(key, source, 'Diagram not prerendered (mermaid was skipped at build time); source below:') + '\n' +
     (cap ? `<figcaption class="diagram-caption">${escapeHtml(cap)}</figcaption>\n` : '') +
     '</figure>'
   );
@@ -806,6 +838,12 @@ export function applyMermaid(body: string, page: Page, m: MermaidState): string 
     const diagram = m.rendered.get(key);
     if (!diagram) return whole;
     if (!diagram.svg) return sourceFigure(key, m.captionOf(key), m.sourceByPage.get(page.relPath)?.get(key)?.source ?? '');
-    return figureHtml(key, m.captionOf(key), diagram.svg, m.typeOf.get(key));
+    return figureHtml({
+      key,
+      caption: m.captionOf(key),
+      svg: diagram.svg,
+      source: m.sourceByPage.get(page.relPath)?.get(key)?.source ?? '',
+      type: m.typeOf.get(key),
+    });
   });
 }
