@@ -140,6 +140,13 @@ While `sync` is set, the content dir is a **read-only mirror**, and the whole to
 
 `./start.sh sync` runs one clone/fetch/reset/build cycle and exits — enough for a cron job when you would rather not keep a process running. The ssh key and volume setup for the container are covered under [Deployment](https://gogongxt.github.io/noteflow/posts/211fd193#docker).
 
+Pinning new notes' `abbrlink` happens on the machines you edit on, never on the mirror. With a checkout that is `./start.sh backfill`; on a machine that only has a notes clone, borrow the tool from the published image — review and commit the result there:
+
+```bash
+docker run --rm --entrypoint node -v "$PWD/notes:/app/notes:rw" \
+  ghcr.io/gogongxt/noteflow:latest src/content/abbrlink.ts --content notes
+```
+
 # Named profiles
 
 `--config <file>` builds from a standalone profile that replaces the personal stack (no local overrides). This documentation site is one:

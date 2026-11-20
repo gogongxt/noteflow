@@ -40,7 +40,7 @@ docker run -d -p 8080:8080 \
   ghcr.io/gogongxt/noteflow:latest
 ```
 
-On first start the container clones the notes repository into `/app/notes` (give it a volume so the clone survives restarts) and builds; afterwards it polls the remote and rebuilds whenever the branch tip moves. The ssh key must be readable inside the container; the first contact with your git host accepts its host key (`GIT_SSH_COMMAND` is overridable for your own ssh setup). Because the content tree stays a pristine read-only mirror — the build computes missing abbrlinks instead of writing them into frontmatter — the hard reset can never destroy anything, and a failed poll or failed build keeps the previous site up.
+On first start the container clones the notes repository into `/app/notes` (give it a volume so the clone survives restarts) and builds; afterwards it polls the remote and rebuilds whenever the branch tip moves. The ssh key must be readable inside the container; the first contact with your git host accepts its host key (`GIT_SSH_COMMAND` is overridable for your own ssh setup). The build never writes into the notes (a missing `abbrlink` is computed on the fly), so the content tree stays a pristine mirror and the hard reset can never lose anything; a failed poll or failed build keeps the previous site up.
 
 **Use your own config.** The image carries the neutral `site.config.mjs`. Your personal values go in `site.config.local.mjs` — the same plain-JavaScript shape, so copying the template is a working start — at the project root, or in the mounted notes directory (it travels with the notes). The project root wins if both exist. Mount the root one directly:
 
