@@ -61,8 +61,9 @@ test('poll outcome: no-op when up to date, reset when the tip moved', async () =
   assert.equal((await s.sync()).changed, true);
   assert.equal(fs.readFileSync(path.join(dir, 'note.md'), 'utf8'), 'two\n');
 
-  // The remote URL is used directly: the clone's own origin is irrelevant.
-  git(['remote', 'remove', 'origin'], dir);
+  // Every operation goes through the configured remote URL, and the clone
+  // carries no origin at all (a token in it would sit in .git/config).
+  assert.equal(git(['remote'], dir), '');
   commit(seed, 'note.md', 'three\n');
   git(['push'], seed);
   assert.equal((await s.sync()).changed, true);

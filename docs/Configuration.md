@@ -127,11 +127,13 @@ Edit your notes wherever you edit them, `git push`, and the site follows. With a
 
 ```ts
 sync: {
-  remote: 'ssh://git@git.example.com:2222/you/notes.git',
+  remote: 'https://gdt_<token>@git.example.com/you/notes.git',  // or ssh://…
   branch: 'master',     // the branch the site follows, 'master' by default
   intervalSec: 15,      // poll interval in seconds; failures back off up to 5×
 },
 ```
+
+An https remote carries the token in the URL (`https://<token>@host/you/notes.git`) — no ssh key, no host-key setup. The tool keeps the token out of harm's way: error messages have the credential redacted, and the mirror's clone is left without an `origin` so nothing sits in `.git/config`. Committing the token into a **private** notes repository is a deliberate trade: everyone who can read the repo can push to it (a Gitea token acts as your user, across all your repos on that host — scope it minimally when creating it). Prefer an ssh deploy key when you want a per-repository credential instead.
 
 While `sync` is set, the content dir is a mirror, and the reset onto the remote tip is **unconditional** — a mirror never keeps local state. Two invariants follow:
 

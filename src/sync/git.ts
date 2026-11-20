@@ -12,6 +12,10 @@ import { BuildError } from '../core/util.ts';
 
 const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
 
+/** A remote URL may carry a token (https://<token>@host/…); git echoes URLs in
+ *  errors, so keep credentials out of logs. */
+const redact = (s: string): string => s.replace(/(https?:\/\/)[^@/\s]+@/g, '$1***@');
+
 function git(args: string[], cwd: string, timeoutMs = 60_000): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile('git', args, { cwd, timeout: timeoutMs, maxBuffer: 16 << 20, env: GIT_ENV }, (err, _stdout, stderr) => {
@@ -23,7 +27,7 @@ function git(args: string[], cwd: string, timeoutMs = 60_000): Promise<string> {
         // Enough context for callers to classify failures (a rejected push
         // names its reason a few lines above the hints).
         const tail = String(stderr).trim().split('\n').slice(-8).join(' ').slice(0, 400);
-        reject(new BuildError(`git ${args[0]} failed: ${tail || err.message}`));
+        reject(new BuildError(`git ${args[0]} failed: ${redact(tail) || err.message}`));
         return;
       }
       resolve(_stdout);
@@ -66,6 +70,9 @@ export class GitSync {
       throw new BuildError(`sync: ${this.dir} exists and is not a git repository; refusing to clone into it`);
     }
     await git(['clone', '--branch', this.opts.branch, this.opts.remote, this.dir], path.dirname(path.resolve(this.dir)), 600_000);
+    // The clone's origin would persist the token in .git/config; every
+    // operation already goes through the configured URL, so drop it.
+    await git(['remote', 'remove', 'origin'], this.dir).catch(() => {});
     return true;
   }
 

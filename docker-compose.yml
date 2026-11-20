@@ -16,11 +16,15 @@ services:
       # build. Updates happen on the host; restart the container to rebuild.
       - ./notes:/app/notes:rw
       # Mode 2 — sync, mutually exclusive with the bind mount above: comment
-      # the rw line out. The container clones the repository itself (configure
-      # sync: { remote, branch } in site.config.local.mjs, mount an ssh key
-      # with push access — it commits new notes' abbrlinks back) and keeps it
-      # current on a named volume — declare it at the bottom of this file.
+      # the rw line out. The container clones the repository itself and keeps
+      # it current on a named volume — declare it at the bottom of this file
+      # (optional: without it every container recreate re-clones).
       # - notes-store:/app/notes
+      # The mounted config must carry the sync block: it has to be readable
+      # BEFORE the first clone, so a copy inside the notes tree cannot
+      # bootstrap its own clone. Give the remote push access — the container
+      # commits new notes' abbrlinks back — either as a token in the https
+      # remote URL (then no key mount is needed) or as an ssh key:
       # - ./site.config.local.mjs:/app/site.config.local.mjs:ro
       # - ~/.ssh/id_ed25519:/root/.ssh/id_ed25519:ro
       # Optional: run from a source tree instead of the image's code (a fork,
