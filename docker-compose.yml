@@ -11,15 +11,22 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # Adjust the left side to your notes directory. Read-write on purpose:
-      # a note's abbrlink is written into its frontmatter on the first build.
-      - ./notes:/app/notes:rw
+      # Mode 1 — bind mount: a notes checkout you keep on the host. The build
+      # never writes into it, so read-only is fine; updates happen on the host
+      # (restart the container, or run your own rebuild). Adjust the left side.
+      - ./notes:/app/notes:ro
+      # Mode 2 — sync, mutually exclusive with the bind mount above: comment
+      # the ro line out, git must be able to write /app/notes. The container
+      # clones the repository itself (configure sync: { remote, branch } in
+      # site.config.local.mjs, mount an ssh key that can read it) and keeps it
+      # current on a named volume — declare it at the bottom of this file.
+      # - notes-store:/app/notes
+      # - ./site.config.local.mjs:/app/site.config.local.mjs:ro
+      # - ~/.ssh/id_ed25519:/root/.ssh/id_ed25519:ro
       # Optional: run from a source tree instead of the image's code (a fork,
       # or a checkout newer than the tag). node_modules is installed on start
       # when this mount hides the image's own.
       # - .:/app:ro
-      # Personal values: site.config.local.mjs merges over the neutral config.
-      # - ./site.config.local.mjs:/app/site.config.local.mjs:ro
     environment:
       # A named site.config.* profile instead of site.config.mjs, e.g.
       # site.config.docs.mjs. Mount it in /app and make sure its contentDir is
@@ -27,3 +34,6 @@ services:
       # CONFIG: site.config.docs.mjs
       PORT: "8080"
     restart: unless-stopped
+
+# volumes:
+#   notes-store: {}

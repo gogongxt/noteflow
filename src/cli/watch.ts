@@ -1,55 +1,35 @@
 // Watch mode: rebuild on content/theme/config changes. Each rebuild is a child
 // process (a crash cannot poison the watcher; config edits take effect), debounced
 // so an editor save-storm is one rebuild.
-import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadConfig, CONFIG_FILES, repoPath, type AppConfig } from '../core/config.ts';
 import { fatal, parseArgs } from '../core/util.ts';
+import { BuildRunner } from '../build/runner.ts';
 
 const ROOT = process.cwd();
 const args = parseArgs(process.argv.slice(2));
 const DEBOUNCE_MS = 300;
 
-let building: ChildProcess | null = null;
-let pending = false;
-let timer: NodeJS.Timeout | null = null;
-
 function log(msg: string): void {
   console.log(`\x1b[2m[${new Date().toLocaleTimeString()}]\x1b[0m ${msg}`);
 }
 
-function rebuild(): void {
-  if (building) {
-    // A build is in flight; remember that another is wanted when it exits.
-    pending = true;
-    return;
-  }
-  log('Rebuilding…');
-  const t0 = Date.now();
-  // The child re-reads the config, so config edits take effect next rebuild.
-  const child = spawn(process.execPath, ['src/cli/build.ts', ...process.argv.slice(2)], {
-    cwd: ROOT,
-    stdio: 'inherit',
-    env: { ...process.env, PANDOC_BIN: process.env.PANDOC_BIN || 'pandoc' },
-  });
-  building = child;
-  child.on('exit', (code) => {
-    building = null;
-    log(code === 0 ? `Build OK (${Date.now() - t0}ms) — refresh the browser` : `Build FAILED (exit ${code}); fix the error, saving the file retries`);
-    if (pending) {
-      pending = false;
-      rebuild();
-    }
-  });
-}
+const runner = new BuildRunner({
+  args: process.argv.slice(2),
+  cwd: ROOT,
+  events: {
+    start: () => log('Rebuilding…'),
+    exit: (code, ms) =>
+      log(code === 0 ? `Build OK (${ms}ms) — refresh the browser` : `Build FAILED (exit ${code}); fix the error, saving the file retries`),
+  },
+});
+
+let timer: NodeJS.Timeout | null = null;
 
 function scheduleRebuild(): void {
   if (timer) clearTimeout(timer);
-  timer = setTimeout(() => {
-    timer = null;
-    rebuild();
-  }, DEBOUNCE_MS);
+  timer = setTimeout(() => runner.request(), DEBOUNCE_MS);
 }
 
 // fs.watch is recursive on Linux; the periodic sweep re-establishes watchers
@@ -116,7 +96,7 @@ if (!fs.existsSync(path.resolve(ROOT, contentDir))) {
 console.log(`noteflow watch: rebuilding on changes under ${contentDir}/, ${cfg.themeDir}/, src/ and the config files`);
 console.log('  Initial build…');
 watchAll(cfg);
-rebuild();
+runner.request();
 
 // Re-establish watchers periodically (directories and config files appear).
 setInterval(() => {
@@ -125,7 +105,7 @@ setInterval(() => {
 
 for (const sig of ['SIGINT', 'SIGTERM'] as const) {
   process.on(sig, () => {
-    if (building) building.kill('SIGTERM');
+    runner.kill();
     process.exit(0);
   });
 }

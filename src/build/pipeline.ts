@@ -63,7 +63,7 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
   const pageByNode = new Map<TreeNode, Page>(pages.map((p) => [p.node, p]));
   const pageByRel = new Map(pages.map((p) => [p.relPath, p]));
 
-  assignAbbrlinks(treeRoot, pageByNode, pages, fix);
+  const unpinned = assignAbbrlinks(treeRoot, pageByNode, pages);
 
   const urlMap = new Map<string, string>();
   for (const p of pages) {
@@ -216,11 +216,14 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
   });
   siteCtx.assets = staticBundle.urls;
 
-  const outputs: Map<string, string | Buffer> = renderAll(siteCtx, theme);
+  // Content-hashed assets enter the map before the pages: writeDiff then
+  // emits them first, so a request landing mid-rebuild never sees a page
+  // referencing an asset that is not on disk yet.
+  const outputs: Map<string, string | Buffer> = new Map([...staticBundle.files].map(([rel, content]) => [toPosix(rel), content]));
+  for (const [rel, content] of renderAll(siteCtx, theme)) outputs.set(rel, content);
   outputs.set('feed.xml', renderFeed(siteCtx));
   outputs.set('sitemap.xml', renderSitemap(siteCtx));
   outputs.set('robots.txt', renderRobots(siteCtx));
-  for (const [rel, content] of staticBundle.files) outputs.set(toPosix(rel), content);
 
   // ---- meta CSP (hosts that cannot send headers, e.g. GitHub Pages) --------
   // No upgrade-insecure-requests: the same dist/ must stay previewable over
@@ -265,6 +268,12 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
   if (warnings.length) {
     log.info(`  ${warnings.length} notes:`);
     for (const w of warnings.slice(0, 10)) log.info(`    - ${w}`);
+  }
+  if (unpinned.length) {
+    log.info(`  Note: ${unpinned.length} note(s) without a pinned abbrlink (computed on the fly, URLs already correct):`);
+    for (const u of unpinned.slice(0, 10)) log.info(`    - ${u}`);
+    if (unpinned.length > 10) log.info(`    … and ${unpinned.length - 10} more`);
+    log.info('    Pin with ./start.sh backfill, then commit the notes yourself.');
   }
 }
 

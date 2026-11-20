@@ -141,7 +141,7 @@ export interface CliArgs {
 }
 
 /** Flags that consume the next argv element as their value. */
-const VALUE_FLAGS = new Set(['content', 'out', 'manifest', 'port', 'root', 'dir', 'date', 'search-limit', 'link-cache', 'out-file', 'config']);
+const VALUE_FLAGS = new Set(['content', 'out', 'manifest', 'port', 'root', 'dir', 'date', 'search-limit', 'link-cache', 'out-file', 'config', 'exists']);
 
 /** A value is consumed only for a registered value flag, so `--check notes`
  *  never eats `notes`; `--no-X` maps to X=false; `--flag=value` always wins. */

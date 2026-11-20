@@ -39,6 +39,7 @@ comment at the top of the template gives editors autocomplete; `npx tsc
 | `giscus` | Comments via GitHub Discussions; remove the block to disable. |
 | `repoUrl` | A repository URL shown as a GitHub icon in the header, opening in a new tab. Unset hides it — that is the default, so a site you deploy does not inherit this project's link. |
 | `edit` | Links every page to its source file in a Git forge: hovering the page title reveals a pencil that opens the file's edit page. Unset hides it. See below. |
+| `sync` | Turn the serving host into a read-only mirror of the notes repository: clone, poll, rebuild on change. Unset: no syncing. See below. |
 | `cspMeta` | Also carry the CSP in a `<meta>` tag — for hosts that cannot send response headers (GitHub Pages). |
 | `footer` | The site footer. Every field is optional and renders only when set; see below. |
 
@@ -119,6 +120,25 @@ edit: {
 ```
 
 The built URL is `{repoUrl}/_edit/{branch}/{path}` for Gitea — `/edit/…` on GitHub, `/-/edit/…` on GitLab. Files are addressed as they sit in the content tree (`Notes/foo.md`; a directory page links its `_index.md`, and a generated listing without one gets no pencil).
+
+# Git mirroring (`sync`)
+
+Edit your notes wherever you edit them, `git push`, and the site follows. With a `sync` block, `./start.sh serve` stops being a static preview and becomes the serving daemon: it clones the repository on first start, polls `git ls-remote` every `intervalSec`, and when the branch tip has moved it fetches, hard-resets the content dir onto it and rebuilds.
+
+```ts
+sync: {
+  remote: 'ssh://git@git.example.com:2222/you/notes.git',
+  branch: 'master',     // the branch the site follows, 'master' by default
+  intervalSec: 15,      // poll interval in seconds; failures back off up to 5×
+},
+```
+
+While `sync` is set, the content dir is a **read-only mirror**, and the whole toolchain honors that: the build never writes into the notes (a missing `abbrlink` is computed on the fly). That is precisely what makes the hard reset safe: no local edit to a tracked file can exist, so none can be lost. An untracked file is left alone too — unless the incoming commit adds a file at the same path, which then replaces it, as any checkout would. Two invariants follow:
+
+- **Never merges.** `git pull` on a server invites divergence; a mirror has nothing to merge. Tracked files modified by hand make the sync refuse loudly, and the site keeps serving the previous build until they are fixed.
+- **A failed poll or build never takes the site down.** A failed poll backs off and retries; a failed build keeps serving the last good `dist/`. Only a first start with nothing to serve exits non-zero — fail-closed applies to publishing content, not to staying up.
+
+`./start.sh sync` runs one clone/fetch/reset/build cycle and exits — enough for a cron job when you would rather not keep a process running. The ssh key and volume setup for the container are covered under [Deployment](https://gogongxt.github.io/noteflow/posts/211fd193#docker).
 
 # Named profiles
 

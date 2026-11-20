@@ -56,7 +56,8 @@ tree under version control. NoteFlow turns that tree into a fast static site:
 
 - **Directory tree = sidebar.** `x.md` beside an `x/` directory is the standard page-with-children form; `_index.md` customizes a directory's landing page; `sort.txt` pins ordering.
 - **Privacy by physical exclusion.** Only notes with `public: true` are built; everything else (and its attachments) never enters `dist/`. Private content cannot leak through search, feeds, or archives because it is simply not there.
-- **Stable URLs.** Every note gets a CRC32-based `abbrlink` written back into its frontmatter once; the URL `/posts/<abbrlink>` then survives renames and reorganization.
+- **Stable URLs.** Every note's URL is `/posts/<abbrlink>`; the build computes a missing `abbrlink` deterministically and never writes into your notes — `./start.sh backfill` pins them into frontmatter when you choose, and the URL then survives renames and reorganization.
+- **The site can follow the notes repository.** A `sync` block in the config turns the serving host into a read-only git mirror: clone on first start, poll the remote, rebuild when the branch tip moves. Edit anywhere, `git push`, the site catches up.
 - **pandoc-powered Markdown.** A long-lived `pandoc server` converts content; the Node side does link rewriting, sanitizing, and template rendering. Mermaid diagrams are pre-rendered in headless Chromium at build time; audio and video use native `<audio>`/`<video>` with content-addressed attachments, so no player library is needed under strict CSP.
 - **Security-first output.** Strict CSP (no inline scripts/styles except build-time sha256-hashed ones), no CDN, no external fonts, fail-closed builds (broken links and private-content leaks abort the build). The local preview serves the exact same security headers as production nginx.
 
@@ -104,7 +105,7 @@ Frontmatter:
 title: My note
 date: 2026-11-16
 public: true        # omit (or false) to keep the note private
-abbrlink: "2fc9e7c4"  # written back automatically on first build
+abbrlink: "2fc9e7c4"  # computed when absent; ./start.sh backfill pins it into the file
 tags: [docker, ops]
 ---
 ```

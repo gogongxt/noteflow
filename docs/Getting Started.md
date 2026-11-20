@@ -25,7 +25,7 @@ npm install
 
 Without a content directory of your own, the build falls back to `docs/` — this documentation tree, which doubles as the demo. Point `contentDir` in `site.config.mjs` at your own tree (a separate private repository, typically) to build the real site.
 
-`./start.sh watch` rebuilds and re-previews while you edit; `./start.sh check` is the CI mode that never writes back missing abbrlinks.
+`./start.sh watch` rebuilds and re-previews while you edit; `./start.sh check` is the read-only CI mode. New notes work without an `abbrlink` (one is computed on the fly) — pin them with `./start.sh backfill` before committing, so a later title edit cannot change the URL.
 
 # This documentation site
 

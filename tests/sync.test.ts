@@ -1,0 +1,127 @@
+// The git mirror: real repositories, offline (local path remotes). The flows
+// the serving daemon depends on — clone-on-empty, no-op poll, update,
+// dirty-tree refusal, unreachable remote — plus the validation of `sync`.
+import { test, suite, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { GitSync } from '../src/sync/git.ts';
+import { loadConfig } from '../src/core/config.ts';
+import { cleanupTmpDirs, tmpDir } from './helpers.ts';
+
+after(() => cleanupTmpDirs());
+
+const git = (args: string[], cwd: string): string =>
+  execFileSync('git', args, { cwd, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } }).toString();
+
+function commit(repo: string, file: string, text: string): void {
+  fs.writeFileSync(path.join(repo, file), text);
+  git(['add', file], repo);
+  git(['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-m', `update ${file}`], repo);
+}
+
+/** A bare remote plus a seeded clone with one pushed commit; returns [remote, seed]. */
+function makeRemote(): [string, string] {
+  const remote = tmpDir('sync-remote-');
+  fs.rmdirSync(remote);
+  git(['init', '--bare', '-b', 'master', remote], path.dirname(remote));
+  const seed = tmpDir('sync-seed-');
+  fs.rmdirSync(seed);
+  git(['clone', remote, seed], path.dirname(seed));
+  commit(seed, 'note.md', 'one\n');
+  git(['push', '-u', 'origin', 'master'], seed);
+  return [remote, seed];
+}
+
+const syncIn = (dir: string, remote: string): GitSync => new GitSync({ dir, remote, branch: 'master' });
+
+test('clones into an empty target and refuses a non-repo directory', async () => {
+  const [remote] = makeRemote();
+  const dir = path.join(tmpDir('sync-work-'), 'notes');
+  assert.equal(await syncIn(dir, remote).ensureCloned(), true);
+  assert.ok(fs.existsSync(path.join(dir, 'note.md')));
+  assert.equal(await syncIn(dir, remote).ensureCloned(), false, 'already a repo');
+
+  const junk = tmpDir('sync-junk-');
+  fs.writeFileSync(path.join(junk, 'x'), 'not a repo');
+  await assert.rejects(syncIn(junk, remote).ensureCloned(), /not a git repository/);
+});
+
+test('poll outcome: no-op when up to date, reset when the tip moved', async () => {
+  const [remote, seed] = makeRemote();
+  const dir = path.join(tmpDir('sync-work-'), 'notes');
+  await syncIn(dir, remote).ensureCloned();
+
+  const s = syncIn(dir, remote);
+  assert.equal((await s.sync()).changed, false);
+
+  commit(seed, 'note.md', 'two\n');
+  git(['push'], seed);
+  assert.equal((await s.sync()).changed, true);
+  assert.equal(fs.readFileSync(path.join(dir, 'note.md'), 'utf8'), 'two\n');
+
+  // The remote URL is used directly: the clone's own origin is irrelevant.
+  git(['remote', 'remove', 'origin'], dir);
+  commit(seed, 'note.md', 'three\n');
+  git(['push'], seed);
+  assert.equal((await s.sync()).changed, true);
+  assert.equal(fs.readFileSync(path.join(dir, 'note.md'), 'utf8'), 'three\n');
+});
+
+test('a dirty working tree blocks the reset; untracked files do not', async () => {
+  const [remote, seed] = makeRemote();
+  const dir = path.join(tmpDir('sync-work-'), 'notes');
+  await syncIn(dir, remote).ensureCloned();
+
+  commit(seed, 'note.md', 'two\n');
+  git(['push'], seed);
+
+  fs.writeFileSync(path.join(dir, 'note.md'), 'a local edit to a tracked file\n');
+  await assert.rejects(syncIn(dir, remote).sync(), /refusing to reset --hard/);
+  assert.match(fs.readFileSync(path.join(dir, 'note.md'), 'utf8'), /local edit/);
+
+  git(['checkout', '--', 'note.md'], dir);
+  assert.equal((await syncIn(dir, remote).sync()).changed, true);
+  assert.equal(fs.readFileSync(path.join(dir, 'note.md'), 'utf8'), 'two\n');
+
+  // Untracked files survive: the mirror never runs git clean.
+  fs.writeFileSync(path.join(dir, 'untracked.txt'), 'keep me\n');
+  commit(seed, 'note.md', 'three\n');
+  git(['push'], seed);
+  await syncIn(dir, remote).sync();
+  assert.equal(fs.readFileSync(path.join(dir, 'note.md'), 'utf8'), 'three\n');
+  assert.ok(fs.existsSync(path.join(dir, 'untracked.txt')));
+});
+
+test('an unreachable remote and a missing branch fail loudly, not silently', async () => {
+  const gone = path.join(tmpDir('sync-gone-'), 'nope.git');
+  const dir = path.join(tmpDir('sync-work-'), 'notes');
+  await assert.rejects(syncIn(dir, gone).sync(), /git ls-remote failed/);
+
+  const emptyRemote = tmpDir('sync-empty-');
+  fs.rmdirSync(emptyRemote);
+  git(['init', '--bare', '-b', 'master', emptyRemote], path.dirname(emptyRemote));
+  const target = path.join(tmpDir('sync-work-'), 'notes2');
+  await assert.rejects(syncIn(target, emptyRemote).ensureCloned(), /git clone failed/);
+});
+
+suite('sync config validation', () => {
+  const profile = (body: string): string => {
+    const f = path.join(tmpDir('sync-cfg-'), 'profile.mjs');
+    fs.writeFileSync(f, `export default { url: 'https://e.com', siteName: 't', ${body} };\n`);
+    return f;
+  };
+
+  test('remote is required; interval has a floor; scalars are rejected', async () => {
+    await assert.rejects(loadConfig(profile('sync: { branch: "master" }')), /sync\.remote/);
+    await assert.rejects(loadConfig(profile('sync: { remote: "x", intervalSec: 1 }')), /intervalSec/);
+    await assert.rejects(loadConfig(profile('sync: "ssh://x"')), /sync must be an object/);
+  });
+
+  test('branch and intervalSec default, and the merged config is usable', async () => {
+    const cfg = await loadConfig(profile('sync: { remote: "ssh://git@x/notes.git" }'));
+    assert.equal(cfg.sync?.branch, 'master');
+    assert.equal(cfg.sync?.intervalSec, 15);
+  });
+});

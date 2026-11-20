@@ -1,27 +1,29 @@
 // Local preview: dist/ with production's security headers and cache policy
-// (minus upgrade-insecure-requests — this is plain http).
+// (minus upgrade-insecure-requests — this is plain http). With `sync` in the
+// config it doubles as the serving daemon: poll the notes remote, hard-reset
+// the content dir onto it, rebuild into the served root.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { decodeURIComponentSafe, fatal, parseArgs, realInside } from '../core/util.ts';
-import { basePathOf, loadConfig, repoPath } from '../core/config.ts';
+import { decodeURIComponentSafe, fatal, parseArgs, realInside, realPath } from '../core/util.ts';
+import { basePathOf, loadConfig, repoPath, CONFIG_FILES, LOCAL_CONFIG_FILE, ROOT as REPO_ROOT, type AppConfig, type SyncConfig } from '../core/config.ts';
 import { buildCsp, hashesOf, type CspHashes } from '../core/csp.ts';
 import { ATTACHMENT_TYPES } from '../render/attachments.ts';
+import { GitSync } from '../sync/git.ts';
+import { BuildRunner, runBuildChild } from '../build/runner.ts';
 
 const args = parseArgs(process.argv.slice(2));
-const cfg = await loadConfig(
-  args.config ? path.resolve(process.cwd(), String(args.config)) : undefined,
-  typeof args.content === 'string' ? path.resolve(process.cwd(), args.content) : undefined,
-).catch(fatal);
-// URL space carries the base path, dist/ does not — like on the real host.
-const BASE = basePathOf(cfg.url);
+const CONFIG_ARG = args.config ? path.resolve(process.cwd(), String(args.config)) : undefined;
+const CONTENT_ARG = typeof args.content === 'string' ? path.resolve(process.cwd(), args.content) : undefined;
+const cfg = await loadConfig(CONFIG_ARG, CONTENT_ARG).catch(fatal);
 const ROOT = path.resolve(String(args.root || cfg.outDir));
 // The preview routinely serves through a symlink (deploy's current →
 // releases/<id>). `rel` and the escape check must be computed against where
-// the bytes really live, or /static/ stops looking immutable.
-const REAL_ROOT = fs.realpathSync(ROOT);
+// the bytes really live, or /static/ stops looking immutable. realPath, not
+// realpathSync: in sync mode the dir may not exist until the first build.
+const REAL_ROOT = realPath(ROOT);
 const PORT = Number(args.port || process.env.PORT || 7060);
 if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
   console.error(`✗ invalid port: ${String(args.port)}`);
@@ -47,9 +49,30 @@ for (const [ext, mime] of Object.entries(ATTACHMENT_TYPES)) {
   TYPES['.' + ext] = mime.startsWith('text/') ? `${mime}; charset=utf-8` : mime;
 }
 
+/** The daemon outlives config edits, and a sync clone can introduce a
+ *  notes-root site.config.local.mjs that was not there at boot — so the
+ *  serving-facing config is re-read when any file of the stack changes
+ *  (mtime probe, like cspHashes). Paths (outDir, the sync dir) stay boot-frozen. */
+let cfgFresh: AppConfig = cfg;
+let cfgKey = '';
+async function refreshCfg(): Promise<void> {
+  const contentDir = cfgFresh.contentDir;
+  const files = CONFIG_ARG
+    ? [CONFIG_ARG]
+    : [repoPath(CONFIG_FILES[0]), repoPath(LOCAL_CONFIG_FILE), path.resolve(REPO_ROOT, contentDir, LOCAL_CONFIG_FILE)];
+  const key = files.map((f) => { try { return fs.statSync(f).mtimeMs; } catch { return 0; } }).join(':');
+  if (key === cfgKey) return;
+  try {
+    cfgFresh = await loadConfig(CONFIG_ARG, CONTENT_ARG);
+    cfgKey = key;
+  } catch {
+    /* a config edit that no longer parses keeps the last good config */
+  }
+}
+
 /** Re-read on manifest mtime change, never per request (the manifest is written
  *  atomically). A missing manifest keeps the last good hashes. */
-const MANIFEST_SOURCES = (): string[] => [path.join(ROOT, 'build-info.json'), repoPath(cfg.manifestFile)];
+const MANIFEST_SOURCES = (): string[] => [path.join(ROOT, 'build-info.json'), repoPath(cfgFresh.manifestFile)];
 let hashCache: { key: string; hashes: CspHashes } | null = null;
 
 function cspHashes(): CspHashes {
@@ -68,7 +91,7 @@ function cspHashes(): CspHashes {
 
 function securityHeaders(): Record<string, string> {
   return {
-    'Content-Security-Policy': buildCsp(cspHashes(), cfg),
+    'Content-Security-Policy': buildCsp(cspHashes(), cfgFresh),
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
@@ -103,16 +126,16 @@ async function resolveFile(urlPath: string): Promise<string | null> {
 }
 
 /** Legacy `/posts/<abbrlink>.html` → `/posts/<abbrlink>` (mirrors nginx). */
-function legacyPostRedirect(req: IncomingMessage): string | null {
+function legacyPostRedirect(req: IncomingMessage, base: string): string | null {
   const pathname = new URL(req.url || '/', 'http://localhost').pathname;
-  if (BASE && pathname !== BASE && !pathname.startsWith(BASE + '/')) return null;
-  const stripped = BASE ? pathname.slice(BASE.length) || '/' : pathname;
+  if (base && pathname !== base && !pathname.startsWith(base + '/')) return null;
+  const stripped = base ? pathname.slice(base.length) || '/' : pathname;
   const m = stripped.match(/^\/posts\/([^/]+)\.html$/);
   if (!m) return null;
   const seg = decodeURIComponentSafe(m[1]);
   if (!/^[\w.-]+$/.test(seg) || seg.includes('..')) return null;
   const qs = (req.url || '').includes('?') ? '?' + (req.url || '').split('?').slice(1).join('?') : '';
-  return `${BASE}/posts/${encodeURIComponent(seg)}${qs}`;
+  return `${base}/posts/${encodeURIComponent(seg)}${qs}`;
 }
 
 function plain(res: ServerResponse, status: number, body: string): void {
@@ -126,7 +149,10 @@ function send(res: ServerResponse, status: number, headers: Record<string, strin
 }
 
 async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const loc = legacyPostRedirect(req);
+  await refreshCfg();
+  // URL space carries the base path, dist/ does not — like on the real host.
+  const base = basePathOf(cfgFresh.url);
+  const loc = legacyPostRedirect(req, base);
   if (loc) {
     res.writeHead(301, { Location: loc });
     res.end();
@@ -134,23 +160,23 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   }
 
   let rawPath = new URL(req.url || '/', 'http://localhost').pathname;
-  if (BASE) {
+  if (base) {
     const qs = (req.url || '').includes('?') ? '?' + (req.url || '').split('?').slice(1).join('?') : '';
     if (rawPath === '/' || rawPath === '') {
-      res.writeHead(301, { Location: BASE + '/' + qs });
+      res.writeHead(301, { Location: base + '/' + qs });
       res.end();
       return;
     }
-    if (rawPath === BASE) {
-      res.writeHead(301, { Location: BASE + '/' + qs });
+    if (rawPath === base) {
+      res.writeHead(301, { Location: base + '/' + qs });
       res.end();
       return;
     }
-    if (!rawPath.startsWith(BASE + '/')) {
-      plain(res, 404, '404 (this site is served under ' + BASE + '/)');
+    if (!rawPath.startsWith(base + '/')) {
+      plain(res, 404, '404 (this site is served under ' + base + '/)');
       return;
     }
-    rawPath = rawPath.slice(BASE.length) || '/';
+    rawPath = rawPath.slice(base.length) || '/';
   }
   // Like nginx's try_files; never 301 to a trailing slash (see csp.ts).
   const file = await resolveFile(rawPath);
@@ -240,9 +266,92 @@ const server = createServer(async (req, res) => {
 
 server.on('clientError', (_err, socket) => socket.end('HTTP/1.1 400 Bad Request\r\n\r\n'));
 
+// ---- sync daemon (config.sync) ---------------------------------------------
+// Startup: clone if needed, sync once, build when anything moved or there is
+// no dist yet. With a dist already present, any startup failure only degrades
+// to serving it — without one there is nothing to serve, so exit non-zero.
+// Afterwards: poll; a failure backs off and repeats its message only on change.
+const syncCfg: SyncConfig | undefined = cfg.sync;
+if (syncCfg) {
+  const syncLog = (msg: string): void => console.log(`\x1b[2m[${new Date().toLocaleTimeString()}]\x1b[0m ${msg}`);
+  const buildArgs = [...process.argv.slice(2), '--out', ROOT];
+  const runner = new BuildRunner({
+    args: buildArgs,
+    cwd: REPO_ROOT,
+    events: {
+      start: () => syncLog('Rebuilding…'),
+      exit: (code, ms) =>
+        code === 0
+          ? syncLog(`Build OK (${ms}ms)`)
+          : console.error(`[sync] build FAILED (exit ${code}); still serving the previous dist — the next push retries`),
+    },
+  });
+  const git = new GitSync({
+    dir: path.resolve(REPO_ROOT, String(args.content || cfg.contentDir)),
+    remote: syncCfg.remote,
+    branch: syncCfg.branch ?? 'master',
+  });
+  const hasDist = (): boolean => fs.existsSync(path.join(ROOT, 'build-info.json'));
+
+  const startup = async (): Promise<void> => {
+    const cloned = await git.ensureCloned();
+    const res = await git.sync();
+    if (!cloned && !res.changed && hasDist()) {
+      syncLog(`sync: up to date, ${syncCfg.branch}@${res.sha.slice(0, 8)}`);
+      return;
+    }
+    syncLog(cloned ? 'sync: cloned; building…' : `sync: ${syncCfg.branch} → ${res.sha.slice(0, 8)}; building…`);
+    if ((await runBuildChild({ args: buildArgs, cwd: REPO_ROOT })) !== 0) {
+      throw new Error('the initial build failed (see its output above)');
+    }
+  };
+
+  const tick = async (): Promise<void> => {
+    if (!runner.busy) {
+      try {
+        // ensureCloned is an existsSync no-op once cloned; it lets the poll
+        // recover from a first clone that failed while an old dist served.
+        await git.ensureCloned();
+        const res = await git.sync();
+        fails = 0;
+        lastError = '';
+        if (res.changed) {
+          syncLog(`sync: ${syncCfg.branch} → ${res.sha.slice(0, 8)}, rebuilding`);
+          runner.request();
+        }
+      } catch (err) {
+        fails++;
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg !== lastError) {
+          lastError = msg;
+          console.error(`[sync] ${msg}`);
+        }
+      }
+    }
+    setTimeout(tick, (fails ? intervalMs * Math.min(fails, 5) : intervalMs)).unref();
+  };
+
+  const intervalMs = (syncCfg.intervalSec ?? 15) * 1000;
+  let fails = 0;
+  let lastError = '';
+
+  try {
+    await startup();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!hasDist()) {
+      console.error(`✗ sync startup failed and there is no dist to serve: ${msg}`);
+      process.exit(1);
+    }
+    console.error(`[sync] startup failed, serving the existing dist: ${msg}`);
+  }
+  setTimeout(tick, intervalMs).unref();
+}
+
 server.listen(PORT, () => {
+  const base = basePathOf(cfgFresh.url);
   console.log(
-    `Previewing ${path.relative(process.cwd(), ROOT) || 'dist'}/ at http://localhost:${PORT}${BASE ? BASE + '/' : '/'}  (CSP as production, minus upgrade-insecure-requests — this is http)`,
+    `Previewing ${path.relative(process.cwd(), ROOT) || 'dist'}/ at http://localhost:${PORT}${base ? base + '/' : '/'}  (CSP as production, minus upgrade-insecure-requests — this is http)`,
   );
 });
 

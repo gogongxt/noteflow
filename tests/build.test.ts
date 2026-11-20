@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawn } from 'node:child_process';
 import { cleanupTmpDirs, tmpDir, PNG } from './helpers.ts';
+import { computeAbbrlink } from '../src/content/abbrlink.ts';
 import { stripTypes } from '../src/build/frontend.ts';
 import { CSS_LAYERS, themeCss } from '../src/build/static-assets.ts';
 
@@ -627,15 +628,18 @@ suite('build variants', { concurrency: 6 }, () => {
     assert.match(bad.stderr + bad.stdout, /must be a YAML boolean/);
   });
 
-  test('--check mode: fails on missing abbrlink and writes nothing back', async () => {
+  test('--check mode: computes missing abbrlinks on the fly and writes nothing back', async () => {
     const copy = makeContentCopy();
     const extra = path.join(copy, '新笔记没有链接.md');
     fs.writeFileSync(extra, '---\ntitle: 新笔记\ndate: 2026-11-01\npublic: true\n---\nbody text\n');
     const before = fs.readFileSync(extra, 'utf8');
-    const r = await runBuild(['--check'], { content: copy });
-    assert.notEqual(r.status, 0);
-    assert.match(r.stderr + r.stdout, /missing abbrlink/);
+    const out = tmpDir('check-fly-');
+    const r = await runBuild(['--check', '--out', out], { content: copy, out });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
     assert.equal(fs.readFileSync(extra, 'utf8'), before, '--check must not modify source files');
+    assert.match(r.stderr + r.stdout, /without a pinned abbrlink/);
+    const slug = computeAbbrlink('新笔记', '2026-11-01');
+    assert.ok(fs.existsSync(path.join(out, 'posts', slug, 'index.html')), `served at the computed slug ${slug}`);
   });
 
   test('--check never fetches link metadata: a card with no cache degrades, offline', async () => {
@@ -659,17 +663,17 @@ suite('build variants', { concurrency: 6 }, () => {
     assert.ok(html.includes('class="link-preview"'), 'the plain link survives');
   });
 
-  test('the build writes back missing abbrlinks and leaves unknown fields untouched', async () => {
+  test('the build never writes into the notes: an unpinned note is served at its computed slug', async () => {
     const original = '---\ntitle: 新笔记\ndate: 2026-11-01\npublic: true\ncustom: keep-me\n---\nbody text\n';
     const copy = makeContentCopy();
     const extra = path.join(copy, '新笔记没有链接.md');
     fs.writeFileSync(extra, original);
-    const r = await runBuild([], { content: copy });
+    const out = tmpDir('readonly-');
+    const r = await runBuild(['--out', out], { content: copy, out });
     assert.equal(r.status, 0, r.stdout + r.stderr);
-    const after = fs.readFileSync(extra, 'utf8');
-    assert.match(after, /abbrlink: "[0-9a-f]{8}"/);
-    assert.match(after, /custom: keep-me/);
-    assert.ok(after.startsWith('---\ntitle: 新笔记\ndate: 2026-11-01\npublic: true\ncustom: keep-me\n'));
+    assert.equal(fs.readFileSync(extra, 'utf8'), original, 'the build must not modify source files');
+    const slug = computeAbbrlink('新笔记', '2026-11-01');
+    assert.ok(fs.existsSync(path.join(out, 'posts', slug, 'index.html')), `served at the computed slug ${slug}`);
   });
 
   test('a broken link fails the build, naming the file and the heading it sits under', async () => {

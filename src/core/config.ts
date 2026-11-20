@@ -36,6 +36,18 @@ export interface GiscusConfig {
   inputPosition?: 'top' | 'bottom';
 }
 
+/** Git mirror mode for a serving host: poll the notes repository's remote and
+ *  hard-reset the content dir onto it, rebuilding when the tip moves. While
+ *  enabled the build treats the content tree as read-only. */
+export interface SyncConfig {
+  /** Any `git` remote URL (ssh://…, https://…, a local path). */
+  remote: string;
+  /** Branch to follow. Default 'master'. */
+  branch?: string;
+  /** Poll interval in seconds; a failed poll backs off up to 5×. Default 15, min 2. */
+  intervalSec?: number;
+}
+
 /** The site footer: one line of identity on the left, the filing number on the
  *  right. Every piece renders only when configured. */
 export interface FooterConfig {
@@ -106,6 +118,8 @@ export interface AppConfig extends SiteConfig {
   cacheDir: string;
   /** Build manifest, written next to the output for serve/deploy. */
   manifestFile: string;
+  /** Poll-and-reset mirroring of the content repo. Absent: no syncing. */
+  sync?: SyncConfig;
 }
 
 /** Everything a config file may omit. `url` and `siteName` have no default. */
@@ -138,7 +152,7 @@ const CONFIG_KEYS = new Set<string>(
     url: true, siteName: true, lang: true, description: true, postPattern: true,
     pageSize: true, mermaid: true, giscus: true, repoUrl: true, edit: true, cspMeta: true,
     footer: true, contentDir: true, outDir: true, themeDir: true, cacheDir: true,
-    manifestFile: true,
+    manifestFile: true, sync: true,
   } satisfies Record<keyof AppConfig, true>),
 );
 
@@ -226,6 +240,17 @@ function checkFields(cfg: Record<string, unknown>, origin: string): void {
   checkGiscus(cfg.giscus, origin);
   checkEdit(cfg.edit, origin);
   checkFooter(cfg.footer, origin);
+  checkSync(cfg.sync, origin);
+}
+
+function checkSync(s: unknown, origin: string): void {
+  if (s === undefined) return;
+  if (!isObject(s)) bad(origin, 'sync must be an object');
+  if (!nonEmpty(s.remote)) bad(origin, 'sync.remote must be a non-empty git remote URL');
+  if (s.branch !== undefined && !nonEmpty(s.branch)) bad(origin, 'sync.branch must be a non-empty string');
+  if (s.intervalSec !== undefined && (!Number.isFinite(s.intervalSec) || (s.intervalSec as number) < 2)) {
+    bad(origin, 'sync.intervalSec must be a number of seconds >= 2');
+  }
 }
 
 /** #rgb, #rrggbb, rgb()/rgba() or a colour name; `url(...)` stays out. */
@@ -330,6 +355,9 @@ export async function loadConfig(file?: string, contentDir?: string, root: strin
   }
   for (const k of ['url', 'siteName'] as const) {
     if (merged[k] === undefined) throw new BuildError(`${baseLabel}: ${k} is required`);
+  }
+  if (merged.sync !== undefined) {
+    merged.sync = { branch: 'master', intervalSec: 15, ...(merged.sync as Record<string, unknown>) };
   }
   return merged as unknown as AppConfig;
 }

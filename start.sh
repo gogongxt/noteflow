@@ -4,10 +4,16 @@
 #
 # Usage:
 #   ./start.sh              build and start a local preview (default)
-#   ./start.sh build        build to dist/ (writes back missing abbrlinks)
-#   ./start.sh check        CI mode: fail on missing abbrlinks, never touch source files
+#   ./start.sh build        build to dist/ (never writes into the notes; missing
+#                           abbrlinks are computed on the fly)
+#   ./start.sh check        CI mode: read-only validation
 #   ./start.sh serve        preview an existing dist/ (optional port: ./start.sh serve 7061)
+#                           with sync configured in site.config.local.mjs, this is the
+#                           serving daemon: poll the notes remote, rebuild on change
 #   ./start.sh watch        rebuild on change + preview (edit your notes, refresh the browser)
+#   ./start.sh backfill     pin missing abbrlinks into the notes' frontmatter (you commit them)
+#   ./start.sh sync         one-shot: mirror the notes from their git remote, rebuild if
+#                           anything moved (sync must be configured)
 #   ./start.sh deploy       build + publish to the server
 #   ./start.sh clean        remove the build output and caches
 #   ./start.sh doctor       check local dependencies
@@ -58,10 +64,12 @@ HAS_CONFIG_ARG=0
 
 CFG_OUT="$(config_val contentDir outDir)"
 mapfile -t CFG <<< "$CFG_OUT"
-CONTENT_DIR="${CFG[0]:-notes}"
+RAW_CONTENT_DIR="${CFG[0]:-notes}"
+CONTENT_DIR="$RAW_CONTENT_DIR"
 OUT_DIR="${CFG[1]:-dist}"
 # Fall back to the project's own docs when the real content repository is
 # absent — only for the personal config; a named profile must stand on its own.
+# `sync` keeps RAW_CONTENT_DIR: an absent dir there is the clone target.
 if [ "$HAS_CONFIG_ARG" = 0 ] && [ ! -d "$CONTENT_DIR" ] && [ -d docs ]; then
   printf '  ! %s/ not found; building the docs content in docs/ as a demo\n' "$CONTENT_DIR" >&2
   CONTENT_DIR=docs
@@ -195,8 +203,19 @@ free_port() {
   ok "Stopped the previous preview (pid $pids)"
 }
 
+# Non-fatal --exists probe; a config that no longer parses fails inside serve.
+sync_enabled() {
+  if [ "$HAS_CONFIG_ARG" = 1 ]; then
+    node src/cli/config-print.ts --config "$CONFIG_FILE" --exists sync 2>/dev/null
+  else
+    node src/cli/config-print.ts --exists sync 2>/dev/null
+  fi
+}
+
 do_serve() {
-  [ -d "$OUT_DIR" ] || die "$OUT_DIR/ does not exist; run ./start.sh build first"
+  # In sync mode serve owns the no-dist decision (it clones and builds); every
+  # other mode needs an existing dist.
+  sync_enabled || { [ -d "$OUT_DIR" ] || die "$OUT_DIR/ does not exist; run ./start.sh build first"; }
   need_node
   free_port
   info "Local preview http://localhost:${PORT}/  ${DIM}(Ctrl+C to stop)${RESET}"
@@ -239,6 +258,33 @@ do_deploy() {
   bash scripts/deploy.sh
 }
 
+do_backfill() {
+  need_node
+  # The one command that writes into the notes: never the docs demo fallback,
+  # and never a silent substitution — a missing dir is an error.
+  [ -d "$RAW_CONTENT_DIR" ] || die "content directory not found: $RAW_CONTENT_DIR"
+  if [ "$HAS_CONFIG_ARG" = 1 ]; then
+    node src/content/abbrlink.ts "$@"
+  else
+    node src/content/abbrlink.ts --content "$RAW_CONTENT_DIR" "$@"
+  fi
+}
+
+do_sync() {
+  need_node
+  need_pandoc
+  command -v git >/dev/null 2>&1 || die "git not found (sync shells out to git)"
+  PANDOC_BIN="$(command -v "$PANDOC")"
+  export PANDOC_BIN
+  # An absent content dir is the clone target: use the configured dir, not the
+  # docs demo fallback.
+  if [ "$HAS_CONFIG_ARG" = 1 ]; then
+    node src/cli/sync.ts "$@"
+  else
+    node src/cli/sync.ts --content "$RAW_CONTENT_DIR" "$@"
+  fi
+}
+
 do_clean() {
   info "Cleaning build output"
   local cache_dir
@@ -266,6 +312,8 @@ case "${1:-all}" in
   build)  shift; do_build "$@" ;;
   check)  shift; do_build --check "$@" ;;
   watch)  shift; do_watch "$@" ;;
+  backfill) shift; do_backfill "$@" ;;
+  sync)   shift; do_sync "$@" ;;
   deploy) do_deploy ;;
   clean)  do_clean ;;
   all)    doctor; do_build; do_serve ;;
