@@ -12,13 +12,15 @@ import { cleanupTmpDirs, tmpDir } from './helpers.ts';
 
 after(() => cleanupTmpDirs());
 
+// Carries an identity: CI runners configure no global git user, and a
+// pull --rebase commits even when no explicit commit is asked for.
 const git = (args: string[], cwd: string): string =>
-  execFileSync('git', args, { cwd, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } }).toString();
+  execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { cwd, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } }).toString();
 
 function commit(repo: string, file: string, text: string): void {
   fs.writeFileSync(path.join(repo, file), text);
   git(['add', file], repo);
-  git(['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-m', `update ${file}`], repo);
+  git(['commit', '-m', `update ${file}`], repo);
 }
 
 /** A bare remote plus a seeded clone with one pushed commit; returns [remote, seed]. */
