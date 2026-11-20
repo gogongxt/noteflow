@@ -58,6 +58,17 @@ export interface FooterConfig {
   credit?: boolean;
 }
 
+/** Selectable mermaid themes; each has a real dark twin. */
+export const MERMAID_THEMES = ['default', 'redux', 'redux-color', 'neo'] as const;
+export type MermaidTheme = (typeof MERMAID_THEMES)[number];
+
+export interface MermaidConfig {
+  /** Light-mode theme; the build pairs it with its dark twin. Default 'default'. */
+  theme?: MermaidTheme;
+  /** CSS-colour overrides applied to both modes. */
+  themeVariables?: Record<string, string>;
+}
+
 /** Rendering-facing site settings (everything a template may read). */
 export interface SiteConfig {
   url: string;
@@ -67,6 +78,8 @@ export interface SiteConfig {
   /** `/posts/{abbrlink}` → the URL of every note. */
   postPattern: string;
   pageSize: { home: number; feed: number };
+  /** Mermaid diagram theme. */
+  mermaid?: MermaidConfig;
   /** When set, public notes show comments by default; `comments: false` opts out per note. */
   giscus?: GiscusConfig;
   /** Repository URL shown as a GitHub icon in the header; hidden when unset. */
@@ -123,7 +136,7 @@ export const CONFIG_FILES = [SITE_CONFIG_FILE, LOCAL_CONFIG_FILE];
 const CONFIG_KEYS = new Set<string>(
   Object.keys({
     url: true, siteName: true, lang: true, description: true, postPattern: true,
-    pageSize: true, giscus: true, repoUrl: true, edit: true, cspMeta: true,
+    pageSize: true, mermaid: true, giscus: true, repoUrl: true, edit: true, cspMeta: true,
     footer: true, contentDir: true, outDir: true, themeDir: true, cacheDir: true,
     manifestFile: true,
   } satisfies Record<keyof AppConfig, true>),
@@ -209,9 +222,30 @@ function checkFields(cfg: Record<string, unknown>, origin: string): void {
       if (!Number.isInteger(size[k]) || (size[k] as number) <= 0) bad(origin, `pageSize.${k} must be a positive integer`);
     }
   }
+  checkMermaid(cfg.mermaid, origin);
   checkGiscus(cfg.giscus, origin);
   checkEdit(cfg.edit, origin);
   checkFooter(cfg.footer, origin);
+}
+
+/** #rgb, #rrggbb, rgb()/rgba() or a colour name; `url(...)` stays out. */
+const MERMAID_COLOR = /^(#[0-9a-f]{3,8}|rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(,\s*(0|1|0?\.\d+)\s*)?\)|[a-z]{3,24})$/i;
+
+function checkMermaid(m: unknown, origin: string): void {
+  if (m === undefined) return;
+  if (!isObject(m)) bad(origin, 'mermaid must be an object');
+  if (m.theme !== undefined && !MERMAID_THEMES.includes(m.theme as MermaidTheme)) {
+    bad(origin, `mermaid.theme must be one of ${MERMAID_THEMES.join(', ')}`);
+  }
+  if (m.themeVariables !== undefined) {
+    if (!isObject(m.themeVariables)) bad(origin, 'mermaid.themeVariables must be an object of colour strings');
+    for (const [k, v] of Object.entries(m.themeVariables)) {
+      if (k === 'fontFamily') bad(origin, 'mermaid.themeVariables.fontFamily is set from the theme; override the theme font instead');
+      if (typeof v !== 'string' || !MERMAID_COLOR.test(v.trim())) {
+        bad(origin, `mermaid.themeVariables.${k} must be a CSS colour, got ${JSON.stringify(v)}`);
+      }
+    }
+  }
 }
 
 function checkGiscus(g: unknown, origin: string): void {

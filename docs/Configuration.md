@@ -34,12 +34,33 @@ comment at the top of the template gives editors autocomplete; `npx tsc
 | `contentDir` / `outDir` | Markdown tree and build output, repo-relative. `outDir` may not be, contain, or sit inside the content tree, `src/`, or the theme: a build deletes whatever it did not just emit, so that would erase its own input. |
 | `themeDir` / `cacheDir` / `manifestFile` | Theme directory, caches (mermaid prerender, link-card metadata, per-page render results), and the build manifest. |
 | `postPattern` | URL shape of a note, `/posts/{abbrlink}` by default. |
+| `mermaid` | Diagram theme: `theme` (see below) and CSS-colour `themeVariables` overrides. |
 | `pageSize` | Entries per page for the home list and the feed. |
 | `giscus` | Comments via GitHub Discussions; remove the block to disable. |
 | `repoUrl` | A repository URL shown as a GitHub icon in the header, opening in a new tab. Unset hides it — that is the default, so a site you deploy does not inherit this project's link. |
 | `edit` | Links every page to its source file in a Git forge: hovering the page title reveals a pencil that opens the file's edit page. Unset hides it. See below. |
 | `cspMeta` | Also carry the CSP in a `<meta>` tag — for hosts that cannot send response headers (GitHub Pages). |
 | `footer` | The site footer. Every field is optional and renders only when set; see below. |
+
+# Diagram theme
+
+Mermaid diagrams pick one of the packages' built-in themes. The build renders both modes, so a light theme is paired with its dark twin automatically — pick one name and both follow:
+
+```ts
+mermaid: {
+  theme: 'redux-color',                       // default | redux-color | redux | neo
+  themeVariables: { primaryColor: '#ECECFE' }, // optional CSS-colour overrides, both modes
+},
+```
+
+| `theme` | Look |
+| --- | --- |
+| `default` | mermaid's stock purple/slate theme (the build's default). |
+| `redux-color` | mermaid.ai's own palette: each cluster, entity and participant gets a colour from a categorical set. |
+| `redux` | The same palette, without the per-element colouring. |
+| `neo` | The neo shape language with gradient borders. |
+
+`redux-color` and `redux` also switch the diagram's shape language to `look: 'neo'` (rounded, thicker borders, soft shadows), which is how they are drawn on mermaid.ai. Per-diagram `classDef`/`style` in a note still override the theme's colours. `themeVariables.fontFamily` is not accepted — label metrics are measured with the theme's font, so the two must agree; override the theme's font instead.
 
 # Build cache
 

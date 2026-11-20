@@ -6,15 +6,28 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { BuildError, isInside, log } from '../core/util.ts';
 import { ICON_CHECK_D, ICON_COPY_D } from './code-blocks.ts';
+import type { MermaidConfig, MermaidTheme } from '../core/config.ts';
 import type { Page } from '../core/types.ts';
 
 // Label metrics come from the theme's sans family, else the system stack.
 const SYSTEM_FONT_STACK = '-apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif';
 
-function renderTheme(fontFamily: string) {
+/** The dark twin each selectable light theme renders with. */
+const DARK_TWIN: Record<MermaidTheme, string> = {
+  default: 'dark',
+  redux: 'redux-dark',
+  'redux-color': 'redux-dark-color',
+  neo: 'neo-dark',
+};
+
+function renderTheme(fontFamily: string, theme: MermaidTheme = 'default', vars: Record<string, string> = {}) {
+  const shared = { ...vars, fontFamily, fontSize: '16px' };
   return {
-    light: { name: 'default', vars: { fontFamily, fontSize: '16px' } },
-    dark: { name: 'dark', vars: { fontFamily, fontSize: '16px' } },
+    // The redux presets are drawn for the neo look; classic would stretch
+    // their thicker borders and 12px radii back into the old shape language.
+    look: theme.startsWith('redux') ? 'neo' : 'classic',
+    light: { name: theme, vars: { ...shared } },
+    dark: { name: DARK_TWIN[theme], vars: { ...shared } },
   };
 }
 
@@ -249,7 +262,11 @@ export function mergeDiagramCss(rendered: Iterable<RenderedDiagram>): {
   const blocks: string[] = [];
   for (const [type, g] of groups) {
     const sel = `svg[data-mmdt="${type}"]`;
-    blocks.push(g.light.split('svg[data-mmd]').join(sel).trim());
+    // The two renderings emit different rule sets for the same selector; the
+    // light rules must not apply on a dark page (their higher specificity
+    // would win over the dark base rules).
+    const lightScope = `:root:not([data-theme="dark"]) ${sel}`;
+    blocks.push(g.light.split('svg[data-mmd]').join(lightScope).trim());
     blocks.push(g.dark.split('svg[data-mmd]').join(sel).trim());
   }
   return { css: [...blocks, ...perDiagram].filter(Boolean).join('\n'), typeOf };
@@ -259,13 +276,13 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-export function diagramHash(block: MermaidBlock, version: string, fontStack = SYSTEM_FONT_STACK): string {
+export function diagramHash(block: MermaidBlock, version: string, fontStack = SYSTEM_FONT_STACK, mermaid: MermaidConfig = {}): string {
   const h = crypto.createHash('sha256');
   h.update(version);
   h.update('\0');
   h.update(block.source);
   h.update('\0');
-  h.update(JSON.stringify(renderTheme(fontStack)));
+  h.update(JSON.stringify(renderTheme(fontStack, mermaid.theme ?? 'default', mermaid.themeVariables)));
   h.update('\0');
   h.update(fontStack);
   h.update('\0');
@@ -301,19 +318,28 @@ export class PlaywrightMermaidRenderer implements MermaidRenderer {
   private readonly mermaidPath: string;
   private readonly executablePath: string | null;
   readonly fontStack: string;
+  private readonly theme: MermaidTheme;
+  private readonly themeVars: Record<string, string>;
 
-  constructor({ cacheDir, themeDir, mermaidPath, executablePath = null }: {
+  constructor({ cacheDir, themeDir, mermaidPath, executablePath = null, mermaid = {} }: {
     cacheDir: string;
     themeDir: string;
     mermaidPath: string;
     executablePath?: string | null;
+    mermaid?: MermaidConfig;
   }) {
     this.cacheDir = cacheDir;
     this.themeDir = themeDir;
     this.mermaidPath = mermaidPath;
     this.executablePath = executablePath ?? process.env.MERMAID_CHROMIUM ?? null;
+    this.theme = mermaid.theme ?? 'default';
+    this.themeVars = mermaid.themeVariables ?? {};
     const family = themeFontFace(themeDir)?.family ?? null;
     this.fontStack = family ? `"${family}", ${SYSTEM_FONT_STACK}` : SYSTEM_FONT_STACK;
+  }
+
+  private themes() {
+    return renderTheme(this.fontStack, this.theme, this.themeVars);
   }
 
   private cacheFile(hash: string): string {
@@ -442,7 +468,7 @@ export class PlaywrightMermaidRenderer implements MermaidRenderer {
     const jobs: RenderJob[] = pending.map((b) => ({ hash: hashFor(b), source: b.source }));
     const results = (await this.page!.evaluate(renderInPage, {
       jobs,
-      themes: renderTheme(this.fontStack),
+      themes: this.themes(),
       fontFamily: this.fontStack,
     })) as InPageResult[];
 
@@ -568,7 +594,11 @@ async function renderInPage({
   fontFamily,
 }: {
   jobs: RenderJob[];
-  themes: { light: { name: string; vars: Record<string, string> }; dark: { name: string; vars: Record<string, string> } };
+  themes: {
+    look: 'classic' | 'handDrawn' | 'neo';
+    light: { name: string; vars: Record<string, string> };
+    dark: { name: string; vars: Record<string, string> };
+  };
   fontFamily: string;
 }): Promise<InPageResult[]> {
   const mermaid = (globalThis as unknown as {
@@ -643,6 +673,9 @@ async function renderInPage({
           startOnLoad: false,
           securityLevel: 'strict',
           theme: themeName,
+          // The redux themes are a preset that also switches the node shape
+          // language; passing the theme alone draws the old look in new colours.
+          look: (themes.look ?? 'classic') as 'classic' | 'handDrawn' | 'neo',
           themeVariables: vars,
           flowchart: { htmlLabels: true, useMaxWidth: false },
           sequence: { useMaxWidth: false },
@@ -773,9 +806,10 @@ export async function prepareMermaid(opts: {
   noMermaid: boolean;
   root: string;
   cacheDir: string;
+  mermaid?: MermaidConfig;
   strict: boolean;
 }): Promise<MermaidState> {
-  const { pages, themeDir, mermaidBin, noMermaid, root, cacheDir } = opts;
+  const { pages, themeDir, mermaidBin, noMermaid, root, cacheDir, mermaid = {} } = opts;
   const blocks: MermaidBlock[] = [];
   const sourceByPage = new Map<string, Map<string, MermaidBlock>>();
   const captionByKey = new Map<string, string>();
@@ -794,7 +828,7 @@ export async function prepareMermaid(opts: {
   const renderer =
     noMermaid || !blocks.length
       ? null
-      : new PlaywrightMermaidRenderer({ cacheDir: path.resolve(root, cacheDir, 'mermaid'), themeDir, mermaidPath: mermaidBin });
+      : new PlaywrightMermaidRenderer({ cacheDir: path.resolve(root, cacheDir, 'mermaid'), themeDir, mermaidPath: mermaidBin, mermaid });
 
   let rendered: Map<string, RenderedDiagram> = empty();
   if (renderer) {
@@ -803,7 +837,7 @@ export async function prepareMermaid(opts: {
     const t = Date.now();
     try {
       const version = mermaidVersion(mermaidBin);
-      rendered = await renderer.render(blocks, (b) => diagramHash(b, version, renderer.fontStack));
+      rendered = await renderer.render(blocks, (b) => diagramHash(b, version, renderer.fontStack, mermaid));
       log.info(`  mermaid rendering done in ${Date.now() - t}ms`);
     } catch (err) {
       const msg = (err as Error).message;

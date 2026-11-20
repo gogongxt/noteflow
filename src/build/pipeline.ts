@@ -90,6 +90,7 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
     noMermaid,
     root,
     cacheDir: cfg.cacheDir,
+    mermaid: cfg.mermaid,
     strict: args['strict-mermaid'] === true,
   });
 

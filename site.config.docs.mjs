@@ -39,6 +39,8 @@ export default {
   postPattern: '/posts/{abbrlink}',
   pageSize: { home: 20, feed: 20 },
 
+  mermaid: { theme: 'redux-color' },
+
   // Public by design: the ids locate the repo/category, not grant write access.
   giscus: {
     repo: 'gogongxt/noteflow',

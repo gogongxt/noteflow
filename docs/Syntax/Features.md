@@ -126,8 +126,10 @@ sequenceDiagram
 :::
 
 Common mermaid diagram types are supported (flowchart, sequence, class, state,
-Gantt, pie, ER, mindmap, timeline and more). Click a diagram to open the viewer:
-drag to pan, scroll to zoom, double-click or press `0` to reset, `Esc` to close.
+Gantt, pie, ER, mindmap, timeline and more). The palette comes from the site's
+`mermaid.theme` — one choice covers both light and dark. Click a diagram to
+open the viewer: drag to pan, scroll to zoom, double-click or press `0` to
+reset, `Esc` to close.
 
 The drawing is the default view; the `Source` switch above it shows the Mermaid
 that produced it, with a one-click copy. The source is part of the page — the

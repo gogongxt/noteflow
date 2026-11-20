@@ -29,6 +29,10 @@ export default {
   postPattern: '/posts/{abbrlink}',
   pageSize: { home: 20, feed: 20 },
 
+  // Diagram theme: default (bundled) or redux-color (mermaid.ai's palette).
+  // See docs/Configuration.md; the dark mode is derived from the same choice.
+  // mermaid: { theme: 'redux-color' },
+
   // Optional: a header GitHub icon linking to your repository. Remove to hide.
   // repoUrl: 'https://github.com/you/your-notes',
 

@@ -1339,6 +1339,30 @@ test('config validation: an unknown key fails the build instead of silently doin
   await assert.rejects(loadConfig(undefined, undefined, root), /site\.config\.local\.mjs: unknown key 'footr'/);
 });
 
+test('config validation: the mermaid block takes a known theme and CSS colours only', async () => {
+  const { loadConfig } = await import('../src/core/config.ts');
+  const dir = tmpDir('nf-cfg-mermaid-');
+  const write = (name: string, mermaid: string): string => {
+    const file = path.join(dir, name);
+    fs.writeFileSync(file, `export default { url: 'https://example.com', siteName: 't', lang: 'en', pageSize: { home: 1, feed: 1 }, ${mermaid} };\n`);
+    return file;
+  };
+  const ok = await loadConfig(write('ok.mjs', "mermaid: { theme: 'redux-color', themeVariables: { primaryColor: '#ECECFE', lineColor: 'rgb(40, 37, 61)' } },"));
+  assert.equal(ok.mermaid!.theme, 'redux-color');
+  assert.equal(ok.mermaid!.themeVariables!.primaryColor, '#ECECFE');
+  await assert.rejects(loadConfig(write('bad-theme.mjs', "mermaid: { theme: 'sunset' },")), /bad-theme\.mjs: mermaid\.theme must be one of/);
+  // A color value that is not a colour would paint nothing, or reach into a url().
+  await assert.rejects(
+    loadConfig(write('bad-color.mjs', "mermaid: { themeVariables: { primaryColor: 'url(http://x/y.png)' } },")),
+    /bad-color\.mjs: mermaid\.themeVariables\.primaryColor must be a CSS colour/,
+  );
+  // The font is measured by the renderer; an override would desync metrics.
+  await assert.rejects(
+    loadConfig(write('bad-font.mjs', "mermaid: { themeVariables: { fontFamily: 'Comic Sans' } },")),
+    /mermaid\.themeVariables\.fontFamily is set from the theme/,
+  );
+});
+
 test('config validation: footer shape is checked up front, not mid-build', async () => {
   const { loadConfig } = await import('../src/core/config.ts');
   const dir = tmpDir('nf-cfg-');
