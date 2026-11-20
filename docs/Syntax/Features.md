@@ -293,6 +293,123 @@ The right column.
 ::::
 :::
 
+# Components
+
+The theme ships a `w-` class layer — buttons, chips, cards, a timeline and a
+scroll-reveal — usable from Markdown alone, no script and no per-note CSS. Every
+piece reads the theme tokens, so light and dark follow the site automatically.
+
+::: {.demo}
+````markdown
+[Read the manual](./Standard%20Markdown.md){.w-btn} [Back home](/){.w-btn .w-ghost}
+
+Status: [stable]{.w-chip} [v0.3]{.w-chip} [experimental]{.w-chip}
+````
+[Read the manual](./Standard%20Markdown.md){.w-btn} [Back home](/){.w-btn .w-ghost}
+
+Status: [stable]{.w-chip} [v0.3]{.w-chip} [experimental]{.w-chip}
+:::
+
+Buttons are ordinary links (`{ .w-btn }`, add `.w-ghost` for the outline form);
+chips are bracketed spans (`[text]{.w-chip}`). Both work inline in a sentence.
+
+## Cards
+
+A card is a fenced div; its body is full Markdown. A grid is another fenced div
+layered around them, and the columns reflow by width (single column on phones):
+
+::: {.demo}
+````markdown
+:::: {.w-grid}
+::: {.w-card}
+**Zero script** — a card is a fenced div; the body is ordinary Markdown.
+:::
+
+::: {.w-card}
+**Follows the theme** — colors, corners and shadows are theme tokens.
+:::
+::::
+````
+:::: {.w-grid}
+::: {.w-card}
+**Zero script** — a card is a fenced div; the body is ordinary Markdown.
+:::
+
+::: {.w-card}
+**Follows the theme** — colors, corners and shadows are theme tokens.
+:::
+::::
+:::
+
+## Timeline
+
+Each `::: {.w-tl}` is one entry; the dot aligns to the entry's first line and
+the rail runs down the `::: {.w-timeline}` group:
+
+::: {.demo}
+````markdown
+::: {.w-timeline}
+::: {.w-tl}
+**2026-11-21** — the widget channel shipped.
+:::
+
+::: {.w-tl}
+**Next** — components landed in the theme.
+:::
+:::
+````
+::: {.w-timeline}
+::: {.w-tl}
+**2026-11-21** — the widget channel shipped.
+:::
+
+::: {.w-tl}
+**Next** — components landed in the theme.
+:::
+:::
+:::
+
+## Scroll-reveal
+
+Tag a block `.w-reveal` and it fades up as it enters the viewport; wrap a group
+in `.w-stagger` to offset each child. This is the one scripted upgrade: the CSS
+hides a block only under `html[data-js]`, so without scripting (or in print)
+everything is simply visible, and `prefers-reduced-motion` skips the fade.
+
+::: {.demo}
+````markdown
+::: {.w-reveal}
+A block that fades in when scrolled into view.
+:::
+
+:::: {.w-stagger}
+::: {.w-card .w-reveal}
+Together, these appear one after another.
+:::
+
+::: {.w-card .w-reveal}
+Second card.
+:::
+::::
+````
+::: {.w-reveal}
+A block that fades in when scrolled into view.
+:::
+
+:::: {.w-stagger}
+::: {.w-card .w-reveal}
+Together, these appear one after another.
+:::
+
+::: {.w-card .w-reveal}
+Second card.
+:::
+::::
+:::
+
+A `w-` class beyond these built-ins is not special: it only becomes meaningful
+with a [widget](./Features.md#widgets) of the same name next to the note.
+
 # Widgets
 
 A note can run small interactive widgets of its own: drop a `.js` (and

@@ -398,3 +398,192 @@
     --measure: 48rem;
   }
 }
+
+/* --- Note components (the `w-` layer) --------------------------------------
+   Ready-made pieces a note uses by class alone — no script, no per-note CSS.
+   Everything rides the theme tokens, so light/dark follows the site. The one
+   scripted upgrade (scroll-reveal) keys off html[data-js] and degrades to a
+   fully visible page without it. */
+
+/* The *-solid pair, not --accent/--accent-hover: in the dark theme those are
+   pale blues (hover lighter still) that leave white labels below 3:1.
+   base.css's a:hover (0,1,1) would also repaint the label mid-blue, hence
+   the explicit hover color. */
+.w-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  padding: 0.45em 1.15em;
+  border-radius: var(--radius-sm);
+  background: var(--accent-solid);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  line-height: 1.4;
+  text-decoration: none;
+  box-shadow: var(--shadow-xs);
+  transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease), translate var(--dur) var(--ease);
+}
+
+.w-btn:hover {
+  background: var(--accent-solid-hover);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+  translate: 0 -1px;
+}
+
+.w-btn.w-ghost,
+.w-btn.w-ghost:hover {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--border-strong);
+  box-shadow: none;
+}
+
+.w-btn.w-ghost:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.w-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12em 0.75em;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: 0.85em;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+/* Section divs mean the next section's h1 carries margin-top 0, so a
+   fenced-div container must keep the prose block rhythm (p/ul/ol: 1.2em)
+   or it lands flush against the section below. */
+.w-card,
+.w-grid {
+  margin: 0 0 1.2em;
+}
+
+.w-grid > .w-card {
+  margin: 0;
+}
+
+.w-card {
+  padding: 1rem 1.2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow var(--dur) var(--ease), translate var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+/* Fenced-div content keeps its prose margins; flatten them at the box edges
+   so padding reads evenly on all four sides. */
+.w-card > :first-child,
+.w-tl > :first-child {
+  margin-top: 0;
+}
+
+.w-card > :last-child,
+.w-tl > :last-child {
+  margin-bottom: 0;
+}
+
+.w-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+  translate: 0 -2px;
+}
+
+.w-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: 1rem;
+}
+
+.w-timeline {
+  position: relative;
+  margin: 0 0 1.2em;
+  padding-left: 1.7rem;
+  list-style: none;
+}
+
+.w-timeline::before {
+  content: "";
+  position: absolute;
+  top: 0.4rem;
+  bottom: 0.4rem;
+  left: 0.3rem;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--border);
+}
+
+.w-tl {
+  position: relative;
+  padding: 0 0 1.1rem;
+}
+
+.w-tl:last-child {
+  padding-bottom: 0.2rem;
+}
+
+/* Centered on the entry's first line: half a line box (lh tracks the body's
+   line-height, which changes on narrow screens) minus half the 9px dot. */
+.w-tl::before {
+  content: "";
+  position: absolute;
+  left: -1.55rem;
+  top: calc(0.5lh - 4.5px);
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+/* Hidden only when JS is guaranteed (html[data-js], set pre-paint): without
+   scripting the content is simply there, and print never hides anything.
+   The entrance is an animation, not a transition: a card can carry .w-reveal
+   itself, and an animation releases `translate` when it ends, leaving the
+   component's own hover lift in charge — a stubborn declaration would
+   outrank .w-card:hover forever. */
+html[data-js] .w-reveal:not(.is-in) {
+  opacity: 0;
+  translate: 0 14px;
+}
+
+html[data-js] .w-reveal.is-in {
+  animation: w-reveal-in 480ms var(--ease) backwards;
+}
+
+@keyframes w-reveal-in {
+  from {
+    opacity: 0;
+    translate: 0 14px;
+  }
+}
+
+/* Stagger by nth-child; fill-mode backwards holds the hidden frame through
+   the delay, so a late item never flashes in first. */
+html[data-js] .w-stagger > .w-reveal:nth-child(2) { animation-delay: 70ms; }
+html[data-js] .w-stagger > .w-reveal:nth-child(3) { animation-delay: 140ms; }
+html[data-js] .w-stagger > .w-reveal:nth-child(4) { animation-delay: 210ms; }
+html[data-js] .w-stagger > .w-reveal:nth-child(5) { animation-delay: 280ms; }
+html[data-js] .w-stagger > .w-reveal:nth-child(6) { animation-delay: 350ms; }
+html[data-js] .w-stagger > .w-reveal:nth-child(7) { animation-delay: 420ms; }
+html[data-js] .w-stagger > .w-reveal:nth-child(8) { animation-delay: 490ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-js] .w-reveal.is-in {
+    animation: none;
+  }
+}
+
+@media print {
+  html[data-js] .w-reveal:not(.is-in) {
+    opacity: 1 !important;
+    translate: none !important;
+  }
+}

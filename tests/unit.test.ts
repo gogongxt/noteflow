@@ -411,6 +411,21 @@ test('sanitize: widget mounts live in the w- namespace; foreign classes stay fil
   assert.ok(!out.includes('evil') && !out.includes('callout-demo'), out);
 });
 
+test('sanitize: the built-in w- components keep their classes through the whitelist', () => {
+  // The theme's component layer is spelled in prose (pandoc link/span/div
+  // attributes), so every class must survive sanitize or the piece vanishes.
+  const out = sanitize(
+    '<a class="w-btn w-ghost" href="/">go</a>' +
+      '<span class="w-chip">tag</span>' +
+      '<div class="w-grid"><div class="w-card w-reveal">c</div></div>' +
+      '<div class="w-timeline"><div class="w-tl">e</div></div>' +
+      '<div class="w-stagger"><div class="w-card w-reveal">s</div></div>',
+  );
+  for (const cls of ['w-btn', 'w-ghost', 'w-chip', 'w-grid', 'w-card', 'w-reveal', 'w-timeline', 'w-tl', 'w-stagger']) {
+    assert.ok(out.includes(cls), `${cls} was filtered: ${out}`);
+  }
+});
+
 test('widgets: script and link rewrite to hashed /assets/ URLs; the body never ships', () => {
   const { html, broken } = pp(
     '<script src="./widgets/clock.js" defer>stale body bytes</script>' +

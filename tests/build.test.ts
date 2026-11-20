@@ -1156,6 +1156,46 @@ test('the theme CSS ships as one concatenated sheet in layer order (style-src al
   assert.throws(() => themeCss(brokenDir), /not listed in CSS_LAYERS/);
 });
 
+test('components: the w- layer\'s reveal upgrade is animation-based and degrades without JS', async () => {
+  await shared;
+  const css = fs.readFileSync(findAsset('style.css'), 'utf8');
+  // Hidden only under html[data-js] — no-JS and print show everything.
+  assert.match(css, /html\[data-js\]\s*\.w-reveal:not\(\.is-in\)\s*\{[^}]*opacity:\s*0/, 'the pre-land state hides only with JS');
+  // The entrance must be an animation, not a transition: a card can carry
+  // .w-reveal itself, and an animation hands `translate` back to .w-card:hover.
+  assert.match(css, /@keyframes w-reveal-in\s*\{/, 'the entrance should be keyframes');
+  assert.match(css, /html\[data-js\]\s*\.w-reveal\.is-in\s*\{[^}]*animation:\s*w-reveal-in/, '.is-in runs the entrance animation');
+  assert.ok(!/html\[data-js\]\s*\.w-reveal\.is-in\s*\{[^}]*translate:/.test(css), 'a landed reveal must not keep owning translate (it would outrank the card hover lift)');
+  assert.match(css, /prefers-reduced-motion:\s*reduce[\s\S]{0,200}w-reveal/, 'reduced motion skips the fade');
+  // The module ships in the bundle and is re-applied after soft navigation.
+  const app = fs.readFileSync(findAsset('app.js'), 'utf8');
+  assert.match(app, /reveal(\.[0-9a-f]{8})?\.js/, 'app.js imports the reveal module');
+  const reveal = fs.readFileSync(findAsset('reveal.js'), 'utf8');
+  assert.ok(reveal.includes('initReveal'), 'should export initReveal');
+  assert.ok(!/interface\s|^type\s+\w+\s*=|\bexport type\b/m.test(reveal), 'browser scripts must not contain type declarations');
+});
+
+test('components: the docs Components section renders each built-in piece', async () => {
+  await sharedDocs;
+  const html = fs.readFileSync(path.join(docsDist, 'posts/9d19226c/index.html'), 'utf8');
+  for (const [needle, what] of [
+    ['class="w-btn"', 'filled button'],
+    ['class="w-btn w-ghost"', 'ghost button'],
+    ['class="w-chip"', 'chip'],
+    ['class="w-grid"', 'card grid'],
+    ['class="w-card"', 'card'],
+    ['class="w-timeline"', 'timeline group'],
+    ['class="w-tl"', 'timeline entry'],
+    ['class="w-stagger"', 'stagger group'],
+  ] as const) {
+    assert.ok(html.includes(needle), `the docs demo should render a ${what}`);
+  }
+  // The live demos sit after the source fences, so the section is both
+  // copyable and visible; the reveal block carries .w-reveal itself.
+  assert.match(html, /class="w-card w-reveal"/, 'the reveal demo should tag a card directly');
+  assert.ok(html.includes('id="components"'), 'the section should have its anchor');
+});
+
 test('every page ends in a footer region; the docs profile adds the author credit', async () => {
   await shared;
   await sharedDocs;
