@@ -4,7 +4,6 @@
 import { onNavigate } from "./spa.js";
 
 const GAP = 5;
-const CHILD_GAP = 4;
 const EDGE = 8;
 const OPEN_DELAY = 110;
 const CLOSE_DELAY = 240;
@@ -65,12 +64,10 @@ function collect(): void {
   }
 }
 
-/** X positions for the chain in the given direction, from the natural widths. */
 function chainXs(chain: Panel[], dir: "right" | "left", nat: Map<Panel, DOMRect>): number[] {
   const xs = [chain[0].anchor.getBoundingClientRect().left];
   for (let i = 1; i < chain.length; i++) {
-    const step = nat.get(chain[i - 1])!.width + CHILD_GAP;
-    xs.push(dir === "right" ? xs[i - 1] + step : xs[i - 1] - CHILD_GAP - nat.get(chain[i])!.width);
+    xs.push(dir === "right" ? xs[i - 1] + nat.get(chain[i - 1])!.width : xs[i - 1] - nat.get(chain[i])!.width);
   }
   return xs;
 }
