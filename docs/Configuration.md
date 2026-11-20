@@ -142,6 +142,8 @@ A missing `abbrlink` is written into the note's frontmatter by the first build t
 
 `./start.sh sync` runs one clone/fetch/reset/build cycle and exits — enough for a cron job when you would rather not keep a process running. The ssh key and volume setup for the container are covered under [Deployment](https://gogongxt.github.io/noteflow/posts/211fd193#docker).
 
+The `sync` block itself must survive the reset it configures: keep it in the serving host's project-root `site.config.local.mjs` (or a named profile), or commit it to the notes repository — a block edited into the notes-tree local config but left uncommitted is discarded by the first reset. And enable it only on serving hosts: on a machine where you edit notes, the daemon would keep resetting your work-in-progress away.
+
 # Named profiles
 
 `--config <file>` builds from a standalone profile that replaces the personal stack (no local overrides). This documentation site is one:
