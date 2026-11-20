@@ -12,6 +12,10 @@ import { BuildError } from '../core/util.ts';
 
 const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
 
+/** Abort a stalled http transfer after a minute below 1 B/s — without this a
+ *  half-open connection hangs until the process timeout. */
+const NET = ['-c', 'http.lowSpeedLimit=1', '-c', 'http.lowSpeedTime=60'];
+
 /** A remote URL may carry a token (https://<token>@host/…); git echoes URLs in
  *  errors, so keep credentials out of logs. */
 const redact = (s: string): string => s.replace(/(https?:\/\/)[^@/\s]+@/g, '$1***@');
@@ -25,9 +29,18 @@ function git(args: string[], cwd: string, timeoutMs = 60_000): Promise<string> {
           return;
         }
         // Enough context for callers to classify failures (a rejected push
-        // names its reason a few lines above the hints).
+        // names its reason a few lines above the hints). Skip '-c' and its
+        // value to name the subcommand.
+        let sub = args[0];
+        for (let i = 0; i < args.length; i++) {
+          if (args[i] === '-c') i++;
+          else if (!args[i].startsWith('-')) {
+            sub = args[i];
+            break;
+          }
+        }
         const tail = String(stderr).trim().split('\n').slice(-8).join(' ').slice(0, 400);
-        reject(new BuildError(`git ${args[0]} failed: ${redact(tail) || err.message}`));
+        reject(new BuildError(`git ${sub} failed: ${redact(tail) || err.message}`));
         return;
       }
       resolve(_stdout);
@@ -69,7 +82,7 @@ export class GitSync {
     if (fs.existsSync(this.dir) && fs.readdirSync(this.dir).length > 0) {
       throw new BuildError(`sync: ${this.dir} exists and is not a git repository; refusing to clone into it`);
     }
-    await git(['clone', '--branch', this.opts.branch, this.opts.remote, this.dir], path.dirname(path.resolve(this.dir)), 600_000);
+    await git([...NET, 'clone', '--branch', this.opts.branch, this.opts.remote, this.dir], path.dirname(path.resolve(this.dir)), 600_000);
     // The clone's origin would persist the token in .git/config; every
     // operation already goes through the configured URL, so drop it.
     await git(['remote', 'remove', 'origin'], this.dir).catch(() => {});
@@ -85,7 +98,7 @@ export class GitSync {
   }
 
   private async remoteSha(): Promise<string> {
-    const out = await git(['ls-remote', this.opts.remote, `refs/heads/${this.opts.branch}`], this.cwd(), 30_000);
+    const out = await git([...NET, 'ls-remote', this.opts.remote, `refs/heads/${this.opts.branch}`], this.cwd(), 30_000);
     const sha = out.trim().split('\t')[0];
     if (!/^[0-9a-f]{40,}$/.test(sha ?? '')) {
       throw new BuildError(`sync: branch '${this.opts.branch}' not found on ${this.opts.remote}`);
@@ -98,7 +111,7 @@ export class GitSync {
   async sync(): Promise<{ changed: boolean; sha: string }> {
     const remote = await this.remoteSha();
     if (remote === (await this.head())) return { changed: false, sha: remote };
-    await git(['fetch', '--no-tags', this.opts.remote, this.opts.branch], this.dir, 600_000);
+    await git([...NET, 'fetch', '--no-tags', this.opts.remote, this.opts.branch], this.dir, 600_000);
     await git(['reset', '--hard', 'FETCH_HEAD'], this.dir);
     return { changed: true, sha: remote };
   }
@@ -114,11 +127,11 @@ export class GitSync {
     await git(['add', '--', ...files], this.dir);
     await git(['-c', 'user.name=noteflow', '-c', 'user.email=noteflow@localhost', 'commit', '-m', message], this.dir);
     try {
-      await git(['push', this.opts.remote, `HEAD:refs/heads/${this.opts.branch}`], this.dir, 120_000);
+      await git([...NET, 'push', this.opts.remote, `HEAD:refs/heads/${this.opts.branch}`], this.dir, 120_000);
       return 'pushed';
     } catch (err) {
       if (!(err instanceof BuildError) || !/rejected|non-fast-forward|fetch first/.test(err.message)) throw err;
-      await git(['fetch', '--no-tags', this.opts.remote, this.opts.branch], this.dir, 600_000);
+      await git([...NET, 'fetch', '--no-tags', this.opts.remote, this.opts.branch], this.dir, 600_000);
       await git(['reset', '--hard', 'FETCH_HEAD'], this.dir);
       return 'dropped';
     }
