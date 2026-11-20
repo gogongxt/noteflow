@@ -12,7 +12,7 @@ abbrlink: "211fd193"
 The published image bundles everything the build needs — Node, pandoc with `+server`, headless Chromium for mermaid — and serves the result. Mount a notes directory and it becomes a site:
 
 ```bash
-docker run --rm -p 8080:8080 -v "$PWD/notes:/app/notes:ro" ghcr.io/gogongxt/noteflow:latest
+docker run --rm -p 8080:8080 -v "$PWD/notes:/app/notes:rw" ghcr.io/gogongxt/noteflow:latest
 ```
 
 Open <http://localhost:8080>. On start the container builds `/app/notes` and serves `dist/` through the project's own server, which sends production's CSP and cache policy. Two deliberate choices:
@@ -20,7 +20,7 @@ Open <http://localhost:8080>. On start the container builds `/app/notes` and ser
 - **It builds on every start**, because CSP hashes are computed over the output bytes and a baked-in `dist/` would go stale the moment you edit a note. A build failure exits non-zero rather than serving the previous tree.
 - **No `upgrade-insecure-requests`**, which the production nginx headers carry. That directive only makes sense behind TLS; on plain http it would rewrite same-origin requests to `https://` and break them.
 
-The mount can be read-only: the build never writes into the notes. A note missing its `abbrlink` gets one computed on the fly; pin new notes where you edit them with `./start.sh backfill`, then commit the result.
+The `:rw` matters: a note's abbrlink is written into its frontmatter on its first build, so a read-only mount fails with an explanation of exactly that. Mount a directory you own or can write to.
 
 `docker-compose.yml` does the same thing declaratively:
 
@@ -40,13 +40,13 @@ docker run -d -p 8080:8080 \
   ghcr.io/gogongxt/noteflow:latest
 ```
 
-On first start the container clones the notes repository into `/app/notes` (give it a volume so the clone survives restarts) and builds; afterwards it polls the remote and rebuilds whenever the branch tip moves. The ssh key must be readable inside the container; the first contact with your git host accepts its host key (`GIT_SSH_COMMAND` is overridable for your own ssh setup). The build never writes into the notes (a missing `abbrlink` is computed on the fly), so the content tree stays a pristine mirror and the hard reset can never lose anything; a failed poll or failed build keeps the previous site up.
+On first start the container clones the notes repository into `/app/notes` (give it a volume so the clone survives restarts) and builds; afterwards it polls the remote and rebuilds whenever the branch tip moves. The ssh key must be readable inside the container; the first contact with your git host accepts its host key (`GIT_SSH_COMMAND` is overridable for your own ssh setup). The reset onto the remote tip is unconditional — anything local, including the abbrlinks the build writes into new notes, is reset away and identically regenerated (the served URL never depends on it), so never hand-edit notes on the mirror; a failed poll or failed build keeps the previous site up.
 
 **Use your own config.** The image carries the neutral `site.config.mjs`. Your personal values go in `site.config.local.mjs` — the same plain-JavaScript shape, so copying the template is a working start — at the project root, or in the mounted notes directory (it travels with the notes). The project root wins if both exist. Mount the root one directly:
 
 ```bash
 docker run --rm -p 8080:8080 \
-  -v "$PWD/notes:/app/notes:ro" \
+  -v "$PWD/notes:/app/notes:rw" \
   -v "$PWD/site.config.local.mjs:/app/site.config.local.mjs:ro" \
   ghcr.io/gogongxt/noteflow:latest
 ```
@@ -62,7 +62,7 @@ One limit: a profile whose `url` carries a **base path** (a GitHub Pages project
 ```bash
 docker run --rm -p 8080:8080 \
   -v "$PWD:/app:ro" \
-  -v "$PWD/notes:/app/notes:ro" \
+  -v "$PWD/notes:/app/notes:rw" \
   ghcr.io/gogongxt/noteflow:latest
 ```
 

@@ -69,7 +69,7 @@ test('poll outcome: no-op when up to date, reset when the tip moved', async () =
   assert.equal(fs.readFileSync(path.join(dir, 'note.md'), 'utf8'), 'three\n');
 });
 
-test('a dirty working tree blocks the reset; untracked files do not', async () => {
+test('local modifications are discarded by the unconditional reset; untracked files survive', async () => {
   const [remote, seed] = makeRemote();
   const dir = path.join(tmpDir('sync-work-'), 'notes');
   await syncIn(dir, remote).ensureCloned();
@@ -77,11 +77,9 @@ test('a dirty working tree blocks the reset; untracked files do not', async () =
   commit(seed, 'note.md', 'two\n');
   git(['push'], seed);
 
+  // The build's abbrlink write-backs look exactly like this: a tracked file
+  // modified locally. The mirror must still follow the remote.
   fs.writeFileSync(path.join(dir, 'note.md'), 'a local edit to a tracked file\n');
-  await assert.rejects(syncIn(dir, remote).sync(), /refusing to reset --hard/);
-  assert.match(fs.readFileSync(path.join(dir, 'note.md'), 'utf8'), /local edit/);
-
-  git(['checkout', '--', 'note.md'], dir);
   assert.equal((await syncIn(dir, remote).sync()).changed, true);
   assert.equal(fs.readFileSync(path.join(dir, 'note.md'), 'utf8'), 'two\n');
 

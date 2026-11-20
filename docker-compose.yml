@@ -11,15 +11,15 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # Mode 1 — bind mount: a notes checkout you keep on the host. The build
-      # never writes into it, so read-only is fine; updates happen on the host
-      # (restart the container, or run your own rebuild). Adjust the left side.
-      - ./notes:/app/notes:ro
+      # Mode 1 — bind mount: a notes checkout you keep on the host. Writable on
+      # purpose: a note's abbrlink is written into its frontmatter on its first
+      # build. Updates happen on the host; restart the container to rebuild.
+      - ./notes:/app/notes:rw
       # Mode 2 — sync, mutually exclusive with the bind mount above: comment
-      # the ro line out, git must be able to write /app/notes. The container
-      # clones the repository itself (configure sync: { remote, branch } in
-      # site.config.local.mjs, mount an ssh key that can read it) and keeps it
-      # current on a named volume — declare it at the bottom of this file.
+      # the rw line out. The container clones the repository itself (configure
+      # sync: { remote, branch } in site.config.local.mjs, mount an ssh key that
+      # can read it) and keeps it current on a named volume — declare it at the
+      # bottom of this file.
       # - notes-store:/app/notes
       # - ./site.config.local.mjs:/app/site.config.local.mjs:ro
       # - ~/.ssh/id_ed25519:/root/.ssh/id_ed25519:ro

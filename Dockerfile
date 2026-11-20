@@ -1,16 +1,16 @@
 # noteflow in a container: mount your notes, get a served site.
 #
-#   docker run --rm -p 8080:8080 -v "$PWD/notes:/app/notes:ro" ghcr.io/gogongxt/noteflow:latest
+#   docker run --rm -p 8080:8080 -v "$PWD/notes:/app/notes:rw" ghcr.io/gogongxt/noteflow:latest
 #
 # Or let the container mirror the notes itself (see `sync` in the docs): no
 # notes mount at all, just the config and an ssh key — serve clones, polls the
 # remote and rebuilds when the tip moves.
 #
-# The build never writes into /app/notes (missing abbrlinks are computed on
-# the fly), so the mount can be read-only. The project's own server sends
-# production's CSP and cache policy; nginx's production headers additionally
-# carry upgrade-insecure-requests — meaningful only behind TLS, which would
-# break a plain-http container.
+# The build writes each note's abbrlink into its frontmatter once, so a bind
+# mount must be read-write. The project's own server sends production's CSP
+# and cache policy; nginx's production headers additionally carry
+# upgrade-insecure-requests — meaningful only behind TLS, which would break a
+# plain-http container.
 
 ARG NODE_VERSION=22-bookworm-slim
 
@@ -64,7 +64,7 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=660s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8080)+'/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
-# Root keeps bind-mounted notes/ readable regardless of the host uid (a ro
-# mount is fine now). The container is a single-purpose static site; it runs
-# no untrusted code beyond what the build already does.
+# Root, so a bind-mounted notes/ owned by any host uid can be written
+# (abbrlinks are assigned on first build). The container is a single-purpose
+# static site; it runs no untrusted code beyond what the build already does.
 ENTRYPOINT ["noteflow-entrypoint"]

@@ -39,7 +39,7 @@ comment at the top of the template gives editors autocomplete; `npx tsc
 | `giscus` | Comments via GitHub Discussions; remove the block to disable. |
 | `repoUrl` | A repository URL shown as a GitHub icon in the header, opening in a new tab. Unset hides it — that is the default, so a site you deploy does not inherit this project's link. |
 | `edit` | Links every page to its source file in a Git forge: hovering the page title reveals a pencil that opens the file's edit page. Unset hides it. See below. |
-| `sync` | Turn the serving host into a read-only mirror of the notes repository: clone, poll, rebuild on change. Unset: no syncing. See below. |
+| `sync` | Turn the serving host into a mirror of the notes repository: clone, poll, rebuild on change. Unset: no syncing. See below. |
 | `cspMeta` | Also carry the CSP in a `<meta>` tag — for hosts that cannot send response headers (GitHub Pages). |
 | `footer` | The site footer. Every field is optional and renders only when set; see below. |
 
@@ -133,19 +133,14 @@ sync: {
 },
 ```
 
-While `sync` is set, the content dir is a **read-only mirror**, and the whole toolchain honors that: the build never writes into the notes (a missing `abbrlink` is computed on the fly). That is precisely what makes the hard reset safe: no local edit to a tracked file can exist, so none can be lost. An untracked file is left alone too — unless the incoming commit adds a file at the same path, which then replaces it, as any checkout would. Two invariants follow:
+While `sync` is set, the content dir is a mirror, and the reset onto the remote tip is **unconditional** — a mirror never keeps local state. Two invariants follow:
 
-- **Never merges.** `git pull` on a server invites divergence; a mirror has nothing to merge. Tracked files modified by hand make the sync refuse loudly, and the site keeps serving the previous build until they are fixed.
+- **Never merges, never preserves local edits.** `git pull` on a server invites divergence; a mirror has nothing to merge. Anything that differs from the remote — including the abbrlinks the build writes into new notes' frontmatter — is reset away on the next push without consequence: the slug is deterministic and the next build writes the same value again. Hand edits on a serving mirror are discarded just the same, so edit notes where you edit them. Untracked files are left alone (the mirror never runs `git clean`), unless the incoming commit adds a file at the same path.
 - **A failed poll or build never takes the site down.** A failed poll backs off and retries; a failed build keeps serving the last good `dist/`. Only a first start with nothing to serve exits non-zero — fail-closed applies to publishing content, not to staying up.
 
+A missing `abbrlink` is written into the note's frontmatter by the first build that meets it — on your editing machines, commit that change with the note (the URL is then pinned against later title edits); on the mirror it is regenerated on every build and reset away on every push, which is fine: the served URL is identical either way.
+
 `./start.sh sync` runs one clone/fetch/reset/build cycle and exits — enough for a cron job when you would rather not keep a process running. The ssh key and volume setup for the container are covered under [Deployment](https://gogongxt.github.io/noteflow/posts/211fd193#docker).
-
-Pinning new notes' `abbrlink` happens on the machines you edit on, never on the mirror. With a checkout that is `./start.sh backfill`; on a machine that only has a notes clone, borrow the tool from the published image — review and commit the result there:
-
-```bash
-docker run --rm --entrypoint node -v "$PWD/notes:/app/notes:rw" \
-  ghcr.io/gogongxt/noteflow:latest src/content/abbrlink.ts --content notes
-```
 
 # Named profiles
 

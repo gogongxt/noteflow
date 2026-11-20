@@ -63,7 +63,7 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
   const pageByNode = new Map<TreeNode, Page>(pages.map((p) => [p.node, p]));
   const pageByRel = new Map(pages.map((p) => [p.relPath, p]));
 
-  const unpinned = assignAbbrlinks(treeRoot, pageByNode, pages);
+  const unpinned = assignAbbrlinks(treeRoot, pageByNode, pages, fix);
 
   const urlMap = new Map<string, string>();
   for (const p of pages) {
@@ -270,10 +270,10 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
     for (const w of warnings.slice(0, 10)) log.info(`    - ${w}`);
   }
   if (unpinned.length) {
-    log.info(`  Note: ${unpinned.length} note(s) without a pinned abbrlink (computed on the fly, URLs already correct):`);
+    log.info(`  Note: ${unpinned.length} note(s) without an abbrlink (${args.check === true ? '--check' : 'read-only mode'} computed theirs on the fly):`);
     for (const u of unpinned.slice(0, 10)) log.info(`    - ${u}`);
     if (unpinned.length > 10) log.info(`    … and ${unpinned.length - 10} more`);
-    log.info('    Pin with ./start.sh backfill, then commit the notes yourself.');
+    log.info('    A normal build writes them into the notes; commit them with the note.');
   }
 }
 

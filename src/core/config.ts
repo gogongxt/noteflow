@@ -37,8 +37,9 @@ export interface GiscusConfig {
 }
 
 /** Git mirror mode for a serving host: poll the notes repository's remote and
- *  hard-reset the content dir onto it, rebuilding when the tip moves. While
- *  enabled the build treats the content tree as read-only. */
+ *  hard-reset the content dir onto it, rebuilding when the tip moves. The
+ *  reset is unconditional — edit notes where you edit them, never on the
+ *  mirror. */
 export interface SyncConfig {
   /** Any `git` remote URL (ssh://…, https://…, a local path). */
   remote: string;

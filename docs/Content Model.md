@@ -77,7 +77,7 @@ Fault tolerance is deliberate — writing should never block publishing:
 title: Docker practice notes
 public: true
 description: optional page description for cards and the feed
-abbrlink: "796542b0"   # computed when absent; pin it with ./start.sh backfill, then never touch it
+abbrlink: "796542b0"   # written into the note on its first build, never change it by hand
 date: 2026-09-12       # optional; enables archives, feed and the date display
 tags: [docker, ops]
 ---
@@ -87,10 +87,8 @@ tags: [docker, ops]
   never enters the output — not the page, its attachments, its search entry, nor
   its title.
 - `abbrlink` pins the note's URL forever, surviving renames and reorganizations.
-  The build never writes into your notes: when it is missing, the slug is
-  computed on the fly from `crc32(title + '|' + date)` — correct everywhere, but
-  it follows the title until pinned. `./start.sh backfill` pins all unpinned
-  notes in one go; review and commit the result yourself.
+  The first build that meets a note without one writes it into the frontmatter
+  (`crc32(title + '|' + date)`); commit that change with the note.
 - `date` is optional; only dated notes enter archives and the RSS feed.
   `updated` shows a separate "updated" line when it differs from the date.
 - Links between notes use relative Markdown paths; the build rewrites them to

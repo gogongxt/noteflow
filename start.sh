@@ -4,14 +4,13 @@
 #
 # Usage:
 #   ./start.sh              build and start a local preview (default)
-#   ./start.sh build        build to dist/ (never writes into the notes; missing
-#                           abbrlinks are computed on the fly)
-#   ./start.sh check        CI mode: read-only validation
+#   ./start.sh build        build to dist/ (missing abbrlinks are written into the
+#                           notes' frontmatter — commit them with the note)
+#   ./start.sh check        CI mode: read-only validation, computes on the fly
 #   ./start.sh serve        preview an existing dist/ (optional port: ./start.sh serve 7061)
 #                           with sync configured in site.config.local.mjs, this is the
 #                           serving daemon: poll the notes remote, rebuild on change
 #   ./start.sh watch        rebuild on change + preview (edit your notes, refresh the browser)
-#   ./start.sh backfill     pin missing abbrlinks into the notes' frontmatter (you commit them)
 #   ./start.sh sync         one-shot: mirror the notes from their git remote, rebuild if
 #                           anything moved (sync must be configured)
 #   ./start.sh deploy       build + publish to the server
@@ -258,18 +257,6 @@ do_deploy() {
   bash scripts/deploy.sh
 }
 
-do_backfill() {
-  need_node
-  # The one command that writes into the notes: never the docs demo fallback,
-  # and never a silent substitution — a missing dir is an error.
-  [ -d "$RAW_CONTENT_DIR" ] || die "content directory not found: $RAW_CONTENT_DIR"
-  if [ "$HAS_CONFIG_ARG" = 1 ]; then
-    node src/content/abbrlink.ts "$@"
-  else
-    node src/content/abbrlink.ts --content "$RAW_CONTENT_DIR" "$@"
-  fi
-}
-
 do_sync() {
   need_node
   need_pandoc
@@ -312,7 +299,6 @@ case "${1:-all}" in
   build)  shift; do_build "$@" ;;
   check)  shift; do_build --check "$@" ;;
   watch)  shift; do_watch "$@" ;;
-  backfill) shift; do_backfill "$@" ;;
   sync)   shift; do_sync "$@" ;;
   deploy) do_deploy ;;
   clean)  do_clean ;;

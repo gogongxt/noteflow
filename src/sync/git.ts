@@ -1,8 +1,10 @@
-// Mirror-mode git for the serving host: the content dir is a read-only image
-// of one remote branch. Every operation goes against the configured remote
-// URL directly, so the clone's own `origin` never matters. A mirror never
-// merges — `reset --hard FETCH_HEAD` — which is only safe because the build
-// guarantees no tool ever writes into the content tree (see abbrlink.ts).
+// Mirror-mode git for the serving host: the content dir follows one remote
+// branch. Every operation goes against the configured remote URL directly, so
+// the clone's own `origin` never matters. A mirror never merges — `reset
+// --hard FETCH_HEAD`, unconditionally: the build's abbrlink write-backs are
+// deterministic (the same slug is recomputed on the next build), so resetting
+// them away costs nothing, and hand edits on a serving mirror are not a thing
+// to protect — edit notes where you edit them.
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -82,23 +84,12 @@ export class GitSync {
     return sha;
   }
 
-  private async dirty(): Promise<boolean> {
-    const out = await git(['--no-optional-locks', 'status', '--porcelain', '--untracked-files=no'], this.dir);
-    return out.trim() !== '';
-  }
-
   /** Fetch and hard-reset onto the remote tip; `changed` is false when the
    *  local HEAD already is that tip (the common poll outcome). */
   async sync(): Promise<{ changed: boolean; sha: string }> {
     const remote = await this.remoteSha();
     if (remote === (await this.head())) return { changed: false, sha: remote };
     await git(['fetch', '--no-tags', this.opts.remote, this.opts.branch], this.dir, 600_000);
-    if (await this.dirty()) {
-      throw new BuildError(
-        `sync: ${this.dir} has modified tracked files; refusing to reset --hard.\n` +
-          '  Fix them where you edit notes — a serving mirror must stay clean.',
-      );
-    }
     await git(['reset', '--hard', 'FETCH_HEAD'], this.dir);
     return { changed: true, sha: remote };
   }
