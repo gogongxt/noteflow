@@ -172,6 +172,14 @@ export function boolArg(v: CliValue | undefined, dflt: boolean): boolean {
   return !(v === false || v === 'false');
 }
 
+/** A path-valued CLI flag, resolved against `root`; the ~ and backslash
+ *  values the config file rejects fail here too, naming the flag. */
+export function argPath(flag: string, v: string, root: string): string {
+  if (v.startsWith('~')) throw new BuildError(`${flag} must not start with ~ (node never expands it), got ${JSON.stringify(v)}`);
+  if (v.includes('\\')) throw new BuildError(`${flag} must use / separators, got ${JSON.stringify(v)}`);
+  return path.resolve(root, v);
+}
+
 /** Data-URI image mimes user content may carry; sanitize, the audit and the
  *  card generator all build their regexes from this list. */
 export const BITMAP_DATA_MIMES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif'] as const;

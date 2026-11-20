@@ -32,7 +32,7 @@ comment at the top of the template gives editors autocomplete; `npx tsc
 | `url` | Absolute site URL. Its **pathname is the base path**: `https://user.github.io/noteflow` makes every emitted link carry `/noteflow` (GitHub Pages project site); an empty path builds for a root deployment. |
 | `siteName` / `lang` / `description` | Site identity and HTML language. |
 | `contentDir` / `outDir` | Markdown tree and build output, repo-relative. `outDir` may not be, contain, or sit inside the content tree, `src/`, or the theme: a build deletes whatever it did not just emit, so that would erase its own input. |
-| `themeDir` / `cacheDir` / `manifestFile` | Theme directory, caches (mermaid prerender, link-card metadata, per-page render results), and the build manifest. |
+| `themeDir` / `cacheDir` / `manifestFile` | Theme directory, caches (mermaid prerender, link-card metadata, per-page render results), and the build manifest. Path fields resolve against the project root; an absolute path is taken as-is, `~` is rejected (node never expands it). |
 | `postPattern` | URL shape of a note, `/posts/{abbrlink}` by default. |
 | `mermaid` | Diagram theme: `theme` (see below) and CSS-colour `themeVariables` overrides. |
 | `pageSize` | Entries per page for the home list and the feed. |

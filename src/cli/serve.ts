@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { decodeURIComponentSafe, fatal, parseArgs, realInside, realPath } from '../core/util.ts';
+import { argPath, decodeURIComponentSafe, fatal, parseArgs, realInside, realPath } from '../core/util.ts';
 import { basePathOf, loadConfig, repoPath, CONFIG_FILES, LOCAL_CONFIG_FILE, ROOT as REPO_ROOT, type AppConfig, type SyncConfig } from '../core/config.ts';
 import { buildCsp, hashesOf, type CspHashes } from '../core/csp.ts';
 import { ATTACHMENT_TYPES } from '../render/attachments.ts';
@@ -17,10 +17,10 @@ import { pushAbbrlinkPins } from '../sync/pins.ts';
 import { BuildRunner, runBuildChild } from '../build/runner.ts';
 
 const args = parseArgs(process.argv.slice(2));
-const CONFIG_ARG = args.config ? path.resolve(process.cwd(), String(args.config)) : undefined;
-const CONTENT_ARG = typeof args.content === 'string' ? path.resolve(process.cwd(), args.content) : undefined;
+const CONFIG_ARG = args.config ? argPath('--config', String(args.config), REPO_ROOT) : undefined;
+const CONTENT_ARG = typeof args.content === 'string' ? argPath('--content', args.content, REPO_ROOT) : undefined;
 const cfg = await loadConfig(CONFIG_ARG, CONTENT_ARG).catch(fatal);
-const ROOT = path.resolve(String(args.root || cfg.outDir));
+const ROOT = args.root !== undefined ? argPath('--root', String(args.root), REPO_ROOT) : path.resolve(REPO_ROOT, cfg.outDir);
 // The preview routinely serves through a symlink (deploy's current →
 // releases/<id>). `rel` and the escape check must be computed against where
 // the bytes really live, or /static/ stops looking immutable. realPath, not
@@ -285,7 +285,7 @@ if (args.sync === true && syncCfg) {
   const syncLog = (msg: string): void => console.log(`\x1b[2m[${new Date().toLocaleTimeString()}]\x1b[0m ${msg}`);
   // Pin and build paths stay pinned to the boot config regardless of later edits.
   const buildArgs = [...process.argv.slice(2), '--out', ROOT, '--manifest', path.resolve(REPO_ROOT, cfg.manifestFile)];
-  const contentDir = path.resolve(REPO_ROOT, String(args.content || cfg.contentDir));
+  const contentDir = CONTENT_ARG ?? path.resolve(REPO_ROOT, cfg.contentDir);
   const git = new GitSync({ dir: contentDir, remote: syncCfg.remote, branch: syncCfg.branch ?? 'master', proxy: syncCfg.proxy });
   const pins = { sync: git, manifestFile: path.resolve(REPO_ROOT, cfg.manifestFile), contentDir, log: syncLog };
   let pinning = false;

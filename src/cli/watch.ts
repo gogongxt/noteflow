@@ -3,11 +3,10 @@
 // so an editor save-storm is one rebuild.
 import fs from 'node:fs';
 import path from 'node:path';
-import { loadConfig, CONFIG_FILES, repoPath, type AppConfig } from '../core/config.ts';
-import { fatal, parseArgs } from '../core/util.ts';
+import { loadConfig, CONFIG_FILES, repoPath, ROOT, type AppConfig } from '../core/config.ts';
+import { argPath, fatal, parseArgs } from '../core/util.ts';
 import { BuildRunner } from '../build/runner.ts';
 
-const ROOT = process.cwd();
 const args = parseArgs(process.argv.slice(2));
 const DEBOUNCE_MS = 300;
 
@@ -74,26 +73,22 @@ function track(watcher: fs.FSWatcher, key: string): void {
 
 /** Watch the content tree, theme, builder sources, and config files. */
 function watchAll(cfg: AppConfig): void {
-  // --content (set by start.sh, which may have applied its demo fallback)
-  // overrides the config for both the watched tree and the child builds.
-  const content = typeof args.content === 'string' ? path.resolve(ROOT, args.content) : repoPath(cfg.contentDir);
-  watchTree(content);
+  watchTree(contentArg ?? repoPath(cfg.contentDir));
   watchTree(repoPath(cfg.themeDir));
   watchTree(path.join(ROOT, 'src')); // builder/theme-JS changes rebuild too
   for (const f of CONFIG_FILES) watchFile(repoPath(f));
-  if (typeof args.config === 'string') watchFile(path.resolve(ROOT, String(args.config)));
+  if (configArg) watchFile(configArg);
 }
 
-const configArg = typeof args.config === 'string' ? path.resolve(ROOT, String(args.config)) : undefined;
-const contentArg = typeof args.content === 'string' ? path.resolve(ROOT, args.content) : undefined;
+const configArg = typeof args.config === 'string' ? argPath('--config', args.config, ROOT) : undefined;
+const contentArg = typeof args.content === 'string' ? argPath('--content', args.content, ROOT) : undefined;
 const cfg = await loadConfig(configArg, contentArg).catch(fatal);
-const contentDir = typeof args.content === 'string' ? args.content : cfg.contentDir;
-if (!fs.existsSync(path.resolve(ROOT, contentDir))) {
-  console.error(`Content directory not found: ${path.resolve(ROOT, contentDir)}`);
+if (!fs.existsSync(contentArg ?? repoPath(cfg.contentDir))) {
+  console.error(`Content directory not found: ${contentArg ?? repoPath(cfg.contentDir)}`);
   process.exit(1);
 }
 
-console.log(`noteflow watch: rebuilding on changes under ${contentDir}/, ${cfg.themeDir}/, src/ and the config files`);
+console.log(`noteflow watch: rebuilding on changes under ${cfg.contentDir}/, ${cfg.themeDir}/, src/ and the config files`);
 console.log('  Initial build…');
 watchAll(cfg);
 runner.request();

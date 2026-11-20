@@ -3,10 +3,10 @@
 // the build uses.
 import fs from 'node:fs';
 import path from 'node:path';
-import { parseArgs, BuildError, runCli } from '../core/util.ts';
+import { parseArgs, BuildError, argPath, runCli } from '../core/util.ts';
 import { computeAbbrlink } from '../content/abbrlink.ts';
 import { parseNote } from '../content/frontmatter.ts';
-import { loadConfig, repoPath } from '../core/config.ts';
+import { loadConfig, repoPath, ROOT } from '../core/config.ts';
 
 runCli(async () => {
   const args = parseArgs(process.argv.slice(2));
@@ -16,7 +16,7 @@ runCli(async () => {
     process.exit(1);
   }
   const contentRoot =
-    typeof args.content === 'string' ? path.resolve(args.content) : repoPath((await loadConfig()).contentDir);
+    typeof args.content === 'string' ? argPath('--content', args.content, ROOT) : repoPath((await loadConfig()).contentDir);
   const subDir = typeof args.dir === 'string' ? args.dir : '';
   const isPublic = args.public === true;
   // Local date; toISOString would slip a day past midnight in UTC+8.

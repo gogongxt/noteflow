@@ -2,14 +2,13 @@
 //   config-print.ts [--config <file>] <key>…        one value per line
 //   config-print.ts [--config <file>] --exists <key>  exit 0 when set, 1 when not
 // One node boot per invocation, the builder's own resolution path.
-import path from 'node:path';
-import { BuildError, parseArgs, runCli } from '../core/util.ts';
-import { loadConfig } from '../core/config.ts';
+import { BuildError, argPath, parseArgs, runCli } from '../core/util.ts';
+import { loadConfig, ROOT } from '../core/config.ts';
 
 const args = parseArgs(process.argv.slice(2));
 
 runCli(async () => {
-  const cfg = await loadConfig(typeof args.config === 'string' ? path.resolve(process.cwd(), String(args.config)) : undefined);
+  const cfg = await loadConfig(typeof args.config === 'string' ? argPath('--config', args.config, ROOT) : undefined);
   if (typeof args.exists === 'string') {
     const v = (cfg as unknown as Record<string, unknown>)[args.exists];
     process.exit(v == null ? 1 : 0);

@@ -183,6 +183,14 @@ test('parseArgs: --flag=value inline form', async () => {
   assert.equal(a.check, true);
 });
 
+test('argPath: ~ and backslash fail like config values; absolute wins over the root', async () => {
+  const { argPath } = await import('../src/core/util.ts');
+  assert.equal(argPath('--content', 'notes', '/repo'), path.join('/repo', 'notes'));
+  assert.equal(argPath('--out', '/srv/dist', '/repo'), '/srv/dist');
+  assert.throws(() => argPath('--content', '~/notes', '/repo'), /--content must not start with ~/);
+  assert.throws(() => argPath('--out', 'a\\b', '/repo'), /--out must use \/ separators/);
+});
+
 test('frontmatter: a leading --- thematic break is not a frontmatter block', async () => {
   const { parseNote } = await import('../src/content/frontmatter.ts');
   const raw = '---\n\nHello\n\nworld\n\n---\n\nMore prose';
@@ -1337,6 +1345,28 @@ test('config validation: an unknown key fails the build instead of silently doin
   fs.writeFileSync(path.join(root, 'site.config.mjs'), "export default { url: 'https://example.com', siteName: 't', lang: 'en', pageSize: { home: 1, feed: 1 } };\n");
   fs.writeFileSync(path.join(root, 'site.config.local.mjs'), 'export default { footr: {} };\n');
   await assert.rejects(loadConfig(undefined, undefined, root), /site\.config\.local\.mjs: unknown key 'footr'/);
+});
+
+test('config validation: absolute path fields load as-is; ~ and backslashes are rejected', async () => {
+  const { loadConfig } = await import('../src/core/config.ts');
+  const dir = tmpDir('nf-cfg-paths-');
+  const write = (name: string, src: string): string => {
+    const file = path.join(dir, name);
+    fs.writeFileSync(file, `export default { url: 'https://example.com', siteName: 't', lang: 'en', ${src} };\n`);
+    return file;
+  };
+  const ok = await loadConfig(write('ok.mjs', "contentDir: '../notes',"));
+  assert.equal(ok.contentDir, '../notes');
+  const abs = await loadConfig(write('abs.mjs', "cacheDir: '/tmp/noteflow-cache',"));
+  assert.equal(abs.cacheDir, '/tmp/noteflow-cache');
+  const bad: [string, RegExp][] = [
+    ["contentDir: '~/.cache/notes',", /contentDir must not start with ~/],
+    ["themeDir: 'themes\\\\default',", /themeDir must use \/ separators/],
+    ["outDir: '',", /outDir must be a non-empty string/],
+  ];
+  for (const [src, re] of bad) {
+    await assert.rejects(loadConfig(write(`bad-${Math.random()}.mjs`, src)), re, src);
+  }
 });
 
 test('config validation: the mermaid block takes a known theme and CSS colours only', async () => {

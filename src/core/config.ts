@@ -111,7 +111,8 @@ export interface SiteConfig {
   footer?: FooterConfig;
 }
 
-/** SiteConfig plus the builder's own paths, all repo-relative. */
+/** SiteConfig plus the builder's own paths — relative to the project root,
+ *  absolute taken as-is. */
 export interface AppConfig extends SiteConfig {
   /** Markdown content root; in real use a separate private repository. */
   contentDir: string;
@@ -224,8 +225,16 @@ function checkFields(cfg: Record<string, unknown>, origin: string): void {
   if (cfg.url !== undefined && !isHttpUrl(cfg.url)) {
     bad(origin, 'url must be an absolute http(s) URL, e.g. https://example.com');
   }
-  for (const k of ['siteName', 'lang', 'contentDir', 'outDir', 'themeDir', 'cacheDir', 'manifestFile'] as const) {
+  for (const k of ['siteName', 'lang'] as const) {
     if (cfg[k] !== undefined && !nonEmpty(cfg[k])) bad(origin, `${k} must be a non-empty string`);
+  }
+  // `~` is never expanded by node; a backslash is not a separator here.
+  for (const k of ['contentDir', 'outDir', 'themeDir', 'cacheDir', 'manifestFile'] as const) {
+    if (cfg[k] === undefined) continue;
+    if (!nonEmpty(cfg[k])) bad(origin, `${k} must be a non-empty string`);
+    const v = cfg[k] as string;
+    if (v.startsWith('~')) bad(origin, `${k} must not start with ~ (node never expands it), got ${JSON.stringify(v)}`);
+    if (v.includes('\\')) bad(origin, `${k} must use / separators, got ${JSON.stringify(v)}`);
   }
   if (cfg.description !== undefined && typeof cfg.description !== 'string') bad(origin, 'description must be a string');
   if (cfg.postPattern !== undefined && (typeof cfg.postPattern !== 'string' || !cfg.postPattern.includes('{abbrlink}'))) {
@@ -439,7 +448,8 @@ export function editUrlOf(cfg: { edit?: EditConfig }, srcRel: string): string | 
   return `${repo}${EDIT_ROUTES[e.provider ?? 'gitea']}${encPath(branch)}/${file}`;
 }
 
-/** Resolve a repo-relative path against the project root. */
+/** Resolve against the project root; an absolute segment wins (path.join
+ *  would mis-join it into the repo). */
 export function repoPath(...rel: string[]): string {
-  return path.join(ROOT, ...rel);
+  return path.resolve(ROOT, ...rel);
 }

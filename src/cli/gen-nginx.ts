@@ -2,16 +2,14 @@
 // hashes change per build). Write with --out: shell redirection truncates the
 // target before this script can refuse.
 import fs from 'node:fs';
-import path from 'node:path';
-import { basePathOf, loadConfig } from '../core/config.ts';
-import { fatal, parseArgs } from '../core/util.ts';
+import { basePathOf, loadConfig, repoPath, ROOT } from '../core/config.ts';
+import { argPath, fatal, parseArgs } from '../core/util.ts';
 import { buildCsp, hashesOf, type CspHashes } from '../core/csp.ts';
 
 const args = parseArgs(process.argv.slice(2));
-const cfg = await loadConfig(typeof args.config === 'string' ? path.resolve(process.cwd(), String(args.config)) : undefined).catch(fatal);
-const manifestArg = args._[0];
-const manifestFile = typeof manifestArg === 'string' ? manifestArg : cfg.manifestFile;
-const outFile = typeof args.out === 'string' ? path.resolve(args.out) : null;
+const cfg = await loadConfig(typeof args.config === 'string' ? argPath('--config', args.config, ROOT) : undefined).catch(fatal);
+const manifestFile = typeof args._[0] === 'string' ? argPath('<manifest>', args._[0], ROOT) : repoPath(cfg.manifestFile);
+const outFile = typeof args.out === 'string' ? argPath('--out', args.out, ROOT) : null;
 
 const refuse = (why: string): never => {
   console.error(`refusing to emit a CSP from ${manifestFile}: ${why}`);

@@ -5,7 +5,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 import { loadConfig, siteHostOf, basePathOf, ROOT, type AppConfig, type SiteConfig } from '../core/config.ts';
-import { BuildError, boolArg, esc, log, nfc, realPath, toPosix, underPath, type CliArgs } from '../core/util.ts';
+import { BuildError, argPath, boolArg, esc, log, nfc, realPath, toPosix, underPath, type CliArgs } from '../core/util.ts';
 import { assertReserved, scanTree } from '../content/scan.ts';
 import { buildCsp, CSP_META_TAG } from '../core/csp.ts';
 import { buildSidebar, collectChildPages, resolveTree } from '../content/visibility.ts';
@@ -30,13 +30,14 @@ const CONCURRENCY = 8;
 export async function buildSite({ args, root, t0 }: { args: CliArgs; root: string; t0: number }): Promise<void> {
   if (process.env.BLOG_LOG_LEVEL === 'quiet') log.info = () => {};
 
+  const contentArg = typeof args.content === 'string' ? argPath('--content', args.content, root) : undefined;
   const cfg: AppConfig = await loadConfig(
-    args.config ? path.resolve(root, String(args.config)) : undefined,
-    typeof args.content === 'string' ? path.resolve(root, args.content) : undefined,
+    args.config ? argPath('--config', String(args.config), root) : undefined,
+    contentArg,
   );
-  const content = path.resolve(root, String(args.content || cfg.contentDir));
-  const dist = path.resolve(root, String(args.out || cfg.outDir));
-  const manifestFile = args.manifest ? path.resolve(root, String(args.manifest)) : path.resolve(root, cfg.manifestFile);
+  const content = contentArg ?? path.resolve(root, cfg.contentDir);
+  const dist = args.out !== undefined ? argPath('--out', String(args.out), root) : path.resolve(root, cfg.outDir);
+  const manifestFile = args.manifest !== undefined ? argPath('--manifest', String(args.manifest), root) : path.resolve(root, cfg.manifestFile);
   const themeDir = path.resolve(root, cfg.themeDir);
   const fix = args.check !== true; // --fix by default; --check is read-only
   // Only the "style hashes are complete" claim, never the private-content probes.
@@ -120,8 +121,6 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
         siteHost,
         allowPrivateAssets,
         contentRoot: realRoot,
-        // The running builder's own source: ROOT is where this file lives, which
-        // is `root` in a normal checkout but not when the CLI runs from elsewhere.
         srcDirs: [path.join(ROOT, 'src'), path.join(themeDir, 'css')],
       }),
       write: fix,
