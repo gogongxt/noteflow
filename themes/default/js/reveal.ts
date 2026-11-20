@@ -1,8 +1,5 @@
-// Scroll-reveal for `.w-reveal`. The pre-land state hides only under
-// `html[data-js]` (set pre-paint), so without scripting — or in print —
-// everything is simply visible; this adds the entrance only.
-// One observer is reused across soft navigations and re-takes every mount,
-// so detached pages do not pile up as retained targets.
+// Scroll-reveal for `.w-reveal`. The observer is re-pointed at every hydrate
+// (soft navigation) so the pages left behind are not retained.
 
 const io: IntersectionObserver | null = "IntersectionObserver" in window
   ? new IntersectionObserver(
