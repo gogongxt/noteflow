@@ -123,7 +123,7 @@ The built URL is `{repoUrl}/_edit/{branch}/{path}` for Gitea — `/edit/…` on 
 
 # Git mirroring (`sync`)
 
-Edit your notes wherever you edit them, `git push`, and the site follows. A `sync` block configures the mirror daemon; on a serving host `./start.sh serve --sync` (the docker entrypoint passes the flag) arms it: it clones the repository on first start, polls `git ls-remote` every `intervalSec`, and when the branch tip has moved it fetches, hard-resets the content dir onto it and rebuilds. The flag is deliberate — the config block travels with the notes repository, and it alone must not turn every machine's preview into a resetting mirror.
+Edit your notes wherever you edit them, `git push`, and the site follows. A `sync` block configures the mirror daemon; on a serving host `./start.sh serve --sync` (the docker entrypoint passes the flag) arms it: it clones the repository on first start, polls `git ls-remote` every `intervalSec`, and when the branch tip has moved it fetches, hard-resets the content dir onto it and rebuilds. The flag is deliberate — the config block travels with the notes repository, and it alone must not turn every machine's preview into a resetting mirror; the container arms it only from the project-root copy (or a profile), so a notes-tree block cannot reset a bind mount.
 
 ```ts
 sync: {

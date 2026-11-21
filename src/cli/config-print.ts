@@ -1,6 +1,7 @@
 // Print config values for shell scripts:
 //   config-print.ts [--config <file>] <key>…        one value per line
 //   config-print.ts [--config <file>] --exists <key>  exit 0 when set, 1 when not
+//   --project-root-config  ignore a site.config.local.mjs at the content root
 // One node boot per invocation, the builder's own resolution path.
 import { BuildError, argPath, parseArgs, runCli } from '../core/util.ts';
 import { loadConfig, ROOT } from '../core/config.ts';
@@ -8,7 +9,12 @@ import { loadConfig, ROOT } from '../core/config.ts';
 const args = parseArgs(process.argv.slice(2));
 
 runCli(async () => {
-  const cfg = await loadConfig(typeof args.config === 'string' ? argPath('--config', args.config, ROOT) : undefined);
+  const cfg = await loadConfig(
+    typeof args.config === 'string' ? argPath('--config', args.config, ROOT) : undefined,
+    undefined,
+    ROOT,
+    { projectRootOnly: args['project-root-config'] === true || args['project-root-config'] === 'true' },
+  );
   if (typeof args.exists === 'string') {
     const v = (cfg as unknown as Record<string, unknown>)[args.exists];
     process.exit(v == null ? 1 : 0);

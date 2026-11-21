@@ -167,10 +167,18 @@ export interface LocalConfig {
   atContentRoot: boolean;
 }
 
+/** How a config load treats the personal override. */
+export interface LocalConfigOptions {
+  /** Use only the project-root copy; ignore one at the content root. Docker's
+   *  sync probe uses this so the notes tree cannot arm the mirror. */
+  projectRootOnly?: boolean;
+}
+
 /** A project-root override wins over one at the content root. */
-export function localConfigOf(root: string, contentDir: string): LocalConfig | null {
+export function localConfigOf(root: string, contentDir: string, opts: LocalConfigOptions = {}): LocalConfig | null {
   const atRoot = path.join(root, LOCAL_CONFIG_FILE);
   if (fs.existsSync(atRoot)) return { file: atRoot, atContentRoot: false };
+  if (opts.projectRootOnly) return null;
   const inContent = path.resolve(root, contentDir, LOCAL_CONFIG_FILE);
   return fs.existsSync(inContent) ? { file: inContent, atContentRoot: true } : null;
 }
@@ -352,12 +360,17 @@ function checkFooter(f: unknown, origin: string): void {
 /** Load site.config.mjs plus the first local override (see localConfigOf).
  *  With `file` (--config) the profile replaces the whole stack: CI and docs
  *  never see a developer's personal values. */
-export async function loadConfig(file?: string, contentDir?: string, root: string = ROOT): Promise<AppConfig> {
+export async function loadConfig(
+  file?: string,
+  contentDir?: string,
+  root: string = ROOT,
+  opts: LocalConfigOptions = {},
+): Promise<AppConfig> {
   const baseLabel = file ? path.relative(process.cwd(), file) || file : SITE_CONFIG_FILE;
   const base = await readConfig(file ?? path.join(root, SITE_CONFIG_FILE), baseLabel);
   let merged: Record<string, unknown> = { ...DEFAULTS, ...base };
   if (!file) {
-    const local = localConfigOf(root, contentDir ?? String(base.contentDir ?? DEFAULTS.contentDir));
+    const local = localConfigOf(root, contentDir ?? String(base.contentDir ?? DEFAULTS.contentDir), opts);
     if (local) {
       const over = await readConfig(local.file, LOCAL_CONFIG_FILE);
       // The file was found *by* this contentDir; re-pointing it would move the

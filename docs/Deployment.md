@@ -30,7 +30,7 @@ docker compose up
 
 ## The container as a mirror of your notes repository
 
-Mounting is one option; following the notes with git is the other. Configure [`sync`](https://gogongxt.github.io/noteflow/posts/5ec70f90#git-mirroring-sync) in `site.config.local.mjs` and the entrypoint hands everything to the serve daemon — no notes mount, no pre-build:
+Mounting is one option; following the notes with git is the other. Configure [`sync`](https://gogongxt.github.io/noteflow/posts/5ec70f90#git-mirroring-sync) in the **project-root** `site.config.local.mjs` (or a `CONFIG` profile) and the entrypoint hands everything to the serve daemon — no notes mount, no pre-build. A `sync` block inside the notes tree is ignored, so the bind-mount recipe above never resets the mounted notes:
 
 ```bash
 docker run -d -p 127.0.0.1:8080:8080 \

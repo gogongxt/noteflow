@@ -1,8 +1,7 @@
 #!/bin/sh
-# Serve the notes on $PORT. With sync configured in the config stack, the
-# serve process is the daemon: it clones/fetches the notes repository itself
-# and rebuilds when the remote tip moves — nothing is pre-built here. Without
-# sync, build once and fail closed on error, like CI.
+# Serve the notes on $PORT. Sync in the project-root config (or a --config
+# profile) makes the serve process the mirror daemon; otherwise build once and
+# fail closed, like CI.
 set -eu
 
 cd "${APP_ROOT:-/app}"
@@ -30,7 +29,8 @@ fi
 export GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o StrictHostKeyChecking=accept-new}"
 
 # Unquoted $config_args: empty when there is no profile, else two argv items.
-node src/cli/config-print.ts $config_args --exists sync && sync=1 || sync=0
+# --project-root-config: a notes-tree site.config.local.mjs must not arm sync.
+node src/cli/config-print.ts $config_args --project-root-config --exists sync && sync=1 || sync=0
 
 content_dir="${CONTENT_DIR:-notes}"
 if [ "$sync" = 0 ] && [ ! -d "$content_dir" ]; then
@@ -52,9 +52,7 @@ if [ "$sync" = 0 ]; then
   exec node src/cli/serve.ts --root dist --port "${PORT:-8080}" $config_args
 fi
 
-# Sync mode: serve resolves the content dir from the config itself (or an
-# explicit CONTENT_DIR); an absent dir is simply the clone target. --sync arms
-# the mirror daemon — the config block alone never does.
+# Sync mode: an absent content dir is the clone target; --sync arms the mirror.
 serve_content_args=""
 [ -n "${CONTENT_DIR:-}" ] && serve_content_args="--content $CONTENT_DIR"
 echo "==> Serving on :${PORT:-8080}, syncing the notes from their remote"

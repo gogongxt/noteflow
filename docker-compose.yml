@@ -23,11 +23,11 @@ services:
       # it current on a named volume — declare it at the bottom of this file
       # (optional: without it every container recreate re-clones).
       # - notes-store:/app/notes
-      # The mounted config must carry the sync block: it has to be readable
-      # BEFORE the first clone, so a copy inside the notes tree cannot
-      # bootstrap its own clone. Give the remote push access — the container
-      # commits new notes' abbrlinks back — either as a token in the https
-      # remote URL (then no key mount is needed) or as an ssh key:
+      # The mounted config must carry sync (readable before the first clone).
+      # Only this project-root copy arms the daemon; a notes-tree block is inert.
+      # Give the remote push access — the container commits new notes'
+      # abbrlinks back — either as a token in the https remote URL (then no key
+      # mount is needed) or as an ssh key:
       # - ./site.config.local.mjs:/app/site.config.local.mjs:ro
       # - ~/.ssh/id_ed25519:/root/.ssh/id_ed25519:ro
       # Optional: run from a source tree instead of the image's code (a fork,

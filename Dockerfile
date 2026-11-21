@@ -3,8 +3,8 @@
 #   docker run --rm -p 8080:8080 -v "$PWD/notes:/app/notes:rw" ghcr.io/gogongxt/noteflow:latest
 #
 # Or let the container mirror the notes itself (see `sync` in the docs): no
-# notes mount at all, just the config and an ssh key — serve clones, polls the
-# remote and rebuilds when the tip moves.
+# notes mount, just a project-root config and an ssh key; a notes-tree sync
+# block stays inert — serve clones, polls the remote, rebuilds on new tips.
 #
 # The build writes each note's abbrlink into its frontmatter once, so a bind
 # mount must be read-write. The project's own server sends production's CSP
