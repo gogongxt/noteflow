@@ -66,7 +66,7 @@ tree under version control. NoteFlow turns that tree into a fast static site:
 - **The site can follow the notes repository.** A `sync` block in the config turns the serving host into a git mirror: clone on first start, poll the remote, rebuild when the branch tip moves, and push new notes' `abbrlink`s back. Edit anywhere, `git push`, the site catches up.
 - **pandoc-powered Markdown.** A long-lived `pandoc server` converts content; the Node side does link rewriting, sanitizing, and template rendering. On top of standard Markdown come callouts, GFM alerts, link cards, build-time mermaid SVG, tabs, columns, native media, and a `w-` component layer — all from plain Markdown.
 - **Notes can ship their own widgets.** A note may load a `.js` (and `.css`) placed beside it with a src-only `<script>`; the build hashes and publishes it same-origin, so the CSP stays unchanged.
-- **Security-first output.** Strict CSP (no inline scripts/styles except build-time sha256-hashed ones), no CDN, no external fonts, fail-closed builds (broken links and private-content leaks abort the build). The local preview serves the exact same security headers as production nginx.
+- **Security-first output.** Strict CSP (no inline scripts/styles except build-time sha256-hashed ones), no CDN, no external fonts, fail-closed builds (broken links and private-content leaks abort the build). The local preview enforces the same CSP and cache policy as production nginx, minus the TLS-only directives.
 
 ### Scope: publishing, not editing
 

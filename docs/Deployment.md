@@ -33,12 +33,14 @@ docker compose up
 Mounting is one option; following the notes with git is the other. Configure [`sync`](https://gogongxt.github.io/noteflow/posts/5ec70f90#git-mirroring-sync) in `site.config.local.mjs` and the entrypoint hands everything to the serve daemon — no notes mount, no pre-build:
 
 ```bash
-docker run -d -p 8080:8080 \
+docker run -d -p 127.0.0.1:8080:8080 \
   -v notes-store:/app/notes \
   -v "$PWD/site.config.local.mjs:/app/site.config.local.mjs:ro" \
   -v "$HOME/.ssh/id_ed25519:/root/.ssh/id_ed25519:ro" \
   ghcr.io/gogongxt/noteflow:latest
 ```
+
+(Loopback publishing assumes a [TLS proxy](#tls-in-front-of-the-container) in front — drop the `127.0.0.1:` prefix while trying it out locally.)
 
 On first start the container clones the notes repository into `/app/notes` (give it a volume so the clone survives restarts) and builds; afterwards it polls the remote and rebuilds whenever the branch tip moves. The ssh key must be readable inside the container and needs **push** access — after each successful build the container commits the abbrlinks it wrote into new notes (exactly those files, nothing else) and pushes the commit back, so notes created in the gitea web UI or on a machine without noteflow get pinned too. The first contact with your git host accepts its host key (`GIT_SSH_COMMAND` is overridable for your own ssh setup). The reset onto the remote tip is unconditional — hand edits on the mirror are simply discarded, so edit notes where you edit them; a failed poll or failed build keeps the previous site up.
 
@@ -63,14 +65,26 @@ One limit: a profile whose `url` carries a **base path** (a GitHub Pages project
 
 ```bash
 docker run --rm -p 8080:8080 \
-  -v "$PWD:/app:ro" \
+  -v "$PWD:/app" \
   -v "$PWD/notes:/app/notes:rw" \
   ghcr.io/gogongxt/noteflow:latest
 ```
 
+The source mount must be writable when the checkout has no `node_modules`: the entrypoint installs dependencies once per mount.
+
 The image is published from a version tag by `.github/workflows/docker.yml` — `linux/amd64` and `linux/arm64`, so Apple Silicon pulls a native build rather than emulating. It goes to GHCR, and to Docker Hub too once the `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` repository secrets exist. To build it yourself, `docker build -t noteflow .` from the repository root.
 
-For TLS, a domain, or several sites behind one proxy, run the container on a private port and put it behind the nginx setup below.
+## TLS in front of the container
+
+For a public host, terminate TLS in nginx and proxy to the container. Publish the container on the loopback interface only, so nothing but the proxy can reach its plain http:
+
+```bash
+docker run -d -p 127.0.0.1:8080:8080 … ghcr.io/gogongxt/noteflow:latest
+```
+
+`deploy/nginx/noteflow-proxy.conf` in the repository is the reference server block: HSTS and the rate limits live there, everything else passes through. The container already sends the site's CSP and cache policy — production's set, minus `upgrade-insecure-requests`, which only matters behind TLS and is covered by HSTS. Do not add a second CSP header at the proxy: browsers enforce every CSP header they receive, so a stale extra policy would block the site's hashed scripts and styles.
+
+(The nginx setup further down serves `dist/` straight from disk — that is the non-container path, when you deploy with `./start.sh deploy` instead of Docker.)
 
 # Self-hosting with nginx (production)
 

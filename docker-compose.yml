@@ -2,13 +2,16 @@
 #
 #   docker compose up --build
 #
-# The image is rebuilt on every start, so `--build` only matters when the
-# project's own files changed.
+# Compose builds the image only when it does not exist yet; pass --build to
+# rebuild after the project's own files changed.
 services:
   noteflow:
     build: .
     image: ghcr.io/gogongxt/noteflow:latest
     ports:
+      # Plain http, no TLS or rate limits — fine for a local preview. On a
+      # public host put a TLS proxy in front and publish loopback only:
+      # - "127.0.0.1:8080:8080"
       - "8080:8080"
     volumes:
       # Mode 1 — bind mount: a notes checkout you keep on the host. Writable on
