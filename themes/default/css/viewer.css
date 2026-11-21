@@ -7,9 +7,7 @@
   text-align: center;
 }
 
-/* A segmented switch: the group is a grey track, the selected tab is tinted
-   blue. Above the frame, never over the drawing. Hidden without scripting:
-   the panel cannot be opened, so the switch would be a dead control. */
+/* Hidden without scripting: with no viewer there is nothing to switch. */
 .post-body .diagram-tools {
   display: none;
   gap: 0.1rem;
@@ -140,17 +138,15 @@ html[data-js] .post-body .diagram-tools {
   outline-offset: 3px;
 }
 
-/* width:100vw, not inset alone: `html` keeps scrollbar-gutter reserved even
-   while the viewer is open (switching it off would shift the page), and the
-   fixed containing block is then 15px narrower than the viewport. */
+/* 100vw, not inset: scrollbar-gutter makes the fixed box 15px narrower than the viewport. */
 .mv {
   position: fixed;
   inset: 0;
   width: 100vw;
   z-index: 120;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
   color: var(--mv-fg);
   background: var(--mv-scrim);
   animation: mv-in 180ms var(--ease);
@@ -192,9 +188,8 @@ html[data-js] .post-body .diagram-tools {
   cursor: grabbing;
 }
 
-/* No size transition: a zoom keeps its scale in a transform during the gesture
-   and swaps it into layout on commit; animating the width would make that swap
-   wobble. */
+/* Never transition size: a zoom commit swaps the scale from transform into
+   layout, and animating that swap wobbles. */
 .mv-card {
   position: absolute;
   top: 0;
@@ -204,8 +199,7 @@ html[data-js] .post-body .diagram-tools {
   transition: border-radius 140ms var(--ease), background-color 140ms var(--ease);
 }
 
-/* Diagram labels are HTML in a foreignObject; selecting them is the copy path
-   that matters. The card owns the pointer cursor, so text keeps its I-beam. */
+/* Diagram labels are selectable text; the card owns the grab cursor. */
 .mv-card[data-kind="diagram"] {
   cursor: grab;
 }
@@ -231,9 +225,7 @@ html[data-js] .post-body .diagram-tools {
   box-shadow: var(--mv-shadow);
 }
 
-/* The card is the canvas's frame; the canvas is centered in it, so a quarter
-   turn (transform-origin stays the element's center) sweeps it inside the
-   transposed box instead of flying out of it. */
+/* Centered in the card, so a quarter turn sweeps inside the transposed box. */
 .mv-canvas {
   position: absolute;
   top: 0;
@@ -252,7 +244,6 @@ html[data-js] .post-body .diagram-tools {
 
 .mv-count {
   flex: none;
-  padding: 0 0.35rem 0.45rem;
   font-size: 0.875rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -334,7 +325,7 @@ html[data-js] .post-body .diagram-tools {
 .mv-close {
   position: absolute;
   top: 1rem;
-  right: calc(var(--mv-rail-w) + 1rem);
+  right: 1rem;
   z-index: 3;
   width: 2.5rem;
   height: 2.5rem;
@@ -343,10 +334,6 @@ html[data-js] .post-body .diagram-tools {
   border: 1px solid var(--mv-border);
   border-radius: 999px;
   box-shadow: var(--mv-shadow-sm);
-}
-
-.mv[data-single] .mv-close {
-  right: 1rem;
 }
 
 .mv-prev,
@@ -389,17 +376,19 @@ html[data-js] .post-body .diagram-tools {
   color: var(--mv-fg);
 }
 
+/* Filmstrip under the stage; one layout at every width. */
 .mv-rail {
   position: relative;
   z-index: 2;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  width: var(--mv-rail-w);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem 0.85rem;
+  width: auto;
   min-height: 0;
-  padding: 0.85rem 0.85rem 0.85rem 1rem;
+  padding: 0.6rem 0.85rem calc(0.6rem + env(safe-area-inset-bottom, 0px));
   background: var(--mv-rail);
-  border-left: 1px solid var(--mv-border);
+  border-top: 1px solid var(--mv-border);
 }
 
 @supports (backdrop-filter: blur(1px)) {
@@ -415,12 +404,13 @@ html[data-js] .post-body .diagram-tools {
 
 .mv-tabs {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 0.5rem;
   min-height: 0;
-  overflow-y: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: thin;
-  overscroll-behavior-y: contain;
+  overscroll-behavior-x: contain;
 }
 
 .mv-tab {
@@ -428,7 +418,7 @@ html[data-js] .post-body .diagram-tools {
   position: relative;
   display: grid;
   place-items: center;
-  width: 100%;
+  width: 5.5rem;
   aspect-ratio: 4 / 3;
   padding: 0.35rem;
   overflow: hidden;
@@ -504,40 +494,15 @@ body.mv-open {
 }
 
 @media (max-width: 767.98px) {
-  .mv {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto;
+  .mv-tab {
+    width: 5rem;
   }
 
   .mv-rail {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    gap: 0.5rem;
-    width: auto;
-    max-height: 6.25rem;
-    padding: 0.55rem 0.55rem calc(0.55rem + env(safe-area-inset-bottom));
-    border-top: 1px solid var(--mv-border);
-    border-left: 0;
+    padding: 0.55rem 0.55rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
   }
 
-  .mv-count {
-    padding: 0;
-  }
-
-  .mv-tabs {
-    flex-direction: row;
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
-
-  .mv-tab {
-    width: 5rem;
-    aspect-ratio: 4 / 3;
-  }
-
-  .mv-close,
-  .mv[data-single] .mv-close {
+  .mv-close {
     top: 0.7rem;
     right: 0.7rem;
   }

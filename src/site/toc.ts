@@ -51,7 +51,7 @@ export function tocRail(toc: string, marks: string, comments: boolean): string {
     `<button type="button" class="toc-toggle" aria-label="Expand table of contents" aria-expanded="true" aria-controls="toc-panel" title="Table of contents">${marks}${ICON_TOC_CHEVRON}</button>\n` +
     '</div>\n' +
     `<button type="button" class="toc-pin" aria-label="Pin as sidebar table of contents" aria-controls="toc-panel" title="Pin as sidebar table of contents">${ICON_TOC_PIN}</button>\n` +
-    `<div class="toc-panel" id="toc-panel">\n${toc}${foot}\n</div>\n` +
+    `<div class="toc-panel" id="toc-panel" tabindex="-1">\n${toc}${foot}\n</div>\n` +
     '</aside>\n'
   );
 }

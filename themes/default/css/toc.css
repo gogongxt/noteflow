@@ -1,4 +1,10 @@
-/* The table of contents: the edge rail, its hover card, and the pinned column. */
+/* The table of contents: the edge rail, its hover card, the pinned column,
+   and the phone drawer. */
+
+/* Phone only; the rail becomes that drawer further down. */
+.toc-btn {
+  display: none;
+}
 
 /* Default: Notion-style edge marks, with the panel opening as a hover card. */
 .toc-rail {
@@ -23,6 +29,16 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--toc-fg);
+}
+
+/* The list paths are lines: without a stroke they fill to zero height. */
+.toc-title .i-list {
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .toc-toggle {
@@ -83,7 +99,7 @@
   background: var(--accent);
 }
 
-/* Must stay last: the active tick is solid fg even under hover/focus tints. */
+/* Last: the active tick wins over the hover/focus tints. */
 .toc-marks .m.active {
   background: var(--fg);
 }
@@ -233,4 +249,77 @@
 
 .toc a.active::before {
   background: var(--accent);
+}
+
+/* Phones: no hover, no edge room — toc-btn opens the rail as a right drawer. */
+@media (max-width: 767.98px) {
+  /* data-js (set pre-paint): without scripting the drawer cannot open. */
+  html[data-js] .toc-btn {
+    display: inline-grid;
+  }
+
+  .toc-rail {
+    position: fixed;
+    inset: 0 0 0 auto;
+    z-index: 90;
+    display: flex;
+    flex-direction: column;
+    width: min(19rem, 84vw);
+    padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 0.85rem
+      calc(1.25rem + env(safe-area-inset-bottom, 0px));
+    visibility: hidden;
+    background: var(--sidebar-solid);
+    border-left: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
+    translate: 102% 0;
+    transition: translate 240ms var(--ease), visibility 0s linear 240ms;
+  }
+
+  :root[data-toc-open] .toc-rail {
+    translate: 0 0;
+    visibility: visible;
+    transition: translate 240ms var(--ease), visibility 0s;
+  }
+
+  .toc-head {
+    flex: none;
+    display: flex;
+    padding: 0.1rem 0.35rem 0.65rem;
+  }
+
+  .toc-title {
+    display: flex;
+  }
+
+  .toc-toggle,
+  .toc-pin {
+    display: none;
+  }
+
+  .toc-panel {
+    position: static;
+    width: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition: none;
+  }
+
+  /* Body-level lock like .nav-open; html keeps its scrollbar-gutter. */
+  :root[data-toc-open] body {
+    overflow: hidden;
+  }
+
+  /* The hidden attribute is JS-toggled (see initTocDrawer); CSS fades. */
+  :root[data-toc-open] .nav-backdrop {
+    opacity: 1;
+  }
 }

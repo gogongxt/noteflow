@@ -1,5 +1,6 @@
-// TOC rail: scrollspy tracking, pin/expand state, keeping the entry in view.
+// TOC: scrollspy tracking, pin/expand state, and the phone drawer.
 import { readStore, writeStore } from "./store.js";
+import { onNavigate } from "./spa.js";
 
 const root = document.documentElement;
 const mqReduced = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -186,4 +187,55 @@ export function setupScrollspy(): void {
   const onRailScrollEnd = (): void => keepInView(false);
   window.addEventListener("scrollend", onRailScrollEnd, { passive: true });
   scrollspyCleanups.push(() => window.removeEventListener("scrollend", onRailScrollEnd));
+}
+
+// Phone TOC drawer, mirroring the sidebar's. Delegated at document level:
+// soft navigation replaces the header (and the rail) wholesale.
+export function initTocDrawer(): void {
+  const mqDrawer = window.matchMedia("(max-width: 767.98px)");
+  const backdrop = document.getElementById("nav-backdrop");
+  let lastFocus: HTMLElement | null = null;
+
+  const isOpen = (): boolean => root.dataset.tocOpen === "true";
+  const toggleBtn = (): HTMLElement | null => document.getElementById("toc-btn");
+
+  const open = (): void => {
+    if (isOpen()) return;
+    lastFocus = document.activeElement as HTMLElement | null;
+    root.dataset.tocOpen = "true";
+    toggleBtn()?.setAttribute("aria-expanded", "true");
+    if (backdrop) backdrop.hidden = false;
+    document.querySelector<HTMLElement>(".toc-panel")?.focus({ preventScroll: true });
+  };
+
+  const close = (restore = true): void => {
+    if (!isOpen()) return;
+    delete root.dataset.tocOpen;
+    toggleBtn()?.setAttribute("aria-expanded", "false");
+    if (backdrop) setTimeout(() => (backdrop.hidden = true), 240);
+    if (restore) lastFocus?.focus?.({ preventScroll: true });
+  };
+
+  document.addEventListener("click", (e) => {
+    const target = e.target as Element | null;
+    if (target?.closest?.("[data-toc-toggle]")) {
+      if (mqDrawer.matches) isOpen() ? close() : open();
+      return;
+    }
+    if (!isOpen()) return;
+    // Entry taps navigate in-page; anything outside the drawer closes it.
+    if (!target?.closest?.(".toc-rail")) close();
+    else if (target?.closest?.('.toc a[href^="#"]')) close(false);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && isOpen()) close();
+  });
+
+  // Never strand an open drawer above phone width.
+  mqDrawer.addEventListener?.("change", (e) => {
+    if (!e.matches) close(false);
+  });
+
+  onNavigate(() => close(false));
 }

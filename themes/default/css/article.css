@@ -276,9 +276,8 @@ article.page-index .post-body h4 {
   color: var(--accent);
 }
 
-/* The “#” trails the heading; clicking copies the section link and swaps the
-   glyph for a check. Both marks share one 1em square, so the swap cannot
-   move or resize the button. */
+/* Clicking copies the section link; hash and check share one 1em square, so
+   the glyph swap cannot move the button. */
 .heading-anchor {
   display: inline-block;
   position: relative;
@@ -289,8 +288,8 @@ article.page-index .post-body h4 {
   font-size: 1em;
   font-weight: 700;
   line-height: 1;
-  vertical-align: baseline;
-  translate: 0 0.1em;
+  /* Baseline would park the glyph above the text like a superscript. */
+  vertical-align: middle;
   color: var(--accent);
   background: transparent;
   border: 0;

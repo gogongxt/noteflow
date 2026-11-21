@@ -50,13 +50,20 @@
 }
 
 /* Narrow screens: the gutter is too tight for the spinner, so it keeps its
-   flow position after the theme toggle. */
+   flow position after the theme toggle — display-none when idle, or the row
+   pays for an invisible 14px. */
 @media (max-width: 767.98px) {
   .nav-spinner {
     position: static;
     translate: none;
     flex: none;
     margin-left: 0.35rem;
+    display: none;
+  }
+
+  .nav-spinner[data-state="run"],
+  .nav-spinner[data-state="error"] {
+    display: block;
   }
 }
 

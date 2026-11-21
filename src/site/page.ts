@@ -167,6 +167,7 @@ export function notePage(ctx: SiteCtx, theme: Theme, page: Page): string {
     description: esc(descriptionOf(page)),
     canonical: absUrl(ctx.site, page.href),
     breadcrumbs: crumbsFor(ctx, page),
+    hasToc: !!toc,
   });
 }
 
@@ -183,6 +184,7 @@ interface ShellOpts {
   canonical: string;
   breadcrumbs: string;
   robots?: string;
+  hasToc?: boolean;
 }
 
 export function pageShell(ctx: SiteCtx, theme: Theme, opts: ShellOpts): string {
@@ -208,7 +210,7 @@ export function pageShell(ctx: SiteCtx, theme: Theme, opts: ShellOpts): string {
     app_js: esc(a.app),
     page_kind: opts.kind,
     shell_class: hasSidebar ? '' : ' no-sidebar',
-    header: header(ctx, { kind: opts.kind, hasSidebar, breadcrumbs }),
+    header: header(ctx, { kind: opts.kind, hasSidebar, hasToc: opts.hasToc, breadcrumbs }),
     sidebar: sidebar(ctx, { currentPage: opts.page }),
     main: opts.main,
     footer: footer(ctx),

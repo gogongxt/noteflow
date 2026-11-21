@@ -1,7 +1,7 @@
 /* The pinned column and the shared page furniture around the article. */
 
-/* Column form: the wide-screen default, which pinning opens at any width the
-   article has room for. Hence data-column instead of a media query. */
+/* Column form: wide-screen default, but pinning opens it at any width the
+   article has room for — hence data-column, not a media query. */
 :root[data-column="true"] .post-layout {
   max-width: min(100%, var(--content-w));
   padding-inline-end: calc(var(--toc-w) + var(--toc-gap));
@@ -30,7 +30,7 @@
   border-left-color: var(--border-strong);
 }
 
-/* Only the panel scrolls; the head holds its row with no background. */
+/* Only the panel scrolls. */
 :root[data-column="true"] .toc-head {
   flex: none;
   display: flex;
@@ -45,15 +45,7 @@
   flex: 1;
 }
 
-:root[data-column="true"] .toc-title .i-list {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* Column form swaps the marks for a small ">"; unpinning is that button. */
+/* The marks become the unpin ">". */
 :root[data-column="true"] .toc-pin {
   display: none;
 }
@@ -100,20 +92,21 @@
   transition: none;
 }
 
-/* The pinned rail is fixed to the viewport's right edge; ending the footer's
-   band at the rail's own left edge keeps the hairline and its text out from
-   under the TOC when the page is scrolled to the bottom. */
+/* End the footer's band at the rail's left edge, keeping its text clear of
+   the pinned TOC. */
 :root[data-column="true"] .shell:has(.toc-rail) > .site-footer {
   margin-inline-end: calc(var(--toc-w) + var(--gutter));
 }
 
-@media (max-width: 1079.98px) {
-  /* Full-width article: keep a symmetric margin wide enough that the edge tab
-     never sits on top of the text. */
+/* Tablet range: keep the edge tab off the text; phones reserve nothing
+   (the TOC opens from the header there). */
+@media (min-width: 768px) and (max-width: 1079.98px) {
   .post-layout {
     max-width: min(var(--measure), calc(100% - 2.6rem - 2 * var(--edge-gap)));
   }
+}
 
+@media (max-width: 1079.98px) {
   .shell {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -180,13 +173,7 @@
     transition: opacity 240ms var(--ease);
   }
 
-  .nav-backdrop[hidden] {
-    display: none;
-  }
-
-  .nav-open .nav-backdrop,
-  .nav-open .nav-backdrop[hidden] {
-    display: block;
+  .nav-open .nav-backdrop {
     opacity: 1;
   }
 
@@ -198,7 +185,8 @@
 @media (max-width: 767.98px) {
   :root {
     --header-h: 3.1rem;
-    --gutter: 1.15rem;
+    /* Slim but nonzero: too narrow for the default, enough to breathe. */
+    --gutter: 0.75rem;
     --radius: 14px;
   }
 
@@ -238,15 +226,23 @@
 
   .header-inner {
     gap: 0.15rem;
-    padding: 0 0.6rem 0 0.35rem;
   }
 
   .brand {
     flex: none;
   }
 
+  /* The mark alone; the name's width belongs to the crumbs and actions. */
+  .brand-name {
+    display: none;
+  }
+
   .header-crumbs {
+    display: flex;
     flex: 1 1 0;
+    min-width: 0;
+    margin-left: 0.25rem;
+    padding-left: 0.5rem;
     overflow: hidden;
   }
 
@@ -340,14 +336,6 @@
 
   .post-title {
     letter-spacing: -0.02em;
-  }
-
-  .header-crumbs {
-    display: flex;
-    flex: 1 1 auto;
-    min-width: 0;
-    margin-left: 0.25rem;
-    padding-left: 0.5rem;
   }
 
   .crumbs ol {

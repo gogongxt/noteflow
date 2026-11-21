@@ -24,6 +24,15 @@ function menuToggle(): string {
   );
 }
 
+// Phone only: opens the TOC drawer (the desktop edge rail is hover furniture).
+function tocToggle(): string {
+  return (
+    '<button type="button" id="toc-btn" class="icon-btn toc-btn" data-toc-toggle aria-controls="toc-panel" aria-label="Table of contents" title="Table of contents" aria-expanded="false">' +
+    '<svg class="icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">' +
+    '<path d="M4 6h16M4 12h10M4 18h13"/></svg></button>'
+  );
+}
+
 /** A page's identity: `article.page-<kind>` alone selects page CSS and lights
  *  the matching nav entry — never the <body>, which every page shares. */
 export type PageKind = 'home' | 'post' | 'index' | 'archives' | 'tags' | 'tag' | '404';
@@ -65,8 +74,11 @@ function navSpinner(): string {
   return '<span class="nav-spinner" data-nav-spinner aria-hidden="true"></span>';
 }
 
-export function header(ctx: SiteCtx, opts: { kind: PageKind; hasSidebar?: boolean; breadcrumbs?: string }): string {
-  const { kind, hasSidebar = true, breadcrumbs = '' } = opts;
+export function header(
+  ctx: SiteCtx,
+  opts: { kind: PageKind; hasSidebar?: boolean; hasToc?: boolean; breadcrumbs?: string },
+): string {
+  const { kind, hasSidebar = true, hasToc = false, breadcrumbs = '' } = opts;
   const siteName = esc(ctx.site.siteName);
   const brand = `<a class="brand" href="${esc(siteUrl(ctx.site, '/'))}" aria-label="Back to home">${logoMark({ src: ctx.assets.mark })}<span class="brand-name">${siteName}</span></a>`;
   const nav = navItems(ctx).map((n) => {
@@ -84,6 +96,7 @@ export function header(ctx: SiteCtx, opts: { kind: PageKind; hasSidebar?: boolea
     (breadcrumbs ? `<div class="header-crumbs" data-region="crumbs">${breadcrumbs}</div>\n` : '') +
     `<div class="header-actions">\n${searchTrigger(ctx.assets.searchIndex)}\n<nav class="top-nav" aria-label="Site navigation"><ul>${nav}</ul></nav>\n${repoLink(ctx.site.repoUrl)}\n</div>\n` +
     themeToggle() + '\n' +
+    (hasToc ? tocToggle() + '\n' : '') +
     navSpinner() + '\n' +
     '</div>\n' +
     '</header>'
