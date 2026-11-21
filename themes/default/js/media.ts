@@ -145,6 +145,9 @@ export function initMediaViewer(): () => void {
   let canvas: SVGSVGElement | HTMLImageElement | null = null;
   let commitTimer = 0;
   let lastFocus: HTMLElement | null = null;
+  // Closing on pointerup lets the synthesized click land on the media just
+  // revealed underneath and instantly reopen the viewer; swallow that click.
+  let suppressOpenUntil = 0;
 
   const overlay = document.createElement("div");
   overlay.className = "mv";
@@ -399,6 +402,7 @@ export function initMediaViewer(): () => void {
   const close = (): void => {
     if (!isOpen) return;
     isOpen = false;
+    suppressOpenUntil = performance.now() + 400;
     cancelCommit();
     overlay.hidden = true;
     document.body.classList.remove("mv-open");
@@ -672,6 +676,7 @@ export function initMediaViewer(): () => void {
       // A finished text selection lands here as a click; copying must not open.
       const sel = window.getSelection();
       if (sel && !sel.isCollapsed && sel.toString()) return;
+      if (performance.now() < suppressOpenUntil) return;
       open(at, host);
     });
     host.addEventListener("keydown", (e) => {
