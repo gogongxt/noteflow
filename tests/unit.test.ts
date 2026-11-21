@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { injectAbbrlink, parseNote, readAbbrlink, splitSource } from '../src/content/frontmatter.ts';
 import { computeAbbrlink, computeIndexAbbrlink, rawDateString } from '../src/content/abbrlink.ts';
-import { crc32Hex, datePart } from '../src/core/util.ts';
+import { boolArg, crc32Hex, datePart } from '../src/core/util.ts';
 import { sanitize } from '../src/render/sanitize.ts';
 import { postprocess } from '../src/render/postprocess.ts';
 import { scanTree, assertReserved, collectNodes, assertNoCaseCollision } from '../src/content/scan.ts';
@@ -20,6 +20,15 @@ after(() => cleanupTmpDirs());
 test('crc32 matches Python zlib.crc32', () => {
   assert.equal(crc32Hex('测试标题|2026-11-12'), '3b41732c');
   assert.equal(crc32Hex(''), '00000000');
+});
+
+test('boolArg: a positive flag is on when present, regardless of the default', () => {
+  assert.equal(boolArg(undefined, false), false);
+  assert.equal(boolArg(true, false), true);
+  assert.equal(boolArg('true', false), true);
+  assert.equal(boolArg(undefined, true), true);
+  assert.equal(boolArg(false, true), false);
+  assert.equal(boolArg('false', true), false);
 });
 
 test('abbrlink uses the date part only; empty when absent', () => {

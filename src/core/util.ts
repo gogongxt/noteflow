@@ -166,9 +166,9 @@ export function parseArgs(argv: string[]): CliArgs {
   return args;
 }
 
-/** A boolean option's value, treating the inline string 'false' as off. */
+/** A boolean flag: absent → dflt; `--flag`/`=true` → true; `--no-flag`/`=false` → false. */
 export function boolArg(v: CliValue | undefined, dflt: boolean): boolean {
-  if (v === undefined || v === true) return dflt;
+  if (v === undefined) return dflt;
   return !(v === false || v === 'false');
 }
 
