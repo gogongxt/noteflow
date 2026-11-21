@@ -1,7 +1,7 @@
 // The home page: site intro, a few stats, and the most recent notes.
 import { esc } from '../core/util.ts';
 import type { SiteCtx, Theme } from './layout.ts';
-import { absUrl, pageTitleHtml, siteUrl } from './helpers.ts';
+import { absUrl, siteUrl } from './helpers.ts';
 import { pageClass } from './header.ts';
 import { card, pageShell } from './page.ts';
 import { collectTags } from './tags.ts';
@@ -42,7 +42,8 @@ export function renderHome(ctx: SiteCtx, theme: Theme): string {
     page: null,
     kind: 'home',
     main: `<article class="${pageClass('home')} post-layout no-toc">\n${intro}\n${recent}\n</article>`,
-    title: pageTitleHtml(ctx, ctx.site.siteName),
+    // The home page is the site name; pageTitleHtml would append " · <site>" again.
+    title: esc(ctx.site.siteName),
     description: esc(desc),
     canonical: absUrl(ctx.site, '/'),
     breadcrumbs: '',

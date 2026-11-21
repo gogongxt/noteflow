@@ -166,6 +166,13 @@ test('search.js is self-hosted and browser-loadable (no TS types)', async () => 
   assert.ok(html.includes('data-search-open'), 'header should have a search entry');
 });
 
+test('the home page title is the site name, not "<site> · <site>"', async () => {
+  await shared;
+  const html = fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
+  const title = html.match(/<title>([^<]*)<\/title>/)?.[1];
+  assert.equal(title, 'my notes');
+});
+
 test('the media viewer is a separate, lazily loaded module (not inlined into app.js)', async () => {
   await shared;
   const js = fs.readFileSync(findAsset('media.js'), 'utf8');
