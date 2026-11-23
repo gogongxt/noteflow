@@ -179,6 +179,51 @@ function setFooter(root: Document): void {
   if (shell) shell.appendChild(document.importNode(next, true));
 }
 
+/** Last navigation's channel-2 <style> blocks and executed inline <script>
+ *  copies: removed on the next navigation so a page's own CSS/global scripts
+ *  never leak onto the page after it. */
+let pageStyles: HTMLElement[] = [];
+let pageScripts: HTMLElement[] = [];
+
+function clearPageCode(): void {
+  for (const el of pageStyles) el.remove();
+  for (const el of pageScripts) el.remove();
+  pageStyles = [];
+  pageScripts = [];
+}
+
+/** Move channel-2 <style> blocks from the new <main> into <head> (a body
+ *  <style> would apply, but head placement matches a real load and keeps the
+ *  cleanup list in one place). The block keeps its bytes, so the CSP hash the
+ *  build computed still matches. */
+function adoptPageStyles(main: HTMLElement): void {
+  for (const style of main.querySelectorAll("style")) {
+    const live = document.createElement("style");
+    if (style.hasAttribute("media")) live.setAttribute("media", style.getAttribute("media")!);
+    live.textContent = style.textContent; // verbatim: the hashed bytes
+    document.head.appendChild(live);
+    pageStyles.push(live);
+    style.remove();
+  }
+}
+
+/** Run the new page's inline <script> bodies once. importNode leaves them
+ *  inert, so each is re-created from its exact text; a src script is handled
+ *  by runWidgetScripts. The build only lets a src-less script through with no
+ *  type (live code) or an inert data type (JSON-LD/importmap); the latter must
+ *  stay put, the former is re-created verbatim so the build's hash covers it. */
+function runInlineScripts(): void {
+  for (const script of document.querySelectorAll<HTMLScriptElement>("main script:not([src])")) {
+    if (script.hasAttribute("type")) continue;
+    const live = document.createElement("script");
+    for (const a of script.attributes) live.setAttribute(a.name, a.value);
+    live.textContent = script.textContent; // verbatim: the hashed bytes
+    document.head.appendChild(live);
+    pageScripts.push(live);
+    script.remove(); // the dead inline copy never ships twice
+  }
+}
+
 function ensureStyles(root: Document): void {
   for (const link of root.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')) {
     const href = link.getAttribute("href");
@@ -198,7 +243,10 @@ function ensureStyles(root: Document): void {
 /** Swapped-in note widgets (<script src> under main) are inert — importNode
  *  never executes a script. Replace each with a fresh copy so it runs; the
  *  copies re-run on every navigation into the page, so widgets must be
- *  idempotent initializers (they re-query their mounts). */
+ *  idempotent initializers (they re-query their mounts). Inline <script>
+ *  bodies (channel 2) get the same treatment: a fresh src-less copy runs once.
+ *  A module-typed inline script is left as-is — a re-created module cannot be
+ *  evaluated without a resolvable specifier, and channel 2 never ships one. */
 function runWidgetScripts(): void {
   for (const s of document.querySelectorAll<HTMLScriptElement>("main script[src]")) {
     const fresh = document.createElement("script");
@@ -251,7 +299,11 @@ async function navigate(url: URL, opts: { replace?: boolean; pop?: boolean } = {
     const pageKind = root.body.dataset.page;
     if (pageKind) document.body.dataset.page = pageKind;
 
+    clearPageCode();
     main.replaceWith(document.importNode(nextMain, true));
+    const liveMain = document.getElementById("main")!;
+    adoptPageStyles(liveMain);
+    runInlineScripts();
     setHeader(root);
     setFooter(root);
     setCurrentInSidebar(root);

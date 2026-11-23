@@ -38,6 +38,9 @@ export interface PostprocessCtx {
 export interface PostprocessResult {
   html: string;
   toc: TocItem[];
-  /** Every style attribute value in the body — the <meta> CSP hashes these. */
-  inlineStyles: string[];
+  /** Everything the page's CSP must cover, as the exact bytes the browser
+   *  hashes: `<style>` bodies and style attribute values in `styles`; inline
+   *  `<script>` bodies and `on…` handler values in `scripts` (handlers need
+   *  script-src 'unsafe-hashes', which is set for the site as a whole). */
+  csp: { styles: string[]; scripts: string[] };
 }

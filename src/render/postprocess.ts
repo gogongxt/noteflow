@@ -2,10 +2,11 @@
 // (code chrome, callouts, equations, TOC), serialized as a fragment.
 import { parseFragment, serialize } from 'parse5';
 import { decodeURIComponentSafe, encodePath, nfc } from '../core/util.ts';
-import { append, classesOf, element, getAttr, setAttr, replaceWithText, SKIP, text, textOf, walk, type P5Any } from '../core/dom.ts';
+import { append, classesOf, dropAttr, element, getAttr, hasAncestor, setAttr, replaceWithText, SKIP, text, textOf, walk, type P5Any } from '../core/dom.ts';
 import { expandEmbed, parseEmbed } from './embeds.ts';
 import { reportBroken } from './broken.ts';
-import { sanitize } from './sanitize.ts';
+import { HANDLER_ATTR, INERT_SCRIPT_TYPE, sanitize } from './sanitize.ts';
+import { cssValueUnsafe } from './css-safety.ts';
 import { normalizeCodeBlock } from './code-blocks.ts';
 import { normalizeCallout } from './callouts.ts';
 import { assertNoRawRefs, numberEquations, rewriteMathRefs } from './math.ts';
@@ -17,17 +18,46 @@ export function postprocess(fragment: string, ctx: PostprocessCtx): PostprocessR
   const cleaned = sanitize(fragment);
   const root = parseFragment(cleaned) as unknown as P5Any;
   const toc: TocItem[] = [];
-  const inlineStyles: string[] = [];
+  const styles: string[] = [];
+  const scripts: string[] = [];
 
   walk(root, (node) => {
     const name = node.nodeName;
-    if (name === 'style' || name === 'iframe' || name === 'object' || name === 'embed') return SKIP;
+    if (name === 'style' || name === 'iframe' || name === 'object' || name === 'embed') {
+      // A <style> block is live CSS the page's CSP must hash. The guard runs on
+      // the decoded text for the same reason as the attribute case below.
+      if (name === 'style') {
+        const css = (node.childNodes ?? []).map((c) => c.value ?? '').join('');
+        if (css.trim()) {
+          if (cssValueUnsafe(css)) {
+            broken(ctx, 'a <style> block contains url()/image()/expression()/@import, which the CSP cannot make safe', node);
+          } else {
+            styles.push(css);
+          }
+        }
+      }
+      return SKIP;
+    }
     if (name === 'script') {
-      rewriteWidgetScript(node, ctx);
+      rewriteWidgetScript(node, ctx, scripts);
       return SKIP; // raw text children must not be visited
     }
     const style = getAttr(node, 'style');
-    if (style !== undefined) inlineStyles.push(style);
+    if (style !== undefined) {
+      // Escape sequences are decoded before the check: `u\72l(…)` is url().
+      if (cssValueUnsafe(style)) {
+        broken(ctx, 'a style attribute contains url()/image()/expression()/@import, which the CSP cannot make safe', node);
+        dropAttr(node, 'style');
+      } else {
+        // The CSP hashes the attribute value the parser decoded, so the scan
+        // must see the decoded form too; the emitted bytes stay as written.
+        styles.push(style);
+      }
+    }
+    // Event handlers are executable script the CSP hashes, via 'unsafe-hashes'.
+    for (const a of node.attrs ?? []) {
+      if (HANDLER_ATTR.test(a.name) && a.value) scripts.push(a.value);
+    }
     if (name === 'a') rewriteLink(node, ctx);
     else if (name === 'p') expandSoleEmbed(node, ctx);
     else if (name === 'img') rewriteImage(node, ctx);
@@ -37,6 +67,7 @@ export function postprocess(fragment: string, ctx: PostprocessCtx): PostprocessR
     else if (name === 'track') rewriteAssetAttr(node, 'src', ctx, true);
     else if (name === 'link') rewriteStylesheetLink(node, ctx);
     else if (name === 'div') normalizeCallout(node);
+    else if (name === 'input') floorTaskListCheckbox(node);
     else if (name === 'pre') {
       normalizeCodeBlock(node);
       return SKIP;
@@ -49,7 +80,15 @@ export function postprocess(fragment: string, ctx: PostprocessCtx): PostprocessR
   rewriteMathRefs(root, labels, ctx);
   assertNoRawRefs(root, ctx);
   collectHeadings(root, toc);
-  return { html: serialize(root as never), toc, inlineStyles };
+  return { html: serialize(root as never), toc, csp: { styles, scripts } };
+}
+
+/** A done/undone checkbox inside pandoc's task list is a display of state, not
+ *  a control: make it read-only. An authored checkbox anywhere else stays live. */
+function floorTaskListCheckbox(node: P5Any): void {
+  if (getAttr(node, 'type') !== 'checkbox') return;
+  if (!hasAncestor(node, (n) => classesOf(n).includes('task-list'))) return;
+  setAttr(node, 'disabled', '');
 }
 
 /** A paragraph holding only one `a.embed` becomes the provider's iframe. The
@@ -212,11 +251,17 @@ function rewriteVideo(node: P5Any, ctx: PostprocessCtx): void {
   if (!getAttr(node, 'preload')) setAttr(node, 'preload', 'metadata');
 }
 
-/** Widget channel (2026-11-21): a note loads code shipped next to itself.
- *  sanitize already reduced the tags to exactly two forms — src-only script /
- *  stylesheet link with a relative path — so here there is only resolving and
- *  rewriting to do, through the same hashed /assets/ pipeline as images. */
-function rewriteWidgetScript(node: P5Any, ctx: PostprocessCtx): void {
+/** A widget script (relative src → hashed /assets/ URL) or a channel-2 inline
+ *  script (no src; its body is the code, collected for the CSP hash). */
+function rewriteWidgetScript(node: P5Any, ctx: PostprocessCtx, scripts: string[]): void {
+  if (getAttr(node, 'src') === undefined) {
+    // Channel 2: keep the body verbatim — the bytes the browser will run. A
+    // JSON-LD/importmap block is inert data, not script, and is not hashed.
+    const type = (getAttr(node, 'type') || '').trim();
+    const body = (node.childNodes ?? []).map((c) => c.value ?? '').join('');
+    if (body.trim() && !INERT_SCRIPT_TYPE.test(type)) scripts.push(body);
+    return; // keep childNodes as-is
+  }
   node.childNodes = []; // a src script's body is dead weight; never ship it
   rewriteWidgetRef(node, 'src', ctx);
 }

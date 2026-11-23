@@ -3,7 +3,7 @@
 import path from 'node:path';
 import { BuildError } from '../core/util.ts';
 import { runAuditDetailed } from './audit.ts';
-import { hashContent, hashDist, styleHash, writeAtomic } from './outputs.ts';
+import { cspHash, hashContent, hashDist, writeAtomic } from './outputs.ts';
 import type { AppConfig } from '../core/config.ts';
 import type { Page, PrivateItem } from '../core/types.ts';
 
@@ -14,12 +14,13 @@ export interface ManifestInput {
   privateItems: PrivateItem[];
   cfg: AppConfig;
   skipAudit: boolean;
-  /** Everything postprocess collected; the audit must not find more. */
-  bodyInlineStyles: ReadonlySet<string>;
   counts: { published: number; indexes: number; assets: number; searchDocs: number };
   buildTime: Date;
   pandocVersion: string | undefined;
+  /** The CSP the pages shipped with. The audit re-derives hashes from the
+   *  written output and refuses anything this list does not cover. */
   scriptHashes: string[];
+  styleHashes: string[];
   /** Content-rel paths whose frontmatter this build wrote an abbrlink into —
    *  the sync daemon commits exactly these files back to the notes remote. */
   abbrlinkWrites: string[];
@@ -39,18 +40,26 @@ export function finishBuild(input: ManifestInput, manifestFile: string): Finishe
         audit.findings.slice(0, 30).map((f) => `  - ${f.file}: ${f.msg}`).join('\n'),
     );
   }
-  let inlineStyles: string[] = [];
+  const styleHashes = input.styleHashes;
   if (!input.skipAudit) {
-    inlineStyles = audit.inlineStyles;
-    // Anything the audit sees in the final output but postprocess did not
-    // collect would ship unhashed in the meta CSP.
-    const unknown = audit.inlineStyles.filter((s) => !input.bodyInlineStyles.has(s));
-    if (unknown.length) {
-      throw new BuildError(
-        `Output audit failed: ${unknown.length} inline style attribute(s) appeared after postprocess; the meta CSP would block them:\n` +
-          unknown.slice(0, 5).map((s) => `  - ${s.slice(0, 60)}`).join('\n'),
-      );
-    }
+    // The CSP hashes are the execution boundary; the audit proves they close
+    // over the written tree. It re-hashes every inline style/script/handler it
+    // finds and refuses any the build published no hash for — a guard for
+    // stages that run after the page set was fixed, since those are the only
+    // ones that could add code the CSP does not cover.
+    const unclosed = (seen: string[], hashed: readonly string[], what: string): void => {
+      const known = new Set(hashed);
+      const unknown = [...new Set(seen.map(cspHash))].filter((h) => !known.has(h));
+      if (unknown.length) {
+        throw new BuildError(
+          `Output audit failed: ${unknown.length} ${what} in the written output ${unknown.length === 1 ? 'is' : 'are'} not covered by the CSP hashes; the browser would block ${unknown.length === 1 ? 'it' : 'them'}:\n` +
+            unknown.slice(0, 5).map((h) => `  - ${h}`).join('\n'),
+        );
+      }
+    };
+    unclosed(audit.inlineStyles, styleHashes, 'inline style value(s)');
+    unclosed(audit.inlineScripts, input.scriptHashes, 'inline script body(ies)');
+    unclosed(audit.inlineHandlers, input.scriptHashes, 'event-handler value(s)');
   }
 
   const buildId = input.buildTime.toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
@@ -65,8 +74,8 @@ export function finishBuild(input: ManifestInput, manifestFile: string): Finishe
     // --skip-audit style hashes are incomplete; gen-nginx must refuse them.
     audited: !input.skipAudit,
     csp: {
-      inlineScriptHashes: input.scriptHashes,
-      inlineStyleHashes: inlineStyles.map(styleHash),
+      inlineScriptHashes: [...new Set(input.scriptHashes)],
+      inlineStyleHashes: [...new Set(styleHashes)],
     },
   };
   writeAtomic(manifestFile, JSON.stringify(manifest, null, 2) + '\n');

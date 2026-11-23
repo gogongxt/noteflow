@@ -13,7 +13,6 @@ import { initCrumbMenu } from "./crumb-menu.js";
 import { initCodeFold, revealCodeFold } from "./code-block.js";
 import { initDiagramView } from "./diagram.js";
 import { initSearchEntry } from "./search-entry.js";
-import { initReveal } from "./reveal.js";
 import { armMedia, armComments } from "./media-comments.js";
 
 initSoftNav();
@@ -37,7 +36,6 @@ function hydrate(): void {
   setupTables();
   setupHeadingLinks();
   initTabs();
-  initReveal();
   armMedia();
   armComments();
 }

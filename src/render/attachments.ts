@@ -4,8 +4,8 @@ import { BuildError, hashFile8, hashedName } from '../core/util.ts';
 
 /** Extension → Content-Type for every publishable attachment. nginx and the
  *  preview server serve these types explicitly: Safari refuses media whose
- *  response is not a media type. js/css are the widget channel (2026-11-21):
- *  published same-origin under /assets/, where the CSP already allows them. */
+ *  response is not a media type. js/css are the widget channel: published
+ *  same-origin under /assets/, where the CSP already allows them. */
 export const ATTACHMENT_TYPES: Readonly<Record<string, string>> = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
   webp: 'image/webp', avif: 'image/avif', svg: 'image/svg+xml', ico: 'image/x-icon', bmp: 'image/bmp',

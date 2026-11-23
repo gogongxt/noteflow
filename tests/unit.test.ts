@@ -82,38 +82,79 @@ test('write-back: unknown fields and key order are preserved', () => {
   assert.ok(out.startsWith('---\nz: 1\ntitle: x\ncustom: {a: 1}\nabbrlink: "deadbeef"\n---\nbody'));
 });
 
-const INJECTIONS = [
-  '<script>alert(1)</script>',
+// These stay blocked through sanitize even with channel 2 open: they are
+// attack shapes no CSP hash makes safe, or markup the channel does not admit.
+// Style values that fetch/execute are stopped later, in postprocess.
+const BLOCKED = [
   '<iframe src="file:///etc/passwd"></iframe>',
-  '<style>body{display:none}</style>',
-  '<img src="x.png" onerror="alert(1)">',
+  '<object data="x"></object>',
+  '<embed src="x">',
   '<img src="//evil.example/pixel.png">',
-  '<span onmouseover="x()">s</span>',
   '<a href="javascript:alert(1)">j</a>',
   '<a href="JaVaScRiPt:alert(1)">j2</a>',
   '<a href="java\nscript:alert(1)">j3</a>',
   '<a href="//evil.com">e</a>',
   '<a href="data:text/html,<script>alert(1)</script>">d</a>',
-  '<div onclick="steal()">div</div>',
-  '<span style="background-image:url(https://evil)">s</span>',
-  '<span style="width:expression(alert(1))">s</span>',
   '<img src="data:image/svg+xml,<svg onload=alert(1)>">',
   '<math><maction actiontype="statusline" xlink:href="javascript:alert(1)">x</maction></math>',
-  '<input type="text" value="x">',
-  '<object data="x"></object>',
-  '<embed src="x">',
+  // module scripts are dropped (no import resolution); only inert JSON survives.
+  '<script type="module">import x from "https://evil.example/x.js"</script>',
 ];
 
-for (const html of INJECTIONS) {
-  test(`injection blocked: ${html.slice(0, 50)}`, () => {
+for (const html of BLOCKED) {
+  test(`sanitize blocks: ${html.slice(0, 50)}`, () => {
     const out = sanitize(html);
-    assert.ok(!/<script|<iframe|<style|<object|<embed/i.test(out), `dangerous tag left behind: ${out}`);
-    assert.ok(!/\son[a-z]+=/i.test(out), `event handler attribute left behind: ${out}`);
-    assert.ok(!/javascript:|data:text\/html|data:image\/svg/i.test(out), `dangerous scheme left behind: ${out}`);
-    assert.ok(!/expression\(|url\(/i.test(out), `dangerous style left behind: ${out}`);
-    assert.ok(!/protocol|evil\.com"\s*href|^<a href="\/\//i.test(out), `protocol-relative link left behind: ${out}`);
+    assert.ok(!/<iframe|<object|<embed/i.test(out), `dangerous tag left behind: ${out}`);
+    assert.ok(!/javascript:/i.test(out), `javascript: scheme left behind: ${out}`);
+    assert.ok(!/data:text\/html|data:image\/svg/i.test(out), `dangerous data URI left behind: ${out}`);
+    assert.ok(!/protocol-relative|\/\/evil\.com/i.test(out), `protocol-relative link left behind: ${out}`);
+    assert.ok(!/type="module"/i.test(out), `module script left behind: ${out}`);
   });
 }
+
+// Channel 2 admits these; the build hashes their bytes into the CSP, so only
+// written code runs. Verifying the admission is
+// what keeps the whitelist honest — but it is a *guard rail*, not the guard:
+// the CSP + audit (e2e) are what actually bound execution.
+test('sanitize admits channel-2 inline code (it is hashed into the CSP, not dropped)', () => {
+  const out = sanitize(
+    '<script>window.viz = { start() { draw(); } }</script>' +
+      '<style>.viz { transform: rotate(3deg) }</style>' +
+      '<div class="viz" style="--d:120ms;animation-delay:var(--d)" onclick="viz.start()" onpointerdown="go()">start</div>',
+  );
+  assert.ok(out.includes('<script>window.viz'), out);
+  assert.ok(out.includes('<style>.viz'), out);
+  assert.ok(out.includes('class="viz"'), out);
+  assert.ok(out.includes('style="--d:120ms;animation-delay:var(--d)"'), out);
+  assert.ok(out.includes('onclick="viz.start()"'), out);
+  assert.ok(out.includes('onpointerdown="go()"'), out);
+});
+
+test('sanitize admits channel-2 interactive elements: controls, SVG, canvas, handlers', () => {
+  const out = sanitize(
+    '<button type="button" onclick="play()" data-step="1">Play</button>' +
+      '<input type="range" min="0" max="9" value="0" class="slider">' +
+      '<canvas id="chart" width="320" height="180"></canvas>' +
+      '<svg viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="4"></circle></svg>',
+  );
+  for (const frag of ['<button type="button" onclick="play()" data-step="1">', '<input type="range"', 'min="0"', 'class="slider"', '<canvas id="chart" width="320" height="180"></canvas>']) {
+    assert.ok(out.includes(frag), `lost ${frag}: ${out}`);
+  }
+  // SVG presentation attrs survive lowercase; parse5 later restores their case.
+  assert.ok(/<svg[^>]*viewbox="0 0 10 10"[^>]*>/.test(out) && out.includes('<circle cx="5" cy="5" r="4">'), out);
+});
+
+test('sanitize: authored inputs keep their attributes and stay interactive', () => {
+  const out = sanitize(
+    '<input type="checkbox" checked aria-label="pick">' +
+      '<input type="text" name="q" placeholder="find" minlength="2" required>' +
+      '<input type="range" min="0" max="9" value="0" oninput="go(this)">',
+  );
+  assert.ok(out.includes('type="checkbox"') && /\bchecked\b/.test(out) && out.includes('aria-label="pick"'), out);
+  assert.ok(!out.includes('disabled'), `an authored control must not be disabled: ${out}`);
+  assert.ok(out.includes('name="q"') && out.includes('placeholder="find"') && out.includes('minlength="2"'), out);
+  assert.ok(out.includes('oninput="go(this)"'), out);
+});
 
 test('preservation regression: rich text, MathML, task lists, code highlighting, callouts', () => {
   const input =
@@ -140,7 +181,7 @@ test('preservation regression: rich text, MathML, task lists, code highlighting,
     'class="callout" data-note="提示"',
     '<figure>',
     '<figcaption>',
-    'style="text-align:left"',
+    'style="text-align: left"',
     '<del>d</del>',
     '<kbd>K</kbd>',
     '<mark>m</mark>',
@@ -164,16 +205,16 @@ test('custom classes on headings are preserved (the syntax guide promises {.acce
   assert.ok(out.includes('<h2 class="accent">'), `accent on h2 lost: ${out}`);
 });
 
-test('heading custom classes do not let non-whitelisted classes through', () => {
+test('heading custom classes are all preserved now (channel 2 admits any class hook)', () => {
   const out = sanitize('<h2 class="accent evil" style="color:red">x</h2>');
-  assert.ok(out.includes('class="accent"'), out);
-  assert.ok(!out.includes('evil'), `non-whitelisted class should be dropped: ${out}`);
+  assert.ok(out.includes('class="accent evil"'), out);
+  assert.ok(out.includes('style="color:red"'), out);
 });
 
-test('allowedStyles must be keyed by selector (an attribute-name key means no filtering)', async () => {
-  const { SANITIZE_OPTIONS } = await import('../src/render/sanitize.ts');
-  assert.ok('*' in SANITIZE_OPTIONS.allowedStyles);
-  assert.ok(!('color' in SANITIZE_OPTIONS.allowedStyles));
+test('sanitize: style values pass through verbatim (the CSP hash covers the written bytes)', () => {
+  const style = '--d:120ms;transform:rotate(3deg);width:1%';
+  const out = sanitize(`<div style="${style}">x</div>`);
+  assert.ok(out.includes(`style="${style}"`), `style value was rewritten: ${out}`);
 });
 
 test('parseArgs: boolean flags never consume a positional as their value', async () => {
@@ -251,11 +292,9 @@ test('sanitize: whitelisted data:image URIs survive (the img transform must not 
   assert.ok(!bad.includes('src="data:image/svg'), `svg data: URI must stay blocked: ${bad}`);
 });
 
-test('sanitize: pandoc width style on img survives the style whitelist', () => {
+test('sanitize: pandoc width style on img survives (not style-whitelisted away)', () => {
   const out = sanitize('<img src="a.png" style="width:50.0%">');
   assert.ok(/width:\s*50(\.0+)?%/.test(out), `img width style was dropped: ${out}`);
-  const bad = sanitize('<img src="a.png" style="width:expression(alert(1))">');
-  assert.ok(!/expression/i.test(bad), `dangerous width value passed: ${bad}`);
 });
 
 test('encodePath: a literal % in a filename stays encoded (no %25→% un-escape)', async () => {
@@ -300,7 +339,7 @@ function pp(html: string, overrides = {}) {
     ...overrides,
   };
   const r = postprocess(html, ctx as never);
-  return { html: r.html, toc: r.toc, broken };
+  return { html: r.html, toc: r.toc, broken, csp: r.csp };
 }
 
 test('link rewriting: relative .md → /posts/xxx (extensionless), anchor preserved', () => {
@@ -368,7 +407,7 @@ test('embed: a link inside a paragraph of prose is not turned into a frame', () 
   assert.ok(!html.includes('<iframe'), html);
 });
 
-test('sanitize: media keeps only passive attributes; autoplay/crossorigin/on* are dropped', () => {
+test('sanitize: media keeps only passive attributes; autoplay/crossorigin are dropped, handlers kept for the CSP', () => {
   const out = sanitize(
     '<video controls autoplay crossorigin onerror="alert(1)" src="a.mp4" poster="p.png" width="640">' +
       '<track src="s.vtt" kind="captions" label="中文字幕" default></video>' +
@@ -376,12 +415,15 @@ test('sanitize: media keeps only passive attributes; autoplay/crossorigin/on* ar
   );
   assert.ok(out.includes('controls'), out);
   assert.ok(out.includes('width="640"'), out);
-  assert.ok(!/autoplay|crossorigin|onerror/.test(out), out);
+  // Playback never autoplays and never crosses origins; an event handler is
+  // channel-2 code the CSP will hash, so it survives sanitize.
+  assert.ok(!/autoplay|crossorigin/.test(out), out);
+  assert.ok(out.includes('onerror="alert(1)"'), 'a handler is kept for the CSP hash');
   assert.ok(out.includes('label="中文字幕"') && out.includes('default'), out);
   assert.ok(!out.includes('javascript:'), out);
 });
 
-test('sanitize: widget channel keeps only src-only relative scripts and stylesheet links', () => {
+test('sanitize: widget channel keeps src-only relative scripts and stylesheet links; stray attrs dropped', () => {
   const out = sanitize(
     '<script src="./widgets/clock.js" defer onload="evil()" async></script>' +
       '<script src="widgets/clock.js"></script>' +
@@ -391,33 +433,80 @@ test('sanitize: widget channel keeps only src-only relative scripts and styleshe
   assert.ok(out.includes('<script src="./widgets/clock.js" defer></script>'), out);
   assert.ok(out.includes('<script src="widgets/clock.js"></script>'), out);
   assert.ok(out.includes('<script src="./sub/dir/viz.min.js" defer></script>'), out);
-  assert.ok(out.includes('<link rel="stylesheet" href="./widgets/clock.css"'), out);
+  assert.ok(/<link rel="stylesheet" href="\.\/widgets\/clock\.css"\s*\/?>/.test(out), out);
+  // A src script carries exactly src+defer: onload/async/media are not its form.
   assert.ok(!/onload|async|media=/.test(out), out);
 });
 
-test('sanitize: widget gate drops inline code, external URLs, escapes and wrong extensions', () => {
+test('sanitize: a widget src that is external, escaping, dotfile or a wrong extension degrades to a span', () => {
   const out = sanitize(
-    '<script>alert(1)</script>' +
-      '<script src="https://evil.example.org/x.js"></script>' +
+    '<script src="https://evil.example.org/x.js"></script>' +
       '<script src="//evil.example.org/x.js"></script>' +
       '<script src="../outside.js"></script>' +
       '<script src=".hidden.js"></script>' +
       '<script src="./widgets/clock.css"></script>' +
+      '<script src="javascript:alert(1).js"></script>' +
       '<link rel="stylesheet" href="https://evil.example.org/x.css">' +
       '<link rel="preload" href="./widgets/clock.css">' +
-      '<link rel="stylesheet" href="./widgets/clock.js">' +
-      '<script src="javascript:alert(1).js"></script>',
+      '<link rel="stylesheet" href="./widgets/clock.js">',
   );
+  // No sanctioned src/link survives; each bad one degrades to a plain span.
   assert.ok(!out.includes('<script') && !out.includes('<link'), out);
-  // Inline code degrades to escaped visible text (fail-visible), never ships as code.
-  assert.ok(out.includes('<span>alert(1)</span>'), out);
 });
 
-test('sanitize: widget mounts live in the w- namespace; foreign classes stay filtered', () => {
+test('sanitize: an inline script body is channel-2 code, kept verbatim (not degraded)', () => {
+  // Channel 2 keeps the body; the build hashes the exact bytes into the CSP.
+  const out = sanitize('<script>alert(1)</script>');
+  assert.ok(out.includes('<script>alert(1)</script>'), out);
+});
+
+test('channel 2: postprocess collects the exact CSP inputs and refuses a fetching style', () => {
+  const ok = pp(
+    '<style>.v { stroke: var(--fg) }</style>' +
+      '<div class="v" style="--d:1s" onclick="go()" onpointerdown="down()">x</div>' +
+      '<script>window.v = 1</script>',
+  );
+  assert.deepEqual([...ok.csp.styles].sort(), ['.v { stroke: var(--fg) }', '--d:1s'].sort());
+  assert.deepEqual([...ok.csp.scripts].sort(), ['go()', 'down()', 'window.v = 1'].sort());
+  assert.equal(ok.broken.length, 0);
+
+  // CSS escapes decode before the check: `\75 rl(` is url(), and must fail.
+  for (const css of ['url(http://x)', 'u\\72l(http://x)', 'image-set(x)', 'expression(1)', '@import url(x)']) {
+    const bad = pp(`<div style="${css}">x</div>`);
+    assert.equal(bad.broken.length, 1, `style should be refused: ${css}`);
+    assert.ok(!bad.html.includes('style='), `refused style must not ship: ${bad.html}`);
+  }
+  const badBlock = pp('<style>@\\69mport "x.css";</style>');
+  assert.equal(badBlock.broken.length, 1, 'an escaped @import in a style block must be refused');
+  assert.ok(!badBlock.csp.styles.length, 'a refused style block must not enter the hash list');
+});
+
+test('channel 2: inert script types are not hashed; a live body is', () => {
+  const r = pp('<script type="application/ld+json">{"@type":"Note"}</script><script>live()</script>');
+  assert.deepEqual(r.csp.scripts, ['live()']);
+});
+
+test('postprocess: only a pandoc task-list checkbox is floored read-only', () => {
+  const { html } = pp(
+    '<ul class="task-list"><li><label><input type="checkbox" checked="">done</label></li></ul>' +
+      '<input type="checkbox" aria-label="toggle" checked>' +
+      '<input type="radio" name="pick">',
+  );
+  assert.match(html, /<input type="checkbox" checked\b[^>]* disabled\b/);
+  assert.ok(!/<input type="checkbox" aria-label="toggle" checked\b[^>]* disabled/.test(html), 'an authored checkbox stays live');
+});
+
+test('sanitize: a checkbox outside a task list is untouched (no global disable)', () => {
+  const out = sanitize('<ul class="plain"><li><input type="checkbox" checked></li></ul>');
+  assert.ok(/\bchecked\b/.test(out), out);
+  assert.ok(!out.includes('disabled'), out);
+});
+
+test('sanitize: channel-2 classes survive (any CSS-identifier name), theme w- classes included', () => {
   const out = sanitize('<div class="w-orbit callout-demo"><span class="w-x evil">t</span></div>');
-  assert.ok(out.includes('class="w-orbit"'), out);
-  assert.ok(out.includes('class="w-x"'), out);
-  assert.ok(!out.includes('evil') && !out.includes('callout-demo'), out);
+  // Channel 2 needs ordinary class hooks; a class is a selector name only.
+  assert.ok(out.includes('class="w-orbit callout-demo"'), out);
+  assert.ok(out.includes('class="w-x evil"'), out);
 });
 
 test('sanitize: the built-in w- components keep their classes through the whitelist', () => {
@@ -426,11 +515,10 @@ test('sanitize: the built-in w- components keep their classes through the whitel
   const out = sanitize(
     '<a class="w-btn w-ghost" href="/">go</a>' +
       '<span class="w-chip">tag</span>' +
-      '<div class="w-grid"><div class="w-card w-reveal">c</div></div>' +
-      '<div class="w-timeline"><div class="w-tl">e</div></div>' +
-      '<div class="w-stagger"><div class="w-card w-reveal">s</div></div>',
+      '<div class="w-grid"><div class="w-card">c</div></div>' +
+      '<div class="w-timeline"><div class="w-tl">e</div></div>',
   );
-  for (const cls of ['w-btn', 'w-ghost', 'w-chip', 'w-grid', 'w-card', 'w-reveal', 'w-timeline', 'w-tl', 'w-stagger']) {
+  for (const cls of ['w-btn', 'w-ghost', 'w-chip', 'w-grid', 'w-card', 'w-timeline', 'w-tl']) {
     assert.ok(out.includes(cls), `${cls} was filtered: ${out}`);
   }
 });
@@ -719,8 +807,10 @@ test('code block language names survive sanitizing (the copy button label depend
   const { html } = pp('<pre class="sourceCode js"><code class="sourceCode javascript"><span class="kw">const</span></code></pre>');
   assert.ok(html.includes('class="sourceCode js"'), html);
   assert.ok(html.includes('class="sourceCode javascript"'), html);
+  // Channel 2 admits arbitrary class hooks, so a made-up class now survives
+  // (it is only a selector name); the property is what the CSP bounds, not the name.
   const other = pp('<p class="totally-made-up">x</p>');
-  assert.ok(!other.html.includes('totally-made-up'), other.html);
+  assert.ok(other.html.includes('totally-made-up'), other.html);
 });
 
 test('fenced-div callout normalization: class and title → semantic class + data-note', () => {

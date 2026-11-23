@@ -1,5 +1,6 @@
 // Mermaid is rendered in headless Chromium at build time because the site's
-// CSP (`style-src 'self'`) blocks the <style> and style="" mermaid injects.
+// CSP (`style-src` = self + build-time hashes) blocks the <style> and style=""
+// mermaid injects at run time — its CSS is not known when the hashes are made.
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';

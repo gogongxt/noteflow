@@ -11,8 +11,8 @@ test('assets: media extensions are publishable, other types still refuse', async
   writeFile(root, 'subs.vtt', 'WEBVTT\n');
   writeFile(root, 'evil.html', '<script>');
   writeFile(root, 'evil.exe', 'MZ');
-  // js/css publish too — the widget channel (2026-11-21); executables and
-  // arbitrary documents still refuse.
+  // js/css publish too (the widget channel); executables and arbitrary
+  // documents still refuse.
   writeFile(root, 'widget.js', '1');
   writeFile(root, 'widget.css', '.w-x{}');
   const namer = makeAssetNamer(fs.realpathSync(root));

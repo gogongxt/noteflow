@@ -5,7 +5,6 @@ import path from 'node:path';
 import { execFileSync, spawn } from 'node:child_process';
 import { cleanupTmpDirs, tmpDir, PNG } from './helpers.ts';
 import { computeAbbrlink } from '../src/content/abbrlink.ts';
-import { stripTypes } from '../src/build/frontend.ts';
 import { CSS_LAYERS, themeCss } from '../src/build/static-assets.ts';
 
 // Top-level tests run serially, so every test that only reads dist/ shares one
@@ -15,13 +14,6 @@ const REPO = path.resolve(import.meta.dirname, '..');
 // The purpose-built fixture tree: every subtree here exists because a test
 // asserts on it (tree shape, media, privacy, comments, dates, tags).
 const NOTES = path.join(REPO, 'tests/fixtures/content');
-// Same pipeline as build.ts: strip types, escape `</script`, then hash the bytes.
-const readInline = (name: string): string =>
-  stripTypes(fs.readFileSync(path.join(REPO, 'themes/default', name), 'utf8'))
-    .trim()
-    .replace(/<\/script/gi, '<\\/script');
-const themeInitSrc = readInline('theme-init.ts');
-const uiBootSrc = readInline('ui-boot.ts');
 
 /** A fresh copy of the fixture tree, for tests that mutate content in place. */
 function makeContentCopy(): string {
@@ -258,7 +250,7 @@ test('widgets: note scripts and stylesheets publish same-origin through the asse
   assert.ok(!/<script src="\.\/widgets\/orbit\.js"/.test(html), 'the fenced example must not survive as a live tag');
 });
 
-test('widgets: inline and external scripts never reach the output; a broken ref fails the build', async () => {
+test('widgets: an external src is dropped and an inline body is hashed, not escaped', async () => {
   const fm = (body: string) => `---\ntitle: 小玩具\npublic: true\nabbrlink: "widget001"\n---\n\n${body}\n`;
   // A missing widget file aborts like any broken reference.
   const copy = tmpDir();
@@ -267,11 +259,12 @@ test('widgets: inline and external scripts never reach the output; a broken ref 
   assert.notEqual(bad.status, 0);
   assert.match(bad.stderr + bad.stdout, /a\.md .*widget|attachment not found: .*gone\.js/);
 
-  // Without it, the build passes and only the sanctioned forms ship.
+  // Without it, the build passes: the external src is dropped, the inline body
+  // ships as channel-2 code (its hash rides in the CSP), the widget src ships.
   const okCopy = tmpDir();
   fs.writeFileSync(
     path.join(okCopy, 'a.md'),
-    fm('<script>alert(1)</script>\n\n<script src="https://evil.example.org/x.js"></script>\n\n<script src="./viz.js" defer>ignored body</script>\n'),
+    fm('<script src="https://evil.example.org/x.js"></script>\n\n<script>window.__viz = 1</script>\n\n<script src="./viz.js" defer>ignored body</script>\n'),
   );
   fs.writeFileSync(path.join(okCopy, 'viz.js'), '// ok\n');
   const outDir = tmpDir();
@@ -279,7 +272,7 @@ test('widgets: inline and external scripts never reach the output; a broken ref 
   assert.equal(ok.status, 0, ok.stderr);
   const page = fs.readFileSync(path.join(outDir, 'posts/widget001/index.html'), 'utf8');
   assert.ok(!page.includes('evil.example.org'), 'an external script URL must not survive');
-  assert.ok(page.includes('<span>alert(1)</span>'), 'inline code degrades to visible text');
+  assert.ok(page.includes('<script>window.__viz = 1</script>'), 'the inline body ships as code for the CSP');
   assert.match(page, /<script src="\/assets\/widget001\/viz\.[0-9a-f]{8}\.js" defer=""><\/script>/, 'the relative one ships');
   assert.ok(!page.includes('ignored body'), 'a src script body never ships');
 });
@@ -612,23 +605,46 @@ test('breadcrumbs: the current page also gets a sibling menu; directory entries 
   assert.match(layer, /class="crumb-item-link is-current" href="[^"]+" aria-current="page"/);
 });
 
-test("CSP constraints: no <style> blocks; inline styles come only from note content", async () => {
-  await shared;
-  for (const f of listFiles(dist).filter((x) => x.endsWith('.html'))) {
+test('CSP constraints: every inline <style>/<script>/handler in the output is covered by a CSP hash', async () => {
+  // The boundary is the hash list, not "no inline code": the page shell
+  // (outside <article>) carries no inline style of its own, and every inline
+  // value inside a note body must be one of the manifest's published hashes.
+  // Values are hashed byte-exact — the whole point of the raw-bytes fix.
+  // The docs profile is the tree with channel-2 code (Features.md's demos);
+  // the neutral fixture content carries none.
+  const docs = await sharedDocs;
+  const { createHash } = await import('node:crypto');
+  const sha = (s: string): string => 'sha256-' + createHash('sha256').update(s, 'utf8').digest('base64');
+  const manifest = JSON.parse(fs.readFileSync(docs.manifest, 'utf8')) as {
+    csp: { inlineScriptHashes: string[]; inlineStyleHashes: string[] };
+  };
+  const scriptHashes = new Set(manifest.csp.inlineScriptHashes);
+  const styleHashes = new Set(manifest.csp.inlineStyleHashes);
+  // A handler attribute value is decoded by the HTML parser before the CSP
+  // hashes it, so the fixture's plain values are read as written.
+  const handlersOf = (html: string): string[] => [...html.matchAll(/\son[a-z]+="([^"]*)"/gi)].map((m) => m[1]);
+  let checked = { scripts: 0, styles: 0, handlers: 0 };
+  for (const f of listFiles(docsDist).filter((x) => x.endsWith('.html'))) {
+    const rel = path.relative(docsDist, f);
     const html = fs.readFileSync(f, 'utf8');
-    assert.ok(!/<style[\s>]/i.test(html), `${path.relative(dist, f)} contains <style>`);
-    // Note bodies may carry inline styles; those are hashed at build time.
     const shell = html.replace(/<article[\s\S]*<\/article>/, '');
-    assert.ok(!/\sstyle="/i.test(shell), `${path.relative(dist, f)} page shell contains an inline style`);
-    const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
-    for (const m of scripts) {
-      const attrs = m[1];
-      const body = m[2].trim();
-      if (/src=/.test(attrs)) continue; // external script (self-hosted)
-      const allowed = [themeInitSrc, uiBootSrc].map((s) => s.trim());
-        assert.ok(allowed.includes(body) && body.length < 2000, `suspicious inline script: ${body.slice(0, 80)}`);
+    assert.ok(!/\sstyle="/i.test(shell), `${rel} page shell contains an inline style`);
+    for (const m of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
+      if (/\ssrc=/.test(m[1])) continue; // a self-hosted src script needs no hash
+      assert.ok(scriptHashes.has(sha(m[2])), `${rel}: inline script body not covered by the CSP hashes: ${m[2].slice(0, 80)}`);
+      checked.scripts++;
+    }
+    for (const m of html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) {
+      assert.ok(styleHashes.has(sha(m[1])), `${rel}: inline <style> not covered by the CSP hashes: ${m[1].slice(0, 60)}`);
+      checked.styles++;
+    }
+    for (const value of handlersOf(html)) {
+      assert.ok(scriptHashes.has(sha(value)), `${rel}: event-handler value not covered by the CSP hashes: ${value.slice(0, 60)}`);
+      checked.handlers++;
     }
   }
+  // The fixture tree exercises all three kinds, so the loop above is not vacuous.
+  for (const [kind, n] of Object.entries(checked)) assert.ok(n > 0, `the fixture build carries no inline ${kind} to check`);
 });
 
 test('giscus: comments render only when configured; the container carries config attributes, never an iframe', async () => {
@@ -1163,25 +1179,6 @@ test('the theme CSS ships as one concatenated sheet in layer order (style-src al
   assert.throws(() => themeCss(brokenDir), /not listed in CSS_LAYERS/);
 });
 
-test('components: the w- layer\'s reveal upgrade is animation-based and degrades without JS', async () => {
-  await shared;
-  const css = fs.readFileSync(findAsset('style.css'), 'utf8');
-  // Hidden only under html[data-js] — no-JS and print show everything.
-  assert.match(css, /html\[data-js\]\s*\.w-reveal:not\(\.is-in\)\s*\{[^}]*opacity:\s*0/, 'the pre-land state hides only with JS');
-  // The entrance must be an animation, not a transition: a card can carry
-  // .w-reveal itself, and an animation hands `translate` back to .w-card:hover.
-  assert.match(css, /@keyframes w-reveal-in\s*\{/, 'the entrance should be keyframes');
-  assert.match(css, /html\[data-js\]\s*\.w-reveal\.is-in\s*\{[^}]*animation:\s*w-reveal-in/, '.is-in runs the entrance animation');
-  assert.ok(!/html\[data-js\]\s*\.w-reveal\.is-in\s*\{[^}]*translate:/.test(css), 'a landed reveal must not keep owning translate (it would outrank the card hover lift)');
-  assert.match(css, /prefers-reduced-motion:\s*reduce[\s\S]{0,200}w-reveal/, 'reduced motion skips the fade');
-  // The module ships in the bundle and is re-applied after soft navigation.
-  const app = fs.readFileSync(findAsset('app.js'), 'utf8');
-  assert.match(app, /reveal(\.[0-9a-f]{8})?\.js/, 'app.js imports the reveal module');
-  const reveal = fs.readFileSync(findAsset('reveal.js'), 'utf8');
-  assert.ok(reveal.includes('initReveal'), 'should export initReveal');
-  assert.ok(!/interface\s|^type\s+\w+\s*=|\bexport type\b/m.test(reveal), 'browser scripts must not contain type declarations');
-});
-
 test('components: the docs Components section renders each built-in piece', async () => {
   await sharedDocs;
   const html = fs.readFileSync(path.join(docsDist, 'posts/9d19226c/index.html'), 'utf8');
@@ -1193,13 +1190,9 @@ test('components: the docs Components section renders each built-in piece', asyn
     ['class="w-card"', 'card'],
     ['class="w-timeline"', 'timeline group'],
     ['class="w-tl"', 'timeline entry'],
-    ['class="w-stagger"', 'stagger group'],
   ] as const) {
     assert.ok(html.includes(needle), `the docs demo should render a ${what}`);
   }
-  // The live demos sit after the source fences, so the section is both
-  // copyable and visible; the reveal block carries .w-reveal itself.
-  assert.match(html, /class="w-card w-reveal"/, 'the reveal demo should tag a card directly');
   assert.ok(html.includes('id="components"'), 'the section should have its anchor');
 });
 
@@ -1413,7 +1406,7 @@ suite('base-path profile: every emitted URL carries the url pathname prefix', ()
     const meta = html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/);
     assert.ok(meta, 'cspMeta must inject the meta tag');
     assert.match(meta![1], /default-src 'self'/);
-    assert.match(meta![1], /script-src 'self' 'sha256-/);
+    assert.match(meta![1], /script-src 'self' 'unsafe-hashes' 'sha256-/);
     assert.ok(!meta![1].includes('upgrade-insecure-requests'), 'meta keeps the plain-http preview loadable');
     // Root builds (the shared one) must not carry a meta CSP at all.
     await shared;

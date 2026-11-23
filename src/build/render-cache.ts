@@ -12,21 +12,23 @@ import type { BrokenLink } from '../render/postprocess-types.ts';
 export interface CachedRender {
   html: string;
   toc: TocItem[];
-  inlineStyles: string[];
+  /** The page's own inline style/script bytes, for the CSP hash set. */
+  csp: { styles: string[]; scripts: string[] };
   assets: PinnedAsset[];
   broken: BrokenLink[];
   warnings: string[];
   privateWarns: string[];
 }
 
-const VERSION = 'r1';
+const VERSION = 'r3';
 
 function isRender(r: CachedRender | undefined): r is CachedRender {
   return (
     !!r &&
     typeof r.html === 'string' &&
     Array.isArray(r.toc) &&
-    Array.isArray(r.inlineStyles) &&
+    Array.isArray(r.csp?.styles) &&
+    Array.isArray(r.csp?.scripts) &&
     Array.isArray(r.assets) &&
     Array.isArray(r.broken) &&
     Array.isArray(r.warnings) &&

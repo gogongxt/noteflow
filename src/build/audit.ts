@@ -5,7 +5,9 @@ import path from 'node:path';
 import { parse } from 'parse5';
 import { BITMAP_DATA_MIMES, decodeEntities, decodeURIComponentSafe, toPosix, walkFiles } from '../core/util.ts';
 import { allowsFrame } from '../core/csp.ts';
-import { hasAncestor, walk, type P5Any } from '../core/dom.ts';
+import { hasAncestor, SKIP, walk, type P5Any } from '../core/dom.ts';
+import { HANDLER_ATTR, INERT_SCRIPT_TYPE } from '../render/sanitize.ts';
+import { cssValueUnsafe } from '../render/css-safety.ts';
 import { ATTACHMENT_PATH, isOffsiteHref, newTabRel } from '../render/links.ts';
 import { siteHostOf, basePathOf, type AppConfig } from '../core/config.ts';
 import { CSP_META_TAG } from '../core/csp.ts';
@@ -13,7 +15,11 @@ import type { Page, PrivateItem } from '../core/types.ts';
 
 interface AuditResult {
   findings: Finding[];
+  /** The CSP inputs the written tree carries: <style> bodies + style attribute
+   *  values, and inline <script> bodies + `on…` handler values. */
   inlineStyles: string[];
+  inlineScripts: string[];
+  inlineHandlers: string[];
 }
 
 interface AuditInput {
@@ -69,6 +75,8 @@ export function runAuditDetailed(input: AuditInput): AuditResult {
   }
 
   const inlineStyles = new Set<string>();
+  const inlineScripts = new Set<string>();
+  const inlineHandlers = new Set<string>();
   const existsSet = new Set(files.map((f) => toPosix(path.relative(input.dist, f))));
   const siteHost = siteHostOf(input.cfg.url);
   // Hoisted once: this sits in the innermost loop over every URL attribute.
@@ -86,22 +94,48 @@ export function runAuditDetailed(input: AuditInput): AuditResult {
       findings.push({ file: rel, msg: 'meta CSP placeholder was not replaced' });
     }
     const tree = parse(src) as unknown as P5Any;
+    // Code blocks quote markup: a `&lt;style&gt;` or an `onclick=` sample is
+    // text, not a live element. Only real elements are hashed/checked.
     walk(tree, (node) => {
       for (const a of node.attrs ?? []) {
         const name = a.name.toLowerCase();
-        if (name.startsWith('on')) findings.push({ file: rel, msg: `event handler attribute ${a.name} on <${node.nodeName}>` });
+        if (HANDLER_ATTR.test(name)) {
+          // Event handlers are channel-2 script the CSP hashes. A javascript:
+          // value would slip past the scheme check (URL attrs only), so refuse.
+          if (/^\s*(?:javascript|vbscript|data:text\/html):/i.test(a.value)) {
+            findings.push({ file: rel, msg: `event handler with a script URL: ${a.name}` });
+          } else {
+            inlineHandlers.add(a.value);
+          }
+        }
         if (a.name === 'style') {
-          if (/expression\s*\(|url\s*\(/i.test(a.value)) findings.push({ file: rel, msg: 'style attribute contains expression()/url()' });
+          if (cssValueUnsafe(a.value)) findings.push({ file: rel, msg: 'style attribute fetches or executes (url()/expression()/@import)' });
           else inlineStyles.add(a.value);
         }
+      }
+      if (node.nodeName === 'style') {
+        const css = (node.childNodes ?? []).map((c) => c.value ?? '').join('');
+        if (css.trim()) {
+          if (cssValueUnsafe(css) || /javascript:/i.test(css)) findings.push({ file: rel, msg: '<style> block fetches or executes (url()/expression()/@import)' });
+          else inlineStyles.add(css);
+        }
+        return SKIP;
       }
       if (node.nodeName === 'script') {
         const body = (node.childNodes ?? []).map((c) => c.value ?? '').join('');
         const src = node.attrs?.find((a) => a.name === 'src')?.value;
+        const type = (node.attrs?.find((a) => a.name === 'type')?.value || '').trim();
         if (body.includes('/*BLOG_THEME_INIT*/')) findings.push({ file: rel, msg: 'theme init script was not replaced' });
-        if (!src && !body.trim()) findings.push({ file: rel, msg: 'empty inline script' });
-        // Widget scripts are src-only; a body means inline code slipped past sanitize.
         if (src && body.trim()) findings.push({ file: rel, msg: 'script with src must have an empty body (inline code is not allowed)' });
+        if (!src && body.trim()) {
+          // Channel-2 inline script (or the theme's own two inline scripts):
+          // collect it for the CSP hash. A module body was dropped by sanitize
+          // and cannot reach here; an inert JSON block is not executable.
+          if (!INERT_SCRIPT_TYPE.test(type)) inlineScripts.add(body);
+        } else if (!src && !body.trim()) {
+          findings.push({ file: rel, msg: 'empty inline script' });
+        }
+        return SKIP;
       }
       if (node.nodeName === 'iframe') {
         // The only frame the CSP allows is the comments widget.
@@ -172,7 +206,7 @@ export function runAuditDetailed(input: AuditInput): AuditResult {
     if (m && !pageAbbrs.has(m[1])) findings.push({ file: rel, msg: 'attachment cannot be traced back to a public page' });
   }
 
-  return { findings: dedupe(findings), inlineStyles: [...inlineStyles] };
+  return { findings: dedupe(findings), inlineStyles: [...inlineStyles], inlineScripts: [...inlineScripts], inlineHandlers: [...inlineHandlers] };
 }
 
 function buildPrivateProbes(items: PrivateItem[]): string[] {

@@ -44,13 +44,17 @@ export function allowsFrame(src: string, cfg: AppConfig): boolean {
 
 export function buildCsp(hashes: CspHashes, cfg: AppConfig, production = false): string {
   const quoted = (xs: string[]): string[] => xs.map((h) => `'${h}'`);
+  // 'unsafe-hashes' lets a hash cover event-handler attributes (onclick="…")
+  // and style attributes; without it, hash matching does not apply to those.
+  // The hash list is closed — the build only hashes bytes it wrote — and
+  // sanitize still refuses javascript: URLs and non-whitelisted markup.
   return [
     "default-src 'self'",
-    // Any https image origin: notes embed external image hosts (owner
-    // decision 2026-11-16); images are passive content.
+    // Any https image origin: notes embed external image hosts; images are
+    // passive content, so the wider origin list carries no script risk.
     "img-src 'self' data: https:",
     `style-src ${["'self'", "'unsafe-hashes'", ...quoted(hashes.style)].join(' ')}`,
-    `script-src ${["'self'", ...quoted(hashes.script)].join(' ')}`,
+    `script-src ${["'self'", "'unsafe-hashes'", ...quoted(hashes.script)].join(' ')}`,
     "connect-src 'self'",
     // Comments widget + the video embed hosts (src/core/config.ts).
     `frame-src ${frameSrcOf(cfg)}`,

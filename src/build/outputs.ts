@@ -128,14 +128,10 @@ export function hashDist(dir: string): string {
   return h.digest('hex');
 }
 
-/** sha256-<base64> over the URL-encoded value, as CSP defines style attributes. */
-export function styleHash(style: string): string {
-  const encoded = style
-    .replace(/%/g, '%25')
-    .replace(/&/g, '%26')
-    .replace(/'/g, '%27')
-    .replace(/\(/g, '%28')
-    .replace(/\)/g, '%29')
-    .replace(/[<>]/g, (c) => (c === '<' ? '%3C' : '%3E'));
-  return 'sha256-' + crypto.createHash('sha256').update(encoded, 'utf8').digest('base64');
+/** sha256-<base64> of the exact bytes a browser hashes for CSP: an inline
+ *  <style>/<script> body as raw text, a style or event-handler attribute value
+ *  as the parser decoded it. CSP does not percent-decode, so hashing the raw
+ *  value is the only correct form. */
+export function cspHash(value: string): string {
+  return 'sha256-' + crypto.createHash('sha256').update(value, 'utf8').digest('base64');
 }

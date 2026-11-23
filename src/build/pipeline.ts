@@ -2,7 +2,6 @@
 // link cards → render → write → audit → manifest. Pure sequencing only.
 import fs from 'node:fs';
 import path from 'node:path';
-import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 import { loadConfig, siteHostOf, basePathOf, ROOT, type AppConfig, type SiteConfig } from '../core/config.ts';
 import { BuildError, argPath, boolArg, esc, log, nfc, realPath, toPosix, underPath, type CliArgs } from '../core/util.ts';
@@ -22,7 +21,7 @@ import { buildSearchIndex } from '../render/search-index.ts';
 import { loadTheme, postHref, renderAll, renderFeed, renderSitemap, renderRobots, buildTagSlugs, byRecency, type SiteCtx } from '../site/index.ts';
 import { buildStaticAssets } from './static-assets.ts';
 import { readInlineScript, stripTypes } from './frontend.ts';
-import { styleHash, writeDiff, writeMissing } from './outputs.ts';
+import { cspHash, writeDiff, writeMissing } from './outputs.ts';
 import type { Page, SidebarItem, TreeNode } from '../core/types.ts';
 
 const CONCURRENCY = 8;
@@ -100,8 +99,9 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
   const broken: BrokenLink[] = [];
   const warnings: string[] = [];
   const privateLeakWarns: string[] = [];
-  // The <meta> CSP's style hashes must be known before rendering.
-  const bodyInlineStyles = new Set<string>();
+  // The <meta> CSP's hashes must be known before rendering.
+  const inlineStyles = new Set<string>();
+  const inlineScripts = new Set<string>();
   const assets = makeAssetNamer(realRoot);
   try {
     await pandoc.start();
@@ -138,7 +138,8 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
           urlMap,
           siteHost,
           basePath,
-          bodyInlineStyles,
+          inlineStyles,
+          inlineScripts,
           pageByRel,
           isPrivatePage,
           inPrivateSubtree,
@@ -185,8 +186,10 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
 
   const themeInitSrc = readInlineScript(path.join(themeDir, 'theme-init.ts'));
   const uiBootSrc = readInlineScript(path.join(themeDir, 'ui-boot.ts'));
-  const inlineScripts = [themeInitSrc, uiBootSrc];
-  const scriptHashes = inlineScripts.map((s) => 'sha256-' + crypto.createHash('sha256').update(s, 'utf8').digest('base64'));
+  // The theme's two scripts, then every body inline <script> body and on…
+  // handler; both lists hash the exact bytes the browser runs.
+  const scriptHashes = [themeInitSrc, uiBootSrc, ...inlineScripts].map(cspHash);
+  const styleHashes = [...inlineStyles].map(cspHash);
 
   const siteCtx: SiteCtx = {
     site,
@@ -228,7 +231,7 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
   // No upgrade-insecure-requests: the same dist/ must stay previewable over
   // plain http. The audit cross-checks the style hashes after writing.
   if (cfg.cspMeta) {
-    const tag = `<meta http-equiv="Content-Security-Policy" content="${esc(buildCsp({ script: scriptHashes, style: [...bodyInlineStyles].map(styleHash) }, cfg))}">`;
+    const tag = `<meta http-equiv="Content-Security-Policy" content="${esc(buildCsp({ script: scriptHashes, style: styleHashes }, cfg))}">`;
     for (const [rel, content] of outputs) {
       if (rel.endsWith('.html') && typeof content === 'string') {
         outputs.set(rel, content.split(CSP_META_TAG).join(tag));
@@ -251,11 +254,11 @@ export async function buildSite({ args, root, t0 }: { args: CliArgs; root: strin
       privateItems,
       cfg,
       skipAudit,
-      bodyInlineStyles,
       counts: { ...siteCtx.counts, assets: assets.count(), searchDocs: searchIndex.docs.length },
       buildTime,
       pandocVersion: pandoc.info?.version,
       scriptHashes,
+      styleHashes,
       abbrlinkWrites: fix ? assigned.files.map((abs) => toPosix(path.relative(realRoot, abs))) : [],
     },
     manifestFile,

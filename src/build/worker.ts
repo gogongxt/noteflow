@@ -18,7 +18,9 @@ export interface WorkerCtx {
   urlMap: Map<string, string>;
   siteHost: string;
   basePath: string;
-  bodyInlineStyles: Set<string>;
+  /** Style and script bytes every page's CSP must cover. */
+  inlineStyles: Set<string>;
+  inlineScripts: Set<string>;
   pageByRel: Map<string, Page>;
   isPrivatePage: (rel: string) => boolean;
   inPrivateSubtree: (rel: string) => boolean;
@@ -93,7 +95,15 @@ export async function convertWorker(pages: Page[], cursor: { next: number }, w: 
         onBroken: (b) => broken.push(b),
         onWarn: (m) => warnings.push(m),
       });
-      render = { html: r.html, toc: r.toc, inlineStyles: r.inlineStyles, assets: assigned, broken, warnings, privateWarns };
+      render = {
+        html: r.html,
+        toc: r.toc,
+        csp: r.csp,
+        assets: assigned,
+        broken,
+        warnings,
+        privateWarns,
+      };
       // A page with failures is never reused: its next build must re-report them.
       if (!broken.length) w.cache.put(page, render);
       w.broken.push(...broken);
@@ -103,6 +113,7 @@ export async function convertWorker(pages: Page[], cursor: { next: number }, w: 
 
     page.html = applyMermaid(render.html, page, w.mermaid);
     page.toc = render.toc;
-    for (const s of render.inlineStyles) w.bodyInlineStyles.add(s);
+    for (const s of render.csp.styles) w.inlineStyles.add(s);
+    for (const s of render.csp.scripts) w.inlineScripts.add(s);
   }
 }
